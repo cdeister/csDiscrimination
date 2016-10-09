@@ -1,0 +1,51 @@
+OSX 10.12 Sierra Setup
+
+a) Make sure the nonsense gatekeeper is off. 
+open terminal
+sudo spctl --master-disable
+
+b) install homebrew so we can install python 3 and related things.
+http://brew.sh   <-- Webpage
+
+Command:
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
+c) update git
+brew install git
+
+d) install python 3 
+(fine to install python 2 if you want, but system ships with it)
+brew install python3
+
+There are some python related things installed in /Applications
+So we need to symlink them
+brew linkapps python3
+
+Brew will install pip when it installs python3 but we need to update
+pip3 install --upgrade pip setuptools wheel
+
+e) install the good stuff:
+pip3 install numpy
+pip3 install scipy
+pip3 install matplotlib
+pip3 install pandas
+pip3 install jupyter
+pip3 install scikit-learn
+pip3 install pyserial
+
+f) setup your git(hub) workflow(s)
+I personally use a gui as much as I can (gasp!). Howevever, everything can be done from commandline. 
+https://www.gitkraken.com
+https://www.sourcetreeapp.com
+https://www.git-tower.com/mac/
+http://gitup.co
+
+f) install the arduino ide
+https://www.arduino.cc/en/Main/Software
+Grab the latest OSX distribution unless warned otherwise
+
+g) move the usb host library and the motor shield library to
+~/Documents/Arduino/Libraries
+You can't symlink which is stupid, but the way it is.
+
+h) 
