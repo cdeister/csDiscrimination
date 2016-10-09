@@ -40,10 +40,10 @@ https://www.sourcetreeapp.com
 https://www.git-tower.com/mac/
 http://gitup.co
 
-f) install the arduino ide
+g) install the arduino ide
 https://www.arduino.cc/en/Main/Software
 Grab the latest OSX distribution unless warned otherwise
 
-g) move the usb host library and the motor shield library to
+h) move the usb host library and the motor shield library to
 ~/Documents/Arduino/Libraries
 You can't symlink which is stupid, but the way it is.
