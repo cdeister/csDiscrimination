@@ -47,5 +47,3 @@ Grab the latest OSX distribution unless warned otherwise
 g) move the usb host library and the motor shield library to
 ~/Documents/Arduino/Libraries
 You can't symlink which is stupid, but the way it is.
-
-h) 
