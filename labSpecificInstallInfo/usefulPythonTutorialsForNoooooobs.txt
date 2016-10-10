@@ -1,0 +1,4 @@
+Useful Python Links
+
+Lists
+http://effbot.org/zone/python-list.htm

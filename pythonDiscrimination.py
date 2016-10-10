@@ -2,8 +2,8 @@
 # This is a python script that runs sensory discrimination tasks in a state-based manner.
 # It works with microcontrolors. It can easily be modified to suit different needs.
 #
-# version 2.0
-# 10/04/2016
+# version 2.1 (new plotting scheme)
+# 10/09/2016
 # questions? --> Chris Deister --> cdeister@Bbrown.edu
 #
 
@@ -12,7 +12,6 @@
 import serial
 import numpy
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import time
 import datetime
 import os
@@ -23,14 +22,15 @@ import os
 # # # # # # # # # # # # # # # # # # # # # # # #
 
 animalString = 'testAnimal'
-segPlot=100
+segPlot=500
 totalTrials=4
 maxTrialTime=1
 minTime=1
 dataCount=3   # how many data streams are we saving? (todo: do i still use this)
-pltDelay=0.00001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
+pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
 comPort='/dev/cu.usbmodem1411'
 baudRate=9600
+uiUpdateDelta=5
 
 
 #----------------------------------------------------------------------------------------------------
@@ -42,7 +42,6 @@ baudRate=9600
 positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
 arStates=[]             # Store the state the arduino thinks it is in.
 arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
-arduinoStateTimes=[]    # This is the arduino reported time but corrected for the start of the state.
 
 arState=0  #todo: change this to curState
 currentTrial=1
@@ -54,6 +53,7 @@ streamNum_header=0
 streamNum_time=1
 streamNum_position=2
 streamNum_state=3
+lowDelta=0
 
 #----------------------------------------------------------------------------------------------------
 
@@ -85,6 +85,7 @@ postionMin=-2000;
 positionMax=6000;
 lickMin=0
 lickMax=30
+tt1=[float(1),float(2)]
 
 
 # ~~~~~~~~~> (End) Plotting Variables
@@ -105,7 +106,7 @@ dPos=float(0)
 
 
 # ----- (Start) S2 Variables
-distThr=1000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
+distThr=5000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
 
 
 # ~~~~~~~~~> (End) S2 Variables
@@ -125,22 +126,62 @@ arduino.write(b'0')
 # Start the task (will iterate through trials)
 while currentTrial<=totalTrials:
     try:
-        # Step through states ...
-
-
         #S0 -----> hand shake (initialization state)
         if arState==0:
             arduino.flush() # I don't know if this is needed.
             cR=arduino.readline().decode().strip()
             cR=cR.split(',')
             # We are waiting until we get a good serial read (should start with data)
-            if len(cR)==dataCount+1: #(todo: unnecessary)
-                if cR[streamNum_header]=='data':
+            if cR[streamNum_header]=='data':
+                if stateIt==0:
                     print('found some dope shit on rx')
-                    arduino.readline()
-                    arduino.write(b'1')
-                    arState=int(cR[streamNum_state])
-                    print(arState)
+                    print('... wait while I make sure it''s ready')
+                    stateIt=1
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,1)
+                    linesA=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
+
+                    plt.subplot(3,2,2)
+                    linesD=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
+
+                    plt.subplot(3,2,5)
+                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
+                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
+                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
+                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
+                    plt.title(currentTrial)
+
+                    plt.subplot(3,2,6)
+
+                    plt.pause(pltDelay)
+
+                    # clean up plot data (memory managment)
+                    linesA.pop(0).remove()
+                    linesB.pop(0).remove()
+                    linesC.pop(0).remove()
+                    linesD.pop(0).remove()
+
+                ttd=abs(tt1[1]-tt1[0])
+                tt1[0]=tt1[1]
+                tt1[1]=float(int(cR[streamNum_time])/1000)
+                if ttd<0.1:
+                    lowDelta=lowDelta+1
+                    if lowDelta>40:
+                        print('should be good; will take you to wait state (S1)')
+                        arduino.write(b'1')
+                        while arState==0:
+                            stateIt=0
+                            cR=arduino.readline().strip().decode()
+                            cR=cR.split(',')
+                            arState=int(cR[streamNum_state])
 
         #S1 -----> trial wait state
         #
@@ -160,66 +201,71 @@ while currentTrial<=totalTrials:
 
                 # we do certain things if we just entered, this is the flag for that.
                 if stateIt==0:
-                    stateStart=arduinoTime[-1]
-                    stateIt=1;
+                    print('in state 1')
+                    cycleCount=1
+                    stateIt=1
 
-                arduinoStateTimes.append(float(int(cR[streamNum_time])/1000)-stateStart)
+                uiUpdate=int(cycleCount) % int(uiUpdateDelta)
 
-                # update plots (todo: make this a function all states use it)
-                plt.subplot(3,1,1)
-                linesA=plt.plot(arduinoTime[-segPlot:-1],positions[-segPlot:-1],'k-')
-                plt.ylim(-1000,2000)
-                plt.ylabel('position')
-                plt.xlabel('time since session start (sec)')
+                if uiUpdate==0:
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,1)
+                    linesA=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
 
-                plt.subplot(3,2,1)
-                linesD=plt.plot(arduinoTime[-segPlot:-1],positions[-segPlot:-1],'k-')
-                plt.ylim(-1000,2000)
-                plt.ylabel('lick rate (not yet)')
-                plt.xlabel('time since session start (sec)')
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,2)
+                    linesD=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
+
+                    plt.subplot(3,2,5)
+                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
+                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
+                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
+                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
+                    plt.title(currentTrial)
 
 
-                plt.subplot(3,2,5)
-                linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                plt.title(currentTrial)
+                    plt.pause(pltDelay)
 
-                plt.pause(pltDelay)
+                    # clean up plot data (memory managment)
+                    linesA.pop(0).remove()
+                    linesB.pop(0).remove()
+                    linesC.pop(0).remove()
+                    linesD.pop(0).remove()
 
-                # clean up plot data (memory managment)
-                linesA.pop(0).remove()
-                linesB.pop(0).remove()
-                linesC.pop(0).remove()
-                linesD.pop(0).remove()
-    
+                    cycleCount=0
 
                 # S1 specific stuff
                 # we are going to wait for the animal to be still for some specific time.
-                if arduinoStateTimes[-1]>2:
+                if arduinoTime[-1]>2:
                     dPos=abs(positions[-1]-positions[-2])
 
                     if dPos>movThr and stillLatch==1:
                         stillLatch=0
 
-
                     if dPos<=movThr and stillLatch==0:
-                        stillTimeStart=arduinoStateTimes[-1]
+                        stillTimeStart=arduinoTime[-1]
                         stillLatch=1
 
-
                     if dPos<=movThr and stillLatch==1:
-                        stillTime=arduinoStateTimes[-1]-stillTimeStart
+                        stillTime=arduinoTime[-1]-stillTimeStart
 
                     if stillLatch==1 and stillTime>1:
-                        stateIt=0
                         arduino.write(b'2')
-                        print('out of wait')
-
-
-
-
+                        print('Still! ==> Out of wait')
+                        while arState==1:
+                            stateIt=0
+                            cR=arduino.readline().strip().decode()
+                            cR=cR.split(',')
+                            arState=int(cR[streamNum_state])
+                cycleCount=cycleCount+1;
 
 
         #S2 -----> trial initiation state
@@ -238,40 +284,61 @@ while currentTrial<=totalTrials:
                 arStates.append(arState)
 
                 if stateIt==0:
-                    stateStart=arduinoTime[-1]
+                    print('in state 2')
+                    cycleCount=1;
                     stateIt=1;
 
-                arduinoStateTimes.append(float(int(cR[streamNum_time])/1000)-stateStart)
+                uiUpdate=int(cycleCount) % int(uiUpdateDelta)
+
+                if uiUpdate==0:
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,1)
+                    linesA=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
+
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,2)
+                    linesD=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
 
 
-                plt.subplot(3,1,1)
-                linesA=plt.plot(arduinoTime[-segPlot:-1],positions[-segPlot:-1],'k-')
-                plt.ylim(-1000,2000)
-                plt.ylabel('position')
-                plt.xlabel('time since session start (sec)')
+                    plt.subplot(3,2,5)
+                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
+                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
+                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
+                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
+                    plt.title(currentTrial)
 
 
-                plt.subplot(3,2,5)
-                linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                plt.title(currentTrial)
+                    plt.pause(pltDelay)
 
-                plt.pause(pltDelay)
+                    # clean up plot data (memory managment)
+                    linesA.pop(0).remove()
+                    linesB.pop(0).remove()
+                    linesC.pop(0).remove()
+                    linesD.pop(0).remove()
 
-
-                linesA.pop(0).remove()
-                linesB.pop(0).remove()
-                linesC.pop(0).remove()
+                    cycleCount=0
 
                 if positions[-1]>distThr:
-                    stateIt=0
                     arduino.write(b'3')
-                    print(arState)
+                    print('moved to spout')
+                    while arState==2:
+                        stateIt=0
+                        cR=arduino.readline().strip().decode()
+                        cR=cR.split(',')
+                        arState=int(cR[streamNum_state])
+
+                cycleCount=cycleCount+1;
 
 
-        # ----------------- state 1 trial wait state
+        #S3 -----> stim state 1
         elif arState==3:
             arduino.flush()
             cR=arduino.readline().strip().decode()
@@ -283,95 +350,97 @@ while currentTrial<=totalTrials:
                 arStates.append(arState)
 
                 if stateIt==0:
-                    stateStart=arduinoTime[-1]
+                    print('in state 3')
+                    cycleCount=1;
                     stateIt=1;
 
-                arduinoStateTimes.append(float(int(cR[streamNum_time])/1000)-stateStart)
+                uiUpdate=int(cycleCount) % int(uiUpdateDelta)
+
+                if uiUpdate==0:
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,1)
+                    linesA=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
+
+                    # update plots (todo: make this a function all states use it)
+                    plt.subplot(3,2,2)
+                    linesD=plt.plot(positions[-segPlot:-1],'k-')
+                    plt.ylim(-1000,6000)
+                    plt.xlim(0,segPlot)
+                    plt.ylabel('position')
+                    plt.xlabel('time since session start (sec)')
 
 
-                plt.subplot(3,1,1)
-                linesA=plt.plot(arduinoTime[-segPlot:-1],positions[-segPlot:-1],'k-')
-                plt.ylim(-1000,2000)
-                plt.ylabel('position')
-                plt.xlabel('time since session start (sec)')
+
+                    plt.subplot(3,2,5)
+                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
+                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
+                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
+                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
+                    plt.title(currentTrial)
 
 
-                plt.subplot(3,2,5)
-                linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                plt.title(currentTrial)
+                    plt.pause(pltDelay)
 
-                plt.pause(pltDelay)
+                    # clean up plot data (memory managment)
+                    linesA.pop(0).remove()
+                    linesB.pop(0).remove()
+                    linesC.pop(0).remove()
+                    linesD.pop(0).remove()
 
+                    cycleCount=0
 
-                linesA.pop(0).remove()
-                linesB.pop(0).remove()
-                linesC.pop(0).remove()
                 if positions[-1]>2000:
                     arduino.write(b'7')
                     print('met condition a')
+                    while arState==3:
+                        stateIt=0
+                        cR=arduino.readline().strip().decode()
+                        cR=cR.split(',')
+                        arState=int(cR[streamNum_state])
+
                 if positions[-1]<-200:
-                    stateIt=0
                     arduino.write(b'2')
                     print('met condition b')
+                    while arState==3:
+                        stateIt=0
+                        cR=arduino.readline().strip().decode()
+                        cR=cR.split(',')
+                        arState=int(cR[streamNum_state])
+
+                cycleCount=cycleCount+1;
         
 
         # ----------------- (S7: save state)
         elif arState==7:
             print('entered save state') # debug
-            arduino.flush()
-            cR=arduino.readline().strip().decode()
-            cR=cR.split(',')
-            if cR[0]=='data':
-                arState=int(cR[3])
-                arduinoTime.append(float(int(cR[1])/1000))
-                positions.append(float(cR[2]))
-                arStates.append(arState)
+            savedata([arduinoTime,positions,arStates])
+            if currentTrial>1:
+                linesE.pop(0).remove()
+            plt.subplot(3,2,6)
+            linesE=plt.plot(positions,'r-')
+            plt.ylim(-1000,6000)
+            plt.ylabel('position')
+            plt.xlabel('time since session start (sec)')
 
-                if stateIt==0:
-                    stateStart=arduinoTime[-1]
-                    stateIt=1;
+            plt.pause(pltDelay)
 
-                arduinoStateTimes.append(float(int(cR[streamNum_time])/1000)-stateStart)
+            # clean up plot data (memory managment)
 
-
-                plt.subplot(3,1,1)
-                linesA=plt.plot(arduinoTime[-segPlot:-1],positions[-segPlot:-1],'k-')
-                plt.ylim(-1000,2000)
-                plt.ylabel('position')
-                plt.xlabel('time since session start (sec)')
-
-
-                plt.subplot(3,2,5)
-                linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                plt.title(currentTrial)
-
-                plt.pause(pltDelay)
-
-                linesA.pop(0).remove()
-                linesB.pop(0).remove()
-                linesC.pop(0).remove()
-
-                savedata([arduinoTime,positions,arStates])
-                # iterate the trial number
-
-                currentTrial=currentTrial+1
-                # then flush data
-                arduinoTime=[]
-                positions=[]
-                arStates=[]
-                print('trial done')
-                # then transition to wait state
+            arduinoTime=[]
+            positions=[]
+            arStates=[]
+            currentTrial=currentTrial+1
+            print('trial done')
+            arduino.write(b'1')
+            while arState==7:
                 stateIt=0
-                arduino.write(b'1')
-                time.sleep(0.01)  # do i need this?
-                print(arState)    # debug               
-
+                cR=arduino.readline().strip().decode()
+                cR=cR.split(',')
+                arState=int(cR[streamNum_state])          
     except:
         print(dPos)
         print('EXCEPTION: peace out bitches')
@@ -380,6 +449,9 @@ while currentTrial<=totalTrials:
         savedata([arduinoTime,positions,arStates])
         print('save was a success; now I will close com port and quit')
         arduino.close()
+        arduinoTime=[]
+        positions=[]
+        arStates=[]
         exit()
 
 
