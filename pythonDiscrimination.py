@@ -14,23 +14,30 @@ import numpy
 import matplotlib.pyplot as plt
 import time
 import datetime
-import os
+#import os
+import random
 #----------------------------------------------------------------------------------------------------
 
 # # # # # # # # # # # # # # # # # # # # # # # # 
 # Flow Variables: USERS WILL EDIT *****       #
 # # # # # # # # # # # # # # # # # # # # # # # #
-
+#
+# animal details
 animalString = 'testAnimal'
-comPort='/dev/cu.usbmodem1411'
-segPlot=500
+
+# session variables
 totalTrials=4
-maxTrialTime=1
-minTime=1
-dataCount=3   # how many data streams are we saving? (todo: do i still use this)
-pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
+stimSwitchProb=0.5
+
+# data streaming micro-controller location
+comPort='/dev/cu.usbmodem1411'
 baudRate=9600
+
+# plotting variables
 uiUpdateDelta=5
+segPlot=500
+pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
+
 
 
 #----------------------------------------------------------------------------------------------------
@@ -39,12 +46,16 @@ uiUpdateDelta=5
 # initialize data containers and session Variables  #
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+# containers
 positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
 arStates=[]             # Store the state the arduino thinks it is in.
 arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
 
-arState=0  #todo: change this to curState
+# session variables (user won't change)
 currentTrial=1
+currentState=0
+lowDelta=0              # for handshake (todo: clean up)
+
 
 # These are variables that can change if the task is altered.
 # We name the data streams so that we can change their order easier if needed. 
@@ -53,7 +64,6 @@ streamNum_header=0
 streamNum_time=1
 streamNum_position=2
 streamNum_state=3
-lowDelta=0
 
 #----------------------------------------------------------------------------------------------------
 
@@ -78,7 +88,7 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
     lB=plt.plot(yData1[-sampNum:-1],'k-')
     plt.ylim(-1000,6000)
     plt.xlim(0,sampNum)
-    plt.ylabel('position')
+    plt.ylabel('lick rate')
     plt.xlabel('time since session start (sec)')
 
     plt.subplot(3,2,5)
@@ -95,18 +105,14 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
     lD.pop(0).remove()
 
 def parseData():
-    global arState
+    global currentState
     global arduinoTime
     global positions
     global arStates
-    arState=int(cR[streamNum_state])
     arduinoTime.append(float(int(cR[streamNum_time])/1000))
     positions.append(float(cR[streamNum_position]))
-    arStates.append(arState)
-    # return arState
-    # return arduinoTime
-    # return positions
-    # return arStates
+    currentState=int(cR[streamNum_state])
+    arStates.append(currentState)
 
 
 
@@ -168,7 +174,7 @@ arduino.write(b'0')
 while currentTrial<=totalTrials:
     try:
         #S0 -----> hand shake (initialization state)
-        if arState==0:
+        if currentState==0:
             arduino.flush() # I don't know if this is needed.
             cR=arduino.readline().decode().strip()
             cR=cR.split(',')
@@ -178,8 +184,7 @@ while currentTrial<=totalTrials:
                     print('found some dope shit on rx')
                     print('... wait while I make sure it''s ready')
                     stateIt=1
-                    # update plots (todo: make this a function all states use it)
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
 
                 ttd=abs(tt1[1]-tt1[0])
                 tt1[0]=tt1[1]
@@ -189,18 +194,18 @@ while currentTrial<=totalTrials:
                     if lowDelta>40:
                         print('should be good; will take you to wait state (S1)')
                         arduino.write(b'1')
-                        while arState==0:
+                        while currentState==0:
                             stateIt=0
                             cR=arduino.readline().strip().decode()
                             cR=cR.split(',')
-                            arState=int(cR[streamNum_state])
+                            currentState=int(cR[streamNum_state])
 
         #S1 -----> trial wait state
         #
         # entry conditions: S0->S1 or S7->S1
         # exit contisions: needs to be still for 2 seconds
         #
-        elif arState==1:
+        elif currentState==1:
             # general state code
             arduino.flush()
             cR=arduino.readline().strip().decode()
@@ -215,14 +220,14 @@ while currentTrial<=totalTrials:
                     stateIt=1
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
                     cycleCount=0
 
-                # S1 specific stuff
+                # S1 conditionals
                 # we are going to wait for the animal to be still for some specific time.
                 if arduinoTime[-1]>2:
                     dPos=abs(positions[-1]-positions[-2])
-
+                    
                     if dPos>movThr and stillLatch==1:
                         stillLatch=0
 
@@ -236,11 +241,13 @@ while currentTrial<=totalTrials:
                     if stillLatch==1 and stillTime>1:
                         arduino.write(b'2')
                         print('Still! ==> Out of wait')
-                        while arState==1:
+                        
+                        while currentState==1:
                             stateIt=0
                             cR=arduino.readline().strip().decode()
                             cR=cR.split(',')
-                            arState=int(cR[streamNum_state])
+                            currentState=int(cR[streamNum_state])
+                
                 cycleCount=cycleCount+1;
 
 
@@ -249,7 +256,7 @@ while currentTrial<=totalTrials:
         # entry conditions: S1->S2
         # exit contisions: needs to wait for a cue then walk some distance
         #
-        elif arState==2:
+        elif currentState==2:
             arduino.flush()
             cR=arduino.readline().strip().decode()
             cR=cR.split(',')
@@ -259,25 +266,35 @@ while currentTrial<=totalTrials:
                     print('in state 2')
                     cycleCount=1;
                     stateIt=1;
+                    stimSwitchBit=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
                     cycleCount=0
 
-                if positions[-1]>distThr:
+                if positions[-1]>distThr and stimSwitchBit<=0.5:
                     arduino.write(b'3')
-                    print('moved to spout')
-                    while arState==2:
+                    print('moved to spout; stim task 1')
+                    while currentState==2:
                         stateIt=0
                         cR=arduino.readline().strip().decode()
                         cR=cR.split(',')
-                        arState=int(cR[streamNum_state])
+                        currentState=int(cR[streamNum_state])
+
+                elif positions[-1]>distThr and stimSwitchBit>0.5:
+                    arduino.write(b'4')
+                    print('moved to spout; stim task 2')
+                    while currentState==2:
+                        stateIt=0
+                        cR=arduino.readline().strip().decode()
+                        cR=cR.split(',')
+                        currentState=int(cR[streamNum_state])
 
                 cycleCount=cycleCount+1;
 
 
         #S3 -----> stim state 1
-        elif arState==3:
+        elif currentState==3:
             arduino.flush()
             cR=arduino.readline().strip().decode()
             cR=cR.split(',')
@@ -285,37 +302,75 @@ while currentTrial<=totalTrials:
                 parseData()
 
                 if stateIt==0:
-                    print('in state 3')
+                    print('in state 3; stim task #1')
                     cycleCount=1;
                     stateIt=1;
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
                     cycleCount=0
 
                 if positions[-1]>2000:
                     arduino.write(b'7')
                     print('met condition a')
-                    while arState==3:
+                    while currentState==3:
                         stateIt=0
                         cR=arduino.readline().strip().decode()
                         cR=cR.split(',')
-                        arState=int(cR[streamNum_state])
+                        currentState=int(cR[streamNum_state])
 
                 if positions[-1]<-200:
                     arduino.write(b'2')
                     print('met condition b')
-                    while arState==3:
+                    while currentState==3:
                         stateIt=0
                         cR=arduino.readline().strip().decode()
                         cR=cR.split(',')
-                        arState=int(cR[streamNum_state])
+                        currentState=int(cR[streamNum_state])
+
+                cycleCount=cycleCount+1;
+
+
+        #S4 -----> stim state 2
+        elif currentState==4:
+            arduino.flush()
+            cR=arduino.readline().strip().decode()
+            cR=cR.split(',')
+            if cR[0]=='data':
+                parseData()
+
+                if stateIt==0:
+                    print('in state 4; stim task #2')
+                    cycleCount=1;
+                    stateIt=1;
+
+                if int(cycleCount) % int(uiUpdateDelta)==0:
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    cycleCount=0
+
+                if positions[-1]>4000:
+                    arduino.write(b'7')
+                    print('met condition a')
+                    while currentState==3:
+                        stateIt=0
+                        cR=arduino.readline().strip().decode()
+                        cR=cR.split(',')
+                        currentState=int(cR[streamNum_state])
+
+                if positions[-1]<-200:
+                    arduino.write(b'2')
+                    print('met condition b')
+                    while currentState==3:
+                        stateIt=0
+                        cR=arduino.readline().strip().decode()
+                        cR=cR.split(',')
+                        currentState=int(cR[streamNum_state])
 
                 cycleCount=cycleCount+1;
         
 
         # ----------------- (S7: save state)
-        elif arState==7:
+        elif currentState==7:
             print('entered save state') # debug
             savedata([arduinoTime,positions,arStates])
             if currentTrial>1:
@@ -336,15 +391,15 @@ while currentTrial<=totalTrials:
             currentTrial=currentTrial+1
             print('trial done')
             arduino.write(b'1')
-            while arState==7:
+            while currentState==7:
                 stateIt=0
                 cR=arduino.readline().strip().decode()
                 cR=cR.split(',')
-                arState=int(cR[streamNum_state])          
+                currentState=int(cR[streamNum_state])          
     except:
         print(dPos)
         print('EXCEPTION: peace out bitches')
-        print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,arState))
+        print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
         arduino.write(b'0')
         savedata([arduinoTime,positions,arStates])
         print('save was a success; now I will close com port and quit')
