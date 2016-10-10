@@ -27,7 +27,7 @@ animalString = 'testAnimal'
 
 # session variables
 totalTrials=4
-stimSwitchProb=0.5
+stimTask1_Prob=0.5
 
 # data streaming micro-controller location
 comPort='/dev/cu.usbmodem1411'
@@ -266,25 +266,27 @@ while currentTrial<=totalTrials:
                     print('in state 2')
                     cycleCount=1;
                     stateIt=1;
-                    stimSwitchBit=random.random()
+                    stimSwitch=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
                     updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
                     cycleCount=0
 
-                if positions[-1]>distThr and stimSwitchBit<=0.5:
+                # if stimSwitch is less than task1's probablity then send to task #1
+                if positions[-1]>distThr and stimSwitch<=stimTask1_Prob:
                     arduino.write(b'3')
-                    print('moved to spout; stim task 1')
+                    print('moved to spout; stim task #1')
                     while currentState==2:
                         stateIt=0
                         cR=arduino.readline().strip().decode()
                         cR=cR.split(',')
                         currentState=int(cR[streamNum_state])
 
-                elif positions[-1]>distThr and stimSwitchBit>0.5:
+                # if stimSwitch is more than task1's probablity then send to task #2
+                elif positions[-1]>distThr and stimSwitch>stimTask1_Prob:
                     arduino.write(b'4')
-                    print('moved to spout; stim task 2')
-                    while currentState==2:
+                    print('moved to spout; stim task #2')
+                    while currentState==2: # todo: can make these calls a function
                         stateIt=0
                         cR=arduino.readline().strip().decode()
                         cR=cR.split(',')
