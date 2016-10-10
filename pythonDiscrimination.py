@@ -16,6 +16,8 @@ import time
 import datetime
 #import os
 import random
+import math
+
 #----------------------------------------------------------------------------------------------------
 
 # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -72,6 +74,7 @@ streamNum_state=3
 # # # # # # # # # # # # # # # # # # # # # # # #
 dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
+
 def savedata(dataList):
     exportArray=numpy.array(dataList)
     numpy.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
@@ -113,7 +116,6 @@ def parseData():
     positions.append(float(cR[streamNum_position]))
     currentState=int(cR[streamNum_state])
     arStates.append(currentState)
-
 
 
 #----------------------------------------------------------------------------------------------------

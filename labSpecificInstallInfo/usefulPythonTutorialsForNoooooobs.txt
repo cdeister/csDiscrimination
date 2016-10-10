@@ -6,3 +6,14 @@ http://effbot.org/zone/python-list.htm
 
 Basics
 http://hplgit.github.io/bumpy/doc/pub/._basics005.html
+
+
+Audio
+https://zach.se/generate-audio-with-python/
+https://github.com/bastibe/PySoundCard
+http://www.pygame.org/docs/ref/sndarray.html
+http://bastibe.de/2012-11-02-real-time-signal-processing-in-python.html
+http://milkandtang.com/blog/2013/02/16/making-noise-in-python/
+
+Threads
+https://www.tutorialspoint.com/python/python_multithreading.htm

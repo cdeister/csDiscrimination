@@ -47,3 +47,7 @@ Grab the latest OSX distribution unless warned otherwise
 h) move the usb host library and the motor shield library to
 ~/Documents/Arduino/Libraries
 You can't symlink which is stupid, but the way it is.
+
+i) I'm trying pysoundcard for sound generation
+pip3 install pysoundcard
+

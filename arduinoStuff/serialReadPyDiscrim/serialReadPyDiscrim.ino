@@ -27,6 +27,7 @@ const int posPin=3;     // Engage Postive Reinforcment
 const int negPin=4;    // Engage Aversive Reinforcment
 const int waterPin=5;       // Engage Water
 const int ledPin=13;        // Cue LED Pin
+const int tonePin=53;
 
 
 // ********** mouse class
@@ -56,6 +57,7 @@ void setup() {
   pinMode(posPin, OUTPUT);
   pinMode(negPin, OUTPUT);
   pinMode(waterPin, OUTPUT);
+  pinMode(tonePin, OUTPUT);
 
   Serial.begin(9600); // initialize Serial communication
   while (!Serial);    // wait for the serial port to open
@@ -81,6 +83,7 @@ void loop() {
     digitalWrite(posPin,LOW);
     digitalWrite(waterPin,LOW);
     digitalWrite(ledPin,LOW);
+    digitalWrite(tonePin,LOW);
   }
 
   // SO: Initialization State
@@ -106,6 +109,7 @@ void loop() {
 
   // S2: Trial initiation state.
   else if(curState==2){
+    noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     spitData(msCorrected,posX,curState);
@@ -113,19 +117,21 @@ void loop() {
     curState=lookForSerialState();
   }
 
-  // S3: Engage Sensory Task 1
+  // S3: Sensory High
   else if(curState==3){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    tone(tonePin, 1000, 1000);
     spitData(msCorrected,posX,curState);
     delay(loopDelta);
     curState=lookForSerialState();
   }
 
-  // S4: Engage Sensory Task 2
+  // S4: Sensory Low
   else if(curState==4){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    tone(tonePin, 800, 1000);
     spitData(msCorrected,posX,curState);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -133,6 +139,7 @@ void loop() {
 
   // S5: Postive Outcome
   else if(curState==5){
+    noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     spitData(msCorrected,posX,curState);
@@ -141,6 +148,7 @@ void loop() {
 
   // S6: Negative Outcome
   else if(curState==6){
+    noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     spitData(msCorrected,posX,curState);
@@ -149,6 +157,7 @@ void loop() {
   }
   
   else {
+    noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     spitData(msCorrected,posX,curState);
