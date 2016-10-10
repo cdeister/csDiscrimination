@@ -22,13 +22,13 @@ import os
 # # # # # # # # # # # # # # # # # # # # # # # #
 
 animalString = 'testAnimal'
+comPort='/dev/cu.usbmodem1411'
 segPlot=500
 totalTrials=4
 maxTrialTime=1
 minTime=1
 dataCount=3   # how many data streams are we saving? (todo: do i still use this)
 pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
-comPort='/dev/cu.usbmodem1411'
 baudRate=9600
 uiUpdateDelta=5
 
@@ -65,6 +65,34 @@ dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M'
 def savedata(dataList):
     exportArray=numpy.array(dataList)
     numpy.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
+
+def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
+    plt.subplot(3,2,1)
+    lA=plt.plot(yData1[-sampNum:-1],'k-')
+    plt.ylim(-1000,6000)
+    plt.xlim(0,sampNum)
+    plt.ylabel('position')
+    plt.xlabel('time since session start (sec)')
+
+    plt.subplot(3,2,2)
+    lB=plt.plot(yData1[-sampNum:-1],'k-')
+    plt.ylim(-1000,6000)
+    plt.xlim(0,sampNum)
+    plt.ylabel('position')
+    plt.xlabel('time since session start (sec)')
+
+    plt.subplot(3,2,5)
+    lC=plt.plot(xData2,yData2,'ro',markersize=smMrk)
+    lD=plt.plot(xData2[stateIn],yData2[stateIn],'go',markersize=lrMrk)
+    plt.ylim(min(yData2)-1,max(yData2)+1)
+    plt.xlim(min(xData2)-1,max(xData2)+1)
+    plt.title(trialIn)
+
+    plt.pause(pltDelay)
+    lA.pop(0).remove()
+    lB.pop(0).remove()
+    lC.pop(0).remove()
+    lD.pop(0).remove()
 
 
 #def update_posPlot(): (todo: make the plotting functions)
@@ -138,36 +166,7 @@ while currentTrial<=totalTrials:
                     print('... wait while I make sure it''s ready')
                     stateIt=1
                     # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,1)
-                    linesA=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-                    plt.subplot(3,2,2)
-                    linesD=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-                    plt.subplot(3,2,5)
-                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                    plt.title(currentTrial)
-
-                    plt.subplot(3,2,6)
-
-                    plt.pause(pltDelay)
-
-                    # clean up plot data (memory managment)
-                    linesA.pop(0).remove()
-                    linesB.pop(0).remove()
-                    linesC.pop(0).remove()
-                    linesD.pop(0).remove()
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
 
                 ttd=abs(tt1[1]-tt1[0])
                 tt1[0]=tt1[1]
@@ -208,38 +207,7 @@ while currentTrial<=totalTrials:
                 uiUpdate=int(cycleCount) % int(uiUpdateDelta)
 
                 if uiUpdate==0:
-                    # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,1)
-                    linesA=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-                    # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,2)
-                    linesD=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-                    plt.subplot(3,2,5)
-                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                    plt.title(currentTrial)
-
-
-                    plt.pause(pltDelay)
-
-                    # clean up plot data (memory managment)
-                    linesA.pop(0).remove()
-                    linesB.pop(0).remove()
-                    linesC.pop(0).remove()
-                    linesD.pop(0).remove()
-
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
                     cycleCount=0
 
                 # S1 specific stuff
@@ -291,39 +259,7 @@ while currentTrial<=totalTrials:
                 uiUpdate=int(cycleCount) % int(uiUpdateDelta)
 
                 if uiUpdate==0:
-                    # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,1)
-                    linesA=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-                    # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,2)
-                    linesD=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-
-                    plt.subplot(3,2,5)
-                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                    plt.title(currentTrial)
-
-
-                    plt.pause(pltDelay)
-
-                    # clean up plot data (memory managment)
-                    linesA.pop(0).remove()
-                    linesB.pop(0).remove()
-                    linesC.pop(0).remove()
-                    linesD.pop(0).remove()
-
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
                     cycleCount=0
 
                 if positions[-1]>distThr:
@@ -357,40 +293,7 @@ while currentTrial<=totalTrials:
                 uiUpdate=int(cycleCount) % int(uiUpdateDelta)
 
                 if uiUpdate==0:
-                    # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,1)
-                    linesA=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-                    # update plots (todo: make this a function all states use it)
-                    plt.subplot(3,2,2)
-                    linesD=plt.plot(positions[-segPlot:-1],'k-')
-                    plt.ylim(-1000,6000)
-                    plt.xlim(0,segPlot)
-                    plt.ylabel('position')
-                    plt.xlabel('time since session start (sec)')
-
-
-
-                    plt.subplot(3,2,5)
-                    linesB=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-                    linesC=plt.plot(stateDiagX[arState],stateDiagY[arState],'go',markersize=lrMrk)
-                    plt.ylim(min(stateDiagY)-1,max(stateDiagY)+1)
-                    plt.xlim(min(stateDiagX)-1,max(stateDiagX)+1)
-                    plt.title(currentTrial)
-
-
-                    plt.pause(pltDelay)
-
-                    # clean up plot data (memory managment)
-                    linesA.pop(0).remove()
-                    linesB.pop(0).remove()
-                    linesC.pop(0).remove()
-                    linesD.pop(0).remove()
-
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
                     cycleCount=0
 
                 if positions[-1]>2000:

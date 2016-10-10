@@ -2,3 +2,7 @@ Useful Python Links
 
 Lists
 http://effbot.org/zone/python-list.htm
+
+
+Basics
+http://hplgit.github.io/bumpy/doc/pub/._basics005.html
