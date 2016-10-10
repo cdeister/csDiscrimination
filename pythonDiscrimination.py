@@ -94,8 +94,21 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
     lC.pop(0).remove()
     lD.pop(0).remove()
 
+def parseData():
+    global arState
+    global arduinoTime
+    global positions
+    global arStates
+    arState=int(cR[streamNum_state])
+    arduinoTime.append(float(int(cR[streamNum_time])/1000))
+    positions.append(float(cR[streamNum_position]))
+    arStates.append(arState)
+    # return arState
+    # return arduinoTime
+    # return positions
+    # return arStates
 
-#def update_posPlot(): (todo: make the plotting functions)
+
 
 #----------------------------------------------------------------------------------------------------
 
@@ -193,10 +206,7 @@ while currentTrial<=totalTrials:
             cR=arduino.readline().strip().decode()
             cR=cR.split(',')
             if cR[streamNum_header]=='data':
-                arState=int(cR[streamNum_state])
-                arduinoTime.append(float(int(cR[streamNum_time])/1000))
-                positions.append(float(cR[streamNum_position]))
-                arStates.append(arState)
+                parseData()
 
                 # we do certain things if we just entered, this is the flag for that.
                 if stateIt==0:
@@ -204,9 +214,7 @@ while currentTrial<=totalTrials:
                     cycleCount=1
                     stateIt=1
 
-                uiUpdate=int(cycleCount) % int(uiUpdateDelta)
-
-                if uiUpdate==0:
+                if int(cycleCount) % int(uiUpdateDelta)==0:
                     updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
                     cycleCount=0
 
@@ -246,19 +254,13 @@ while currentTrial<=totalTrials:
             cR=arduino.readline().strip().decode()
             cR=cR.split(',')
             if cR[0]=='data':
-                arState=int(cR[3])
-                arduinoTime.append(float(int(cR[1])/1000))
-                positions.append(float(cR[2]))
-                arStates.append(arState)
-
+                parseData()
                 if stateIt==0:
                     print('in state 2')
                     cycleCount=1;
                     stateIt=1;
 
-                uiUpdate=int(cycleCount) % int(uiUpdateDelta)
-
-                if uiUpdate==0:
+                if int(cycleCount) % int(uiUpdateDelta)==0:
                     updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
                     cycleCount=0
 
@@ -280,19 +282,14 @@ while currentTrial<=totalTrials:
             cR=arduino.readline().strip().decode()
             cR=cR.split(',')
             if cR[0]=='data':
-                arState=int(cR[3])
-                arduinoTime.append(float(int(cR[1])/1000))
-                positions.append(float(cR[2]))
-                arStates.append(arState)
+                parseData()
 
                 if stateIt==0:
                     print('in state 3')
                     cycleCount=1;
                     stateIt=1;
 
-                uiUpdate=int(cycleCount) % int(uiUpdateDelta)
-
-                if uiUpdate==0:
+                if int(cycleCount) % int(uiUpdateDelta)==0:
                     updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,arState,currentTrial)
                     cycleCount=0
 
