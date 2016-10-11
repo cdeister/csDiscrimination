@@ -17,6 +17,7 @@ import datetime
 #import os
 import random
 import math
+import struct
 
 #----------------------------------------------------------------------------------------------------
 
@@ -34,7 +35,7 @@ positive1_Prob=0.5
 positive2_Prob=0.5
 
 # data streaming micro-controller location
-comPort='/dev/cu.usbmodem1411'
+comPort='/dev/cu.usbmodem1421'
 baudRate=9600
 
 # plotting variables
@@ -172,7 +173,7 @@ distThr=5000;  # This is the distance the mouse needs to move to initiate a stim
 # Start serial communication
 arduino = serial.Serial(comPort, baudRate) #Creating our serial object named arduinoData
 # just in case we left it in a weird state lets flip back to the init state 0
-arduino.write(b'0')
+arduino.write(struct.pack('>B', 0))
 
 
 # Start the task (will iterate through trials)
@@ -198,7 +199,7 @@ while currentTrial<=totalTrials:
                     lowDelta=lowDelta+1
                     if lowDelta>40:
                         print('should be good; will take you to wait state (S1)')
-                        arduino.write(b'\x31')
+                        arduino.write(struct.pack('>B', 1))
                         while currentState==0:
                             stateIt=0
                             cR=arduino.readline().strip().decode()
@@ -244,7 +245,7 @@ while currentTrial<=totalTrials:
                         stillTime=arduinoTime[-1]-stillTimeStart
 
                     if stillLatch==1 and stillTime>1:
-                        arduino.write('2')
+                        arduino.write(struct.pack('>B', 2))
                         print('Still! ==> Out of wait')
                         
                         while currentState==1:
@@ -279,7 +280,7 @@ while currentTrial<=totalTrials:
 
                 # if stimSwitch is less than task1's probablity then send to task #1
                 if positions[-1]>distThr and stimSwitch<=stimTask1_Prob:
-                    arduino.write(b'3')
+                    arduino.write(struct.pack('>B', 3))
                     print('moving spout; cueing stim task #1')
                     while currentState==2:
                         stateIt=0
@@ -289,7 +290,7 @@ while currentTrial<=totalTrials:
 
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif positions[-1]>distThr and stimSwitch>stimTask1_Prob:
-                    arduino.write(b'4')
+                    arduino.write(struct.pack('>B', 4))
                     print('moving spout; cueing stim task #2')
                     while currentState==2: # todo: can make these calls a function
                         stateIt=0
@@ -338,7 +339,7 @@ while currentTrial<=totalTrials:
                         print('Still! ==> Out of wait')
 
                         if outcomeSwitch<=positive1_Prob:
-                            arduino.write(b'5')
+                            arduino.write(struct.pack('>B', 5))
                             print('will play dulcet tone')
                             while currentState==3:
                                 stateIt=0
@@ -349,7 +350,7 @@ while currentTrial<=totalTrials:
 
                         # if stimSwitch is more than task1's probablity then send to task #2
                         elif outcomeSwitch>positive1_Prob:
-                            arduino.write(b'6')
+                            arduino.write(struct.pack('>B', 6))
                             print('will play ominous tone')
                             while currentState==3: # todo: can make these calls a function
                                 stateIt=0
@@ -397,7 +398,7 @@ while currentTrial<=totalTrials:
                         print('Still! ==> Out of wait')
 
                         if outcomeSwitch<=positive1_Prob:
-                            arduino.write(b'7')
+                            arduino.write(struct.pack('>B', 7))
                             print('will play dulcet tone')
                             while currentState==4:
                                 stateIt=0
@@ -408,7 +409,7 @@ while currentTrial<=totalTrials:
 
                         # if stimSwitch is more than task1's probablity then send to task #2
                         elif outcomeSwitch>positive1_Prob:
-                            arduino.write(b'8')
+                            arduino.write(struct.pack('>B', 8))
                             print('will play ominous tone')
                             while currentState==4: # todo: can make these calls a function
                                 stateIt=0
@@ -416,7 +417,6 @@ while currentTrial<=totalTrials:
                                 cR=cR.split(',')
                                 currentState=int(cR[streamNum_state])
                         
-
 
                 cycleCount=cycleCount+1;
 
@@ -454,7 +454,7 @@ while currentTrial<=totalTrials:
 
                     if stillLatch==1 and stillTime>1:
                         print('Still! ==> Out of wait')
-                        arduino.write(b'13')
+                        arduino.write(struct.pack('>B', 13))
                         print('off to save')
                         while currentState==5:
                             stateIt=0
@@ -498,7 +498,7 @@ while currentTrial<=totalTrials:
 
                     if stillLatch==1 and stillTime>1:
                         print('Still! ==> Out of wait')
-                        arduino.write(b'13')
+                        arduino.write(struct.pack('>B', 13))
                         print('off to save')
                         while currentState==6:
                             stateIt=0
@@ -543,7 +543,7 @@ while currentTrial<=totalTrials:
 
                     if stillLatch==1 and stillTime>1:
                         print('Still! ==> Out of wait')
-                        arduino.write(b'13')
+                        arduino.write(struct.pack('>B', 13))
                         print('off to save')
                         while currentState==7:
                             stateIt=0
@@ -587,7 +587,7 @@ while currentTrial<=totalTrials:
 
                     if stillLatch==1 and stillTime>1:
                         print('Still! ==> Out of wait')
-                        arduino.write(b'13')
+                        arduino.write(struct.pack('>B', 13))
                         print('off to save')
                         while currentState==8:
                             stateIt=0
@@ -619,7 +619,7 @@ while currentTrial<=totalTrials:
             arStates=[]
             currentTrial=currentTrial+1
             print('trial done')
-            arduino.write(b'1')
+            arduino.write(struct.pack('>B', 1))
             while currentState==13:
                 stateIt=0
                 cR=arduino.readline().strip().decode()
@@ -629,7 +629,7 @@ while currentTrial<=totalTrials:
         print(dPos)
         print('EXCEPTION: peace out bitches')
         print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
-        arduino.write(b'0')
+        arduino.write(struct.pack('>B', 0))
         savedata([arduinoTime,positions,arStates])
         print('save was a success; now I will close com port and quit')
         arduino.close()
@@ -641,6 +641,6 @@ while currentTrial<=totalTrials:
 
 print('NORMAL: peace out bitches')
 print('I completed {} trials.'.format(currentTrial-1))
-arduino.write(b'0')
+arduino.write(struct.pack('>B', 0))
 arduino.close()
 exit()
