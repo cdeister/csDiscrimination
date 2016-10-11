@@ -30,6 +30,8 @@ animalString = 'testAnimal'
 # session variables
 totalTrials=4
 stimTask1_Prob=0.5
+positive1_Prob=0.5
+positive2_Prob=0.5
 
 # data streaming micro-controller location
 comPort='/dev/cu.usbmodem1411'
@@ -97,8 +99,9 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
     plt.subplot(3,2,5)
     lC=plt.plot(xData2,yData2,'ro',markersize=smMrk)
     lD=plt.plot(xData2[stateIn],yData2[stateIn],'go',markersize=lrMrk)
-    plt.ylim(min(yData2)-1,max(yData2)+1)
-    plt.xlim(min(xData2)-1,max(xData2)+1)
+    plt.axis('equal')
+    plt.ylim(0,10)
+    plt.xlim(0,10)
     plt.title(trialIn)
 
     plt.pause(pltDelay)
@@ -125,8 +128,8 @@ def parseData():
 # # # # # # # # # # # # # # # # # # # # # # # #
 
 # ----- (Start) Plotting variables
-stateDiagX=[0,1,2,3,3,4,4,0]
-stateDiagY=[0,2,2,1,3,1,3,4]
+stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
+stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
 smMrk=10
 lrMrk=20
 stateIt=0;
@@ -195,7 +198,7 @@ while currentTrial<=totalTrials:
                     lowDelta=lowDelta+1
                     if lowDelta>40:
                         print('should be good; will take you to wait state (S1)')
-                        arduino.write(b'1')
+                        arduino.write(b'\x31')
                         while currentState==0:
                             stateIt=0
                             cR=arduino.readline().strip().decode()
@@ -241,7 +244,7 @@ while currentTrial<=totalTrials:
                         stillTime=arduinoTime[-1]-stillTimeStart
 
                     if stillLatch==1 and stillTime>1:
-                        arduino.write(b'2')
+                        arduino.write('2')
                         print('Still! ==> Out of wait')
                         
                         while currentState==1:
@@ -277,7 +280,7 @@ while currentTrial<=totalTrials:
                 # if stimSwitch is less than task1's probablity then send to task #1
                 if positions[-1]>distThr and stimSwitch<=stimTask1_Prob:
                     arduino.write(b'3')
-                    print('moved to spout; stim task #1')
+                    print('moving spout; cueing stim task #1')
                     while currentState==2:
                         stateIt=0
                         cR=arduino.readline().strip().decode()
@@ -287,7 +290,7 @@ while currentTrial<=totalTrials:
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif positions[-1]>distThr and stimSwitch>stimTask1_Prob:
                     arduino.write(b'4')
-                    print('moved to spout; stim task #2')
+                    print('moving spout; cueing stim task #2')
                     while currentState==2: # todo: can make these calls a function
                         stateIt=0
                         cR=arduino.readline().strip().decode()
@@ -297,7 +300,7 @@ while currentTrial<=totalTrials:
                 cycleCount=cycleCount+1;
 
 
-        #S3 -----> stim state 1
+        #S3 -----> stim task #1 cue
         elif currentState==3:
             arduino.flush()
             cR=arduino.readline().strip().decode()
@@ -309,33 +312,55 @@ while currentTrial<=totalTrials:
                     print('in state 3; stim task #1')
                     cycleCount=1;
                     stateIt=1;
+                    outcomeSwitch=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
                     updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
                     cycleCount=0
 
-                if positions[-1]>2000:
-                    arduino.write(b'7')
-                    print('met condition a')
-                    while currentState==3:
-                        stateIt=0
-                        cR=arduino.readline().strip().decode()
-                        cR=cR.split(',')
-                        currentState=int(cR[streamNum_state])
 
-                if positions[-1]<-200:
-                    arduino.write(b'2')
-                    print('met condition b')
-                    while currentState==3:
-                        stateIt=0
-                        cR=arduino.readline().strip().decode()
-                        cR=cR.split(',')
-                        currentState=int(cR[streamNum_state])
+                # S1 conditionals
+                # we are going to wait for the animal to be still for some specific time.
+                if arduinoTime[-1]>2:
+                    dPos=abs(positions[-1]-positions[-2])
+                    
+                    if dPos>movThr and stillLatch==1:
+                        stillLatch=0
+
+                    if dPos<=movThr and stillLatch==0:
+                        stillTimeStart=arduinoTime[-1]
+                        stillLatch=1
+
+                    if dPos<=movThr and stillLatch==1:
+                        stillTime=arduinoTime[-1]-stillTimeStart
+
+                    if stillLatch==1 and stillTime>1:
+                        print('Still! ==> Out of wait')
+
+                        if outcomeSwitch<=positive1_Prob:
+                            arduino.write(b'5')
+                            print('will play dulcet tone')
+                            while currentState==3:
+                                stateIt=0
+                                cR=arduino.readline().strip().decode()
+                                cR=cR.split(',')
+                                currentState=int(cR[streamNum_state])
+
+
+                        # if stimSwitch is more than task1's probablity then send to task #2
+                        elif outcomeSwitch>positive1_Prob:
+                            arduino.write(b'6')
+                            print('will play ominous tone')
+                            while currentState==3: # todo: can make these calls a function
+                                stateIt=0
+                                cR=arduino.readline().strip().decode()
+                                cR=cR.split(',')
+                                currentState=int(cR[streamNum_state])
 
                 cycleCount=cycleCount+1;
 
 
-        #S4 -----> stim state 2
+        #S4 -----> stim task #2 cue
         elif currentState==4:
             arduino.flush()
             cR=arduino.readline().strip().decode()
@@ -347,39 +372,239 @@ while currentTrial<=totalTrials:
                     print('in state 4; stim task #2')
                     cycleCount=1;
                     stateIt=1;
+                    outcomeSwitch=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
                     updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
                     cycleCount=0
 
-                if positions[-1]>4000:
-                    arduino.write(b'7')
-                    print('met condition a')
-                    while currentState==3:
-                        stateIt=0
-                        cR=arduino.readline().strip().decode()
-                        cR=cR.split(',')
-                        currentState=int(cR[streamNum_state])
+                # S1 conditionals
+                # we are going to wait for the animal to be still for some specific time.
+                if arduinoTime[-1]>2:
+                    dPos=abs(positions[-1]-positions[-2])
+                    
+                    if dPos>movThr and stillLatch==1:
+                        stillLatch=0
 
-                if positions[-1]<-200:
-                    arduino.write(b'2')
-                    print('met condition b')
-                    while currentState==3:
-                        stateIt=0
-                        cR=arduino.readline().strip().decode()
-                        cR=cR.split(',')
-                        currentState=int(cR[streamNum_state])
+                    if dPos<=movThr and stillLatch==0:
+                        stillTimeStart=arduinoTime[-1]
+                        stillLatch=1
+
+                    if dPos<=movThr and stillLatch==1:
+                        stillTime=arduinoTime[-1]-stillTimeStart
+
+                    if stillLatch==1 and stillTime>1:
+                        print('Still! ==> Out of wait')
+
+                        if outcomeSwitch<=positive1_Prob:
+                            arduino.write(b'7')
+                            print('will play dulcet tone')
+                            while currentState==4:
+                                stateIt=0
+                                cR=arduino.readline().strip().decode()
+                                cR=cR.split(',')
+                                currentState=int(cR[streamNum_state])
+
+
+                        # if stimSwitch is more than task1's probablity then send to task #2
+                        elif outcomeSwitch>positive1_Prob:
+                            arduino.write(b'8')
+                            print('will play ominous tone')
+                            while currentState==4: # todo: can make these calls a function
+                                stateIt=0
+                                cR=arduino.readline().strip().decode()
+                                cR=cR.split(',')
+                                currentState=int(cR[streamNum_state])
+                        
+
+
+                cycleCount=cycleCount+1;
+
+        #S5 -----> pos tone
+        elif currentState==5:
+            arduino.flush()
+            cR=arduino.readline().strip().decode()
+            cR=cR.split(',')
+            if cR[0]=='data':
+                parseData()
+
+                if stateIt==0:
+                    print('in state 5; playing something good')
+                    cycleCount=1;
+                    stateIt=1;
+
+                if int(cycleCount) % int(uiUpdateDelta)==0:
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    cycleCount=0
+
+                # S1 conditionals
+                # we are going to wait for the animal to be still for some specific time.
+                if arduinoTime[-1]>2:
+                    dPos=abs(positions[-1]-positions[-2])
+                    
+                    if dPos>movThr and stillLatch==1:
+                        stillLatch=0
+
+                    if dPos<=movThr and stillLatch==0:
+                        stillTimeStart=arduinoTime[-1]
+                        stillLatch=1
+
+                    if dPos<=movThr and stillLatch==1:
+                        stillTime=arduinoTime[-1]-stillTimeStart
+
+                    if stillLatch==1 and stillTime>1:
+                        print('Still! ==> Out of wait')
+                        arduino.write(b'13')
+                        print('off to save')
+                        while currentState==5:
+                            stateIt=0
+                            cR=arduino.readline().strip().decode()
+                            cR=cR.split(',')
+                            currentState=int(cR[streamNum_state])
+
+                cycleCount=cycleCount+1;
+
+        #S6 -----> neg tone
+        elif currentState==6:
+            arduino.flush()
+            cR=arduino.readline().strip().decode()
+            cR=cR.split(',')
+            if cR[0]=='data':
+                parseData()
+
+                if stateIt==0:
+                    print('in state 6; playing something bad')
+                    cycleCount=1;
+                    stateIt=1;
+
+                if int(cycleCount) % int(uiUpdateDelta)==0:
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    cycleCount=0
+
+                # S1 conditionals
+                # we are going to wait for the animal to be still for some specific time.
+                if arduinoTime[-1]>2:
+                    dPos=abs(positions[-1]-positions[-2])
+                    
+                    if dPos>movThr and stillLatch==1:
+                        stillLatch=0
+
+                    if dPos<=movThr and stillLatch==0:
+                        stillTimeStart=arduinoTime[-1]
+                        stillLatch=1
+
+                    if dPos<=movThr and stillLatch==1:
+                        stillTime=arduinoTime[-1]-stillTimeStart
+
+                    if stillLatch==1 and stillTime>1:
+                        print('Still! ==> Out of wait')
+                        arduino.write(b'13')
+                        print('off to save')
+                        while currentState==6:
+                            stateIt=0
+                            cR=arduino.readline().strip().decode()
+                            cR=cR.split(',')
+                            currentState=int(cR[streamNum_state])
+
+                cycleCount=cycleCount+1;
+
+
+        #S7 -----> pos tone
+        elif currentState==7:
+            arduino.flush()
+            cR=arduino.readline().strip().decode()
+            cR=cR.split(',')
+            if cR[0]=='data':
+                parseData()
+
+                if stateIt==0:
+                    print('in state 7; playing something good')
+                    cycleCount=1;
+                    stateIt=1;
+
+                if int(cycleCount) % int(uiUpdateDelta)==0:
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    cycleCount=0
+
+                # S1 conditionals
+                # we are going to wait for the animal to be still for some specific time.
+                if arduinoTime[-1]>2:
+                    dPos=abs(positions[-1]-positions[-2])
+                    
+                    if dPos>movThr and stillLatch==1:
+                        stillLatch=0
+
+                    if dPos<=movThr and stillLatch==0:
+                        stillTimeStart=arduinoTime[-1]
+                        stillLatch=1
+
+                    if dPos<=movThr and stillLatch==1:
+                        stillTime=arduinoTime[-1]-stillTimeStart
+
+                    if stillLatch==1 and stillTime>1:
+                        print('Still! ==> Out of wait')
+                        arduino.write(b'13')
+                        print('off to save')
+                        while currentState==7:
+                            stateIt=0
+                            cR=arduino.readline().strip().decode()
+                            cR=cR.split(',')
+                            currentState=int(cR[streamNum_state])
+
+                cycleCount=cycleCount+1;
+
+        #S8 -----> neg tone
+        elif currentState==8:
+            arduino.flush()
+            cR=arduino.readline().strip().decode()
+            cR=cR.split(',')
+            if cR[0]=='data':
+                parseData()
+
+                if stateIt==0:
+                    print('in state 8; playing something bad')
+                    cycleCount=1;
+                    stateIt=1;
+
+                if int(cycleCount) % int(uiUpdateDelta)==0:
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    cycleCount=0
+
+                # S1 conditionals
+                # we are going to wait for the animal to be still for some specific time.
+                if arduinoTime[-1]>2:
+                    dPos=abs(positions[-1]-positions[-2])
+                    
+                    if dPos>movThr and stillLatch==1:
+                        stillLatch=0
+
+                    if dPos<=movThr and stillLatch==0:
+                        stillTimeStart=arduinoTime[-1]
+                        stillLatch=1
+
+                    if dPos<=movThr and stillLatch==1:
+                        stillTime=arduinoTime[-1]-stillTimeStart
+
+                    if stillLatch==1 and stillTime>1:
+                        print('Still! ==> Out of wait')
+                        arduino.write(b'13')
+                        print('off to save')
+                        while currentState==8:
+                            stateIt=0
+                            cR=arduino.readline().strip().decode()
+                            cR=cR.split(',')
+                            currentState=int(cR[streamNum_state])
 
                 cycleCount=cycleCount+1;
         
 
-        # ----------------- (S7: save state)
-        elif currentState==7:
-            print('entered save state') # debug
+        # ----------------- (S13: save state)
+        elif currentState==13:
+            print('in state 13; saving your bacon') # debug
             savedata([arduinoTime,positions,arStates])
             if currentTrial>1:
                 linesE.pop(0).remove()
-            plt.subplot(3,2,6)
+            plt.subplot(3,3,6)
             linesE=plt.plot(positions,'r-')
             plt.ylim(-1000,6000)
             plt.ylabel('position')
@@ -395,7 +620,7 @@ while currentTrial<=totalTrials:
             currentTrial=currentTrial+1
             print('trial done')
             arduino.write(b'1')
-            while currentState==7:
+            while currentState==13:
                 stateIt=0
                 cR=arduino.readline().strip().decode()
                 cR=cR.split(',')
