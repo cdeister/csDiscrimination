@@ -10,32 +10,7 @@
 #include <hidboot.h>
 #include <usbhub.h>
 
-unsigned long msOffset;
-unsigned long msCorrected;
-unsigned long cueTime;
-unsigned long pulseTime;
-unsigned long delayTime;
-int lastState;
-int curState;
-int txBit;
-int deltaX=0;
-int deltaY=0;
-long posX=0;
-long posY=0;
-int stateChange=0;
 int loopDelta=5;
-int cueTimer=0;
-int toneTimer=0;
-int blinkCount=10;
-bool cueFired=0;
-bool toneFired=0;
-bool inPulse=1;
-bool cueInit=0;
-unsigned long ofs1;
-unsigned long ofs2;
-unsigned long ofs3;
-
-
 int cueDuration=1000;
 int pulseDur=40;
 int delayDur_1=200;
@@ -43,13 +18,36 @@ int delayDur_2=20;
 int cueDelay=500;
 int toneDelay=2000;
 
+unsigned long msOffset;
+unsigned long msCorrected;
+unsigned long cueTime;
+unsigned long pulseTime;
+unsigned long delayTime;
+unsigned long ofs1;
+unsigned long ofs2;
+unsigned long ofs3;
 
+int lastState;
+int curState;
+
+int deltaX=0;
+int deltaY=0;
+long posX=0;
+long posY=0;
+
+bool stateChange=0;
+bool cueFired=0;
+bool toneFired=0;
+bool inPulse=1;
+bool cueInit=0;
+
+const int posPin=3;       // Engage Postive Reinforcment
+const int negPin=4;       // Engage Aversive Reinforcment
+const int waterPin=5;     // Engage Water
 const int cueLED=13;
-const int posPin=3;     // Engage Postive Reinforcment
-const int negPin=4;    // Engage Aversive Reinforcment
-const int waterPin=5;       // Engage Water
 const int tonePin=53;
-
+int sensorPin = A0;
+int sensorValue = 0;
 
 // ********** mouse class
 class MouseRptParser : public MouseReportParser
@@ -65,9 +63,9 @@ void MouseRptParser::OnMouseMove(MOUSEINFO *mi){
     posY=posY+deltaY;
 };
 
-USB     Usb;
-USBHub     Hub(&Usb);
-HIDBoot<HID_PROTOCOL_MOUSE>    HidMouse(&Usb);
+USB Usb;
+USBHub Hub(&Usb);
+HIDBoot<HID_PROTOCOL_MOUSE> HidMouse(&Usb);
 MouseRptParser  Prs;
 
 // ************** end mouse
@@ -115,7 +113,7 @@ void loop() {
   // it is ready to spit out real data and not garbage
   if(curState==0){
     msOffset=millis();  // Reset time because this is technically the begining of the task
-    Serial.print(String("data,0,0,0"));
+    Serial.print(String("data,0,0,0,0"));
     Serial.println();
     delay(loopDelta);
     curState=lookForSerialState();
@@ -126,7 +124,8 @@ void loop() {
   else if(curState==1){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -136,7 +135,8 @@ void loop() {
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -184,7 +184,8 @@ void loop() {
         inPulse=1;
       }
     }
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -232,7 +233,8 @@ void loop() {
         inPulse=1;
       }
     }
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -242,7 +244,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 900, 1000);
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -252,7 +255,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 100, 1000);
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -262,7 +266,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 900, 1000);
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -272,7 +277,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 100, 1000);
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -280,7 +286,8 @@ void loop() {
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
-    spitData(msCorrected,posX,curState);
+    sensorValue = analogRead(sensorPin);
+    spitData(msCorrected,posX,curState,sensorValue);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -304,13 +311,15 @@ int lookForSerialState(){
   return pyState;
 }
 
-int spitData(int d1,int d2,int d3){
+int spitData(int d1,int d2,int d3, int d4){
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
   Serial.print(d2);
   Serial.print(',');
   Serial.print(d3);
+  Serial.print(',');
+  Serial.print(d4);
   Serial.println();
 }
 //----------------------- 

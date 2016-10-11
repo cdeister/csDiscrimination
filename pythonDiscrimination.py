@@ -35,7 +35,7 @@ positive1_Prob=0.5
 positive2_Prob=0.5
 
 # data streaming micro-controller location
-comPort='/dev/cu.usbmodem1421'
+comPort='/dev/cu.usbmodem1411'
 baudRate=9600
 
 # plotting variables
@@ -55,6 +55,7 @@ pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to hav
 positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
 arStates=[]             # Store the state the arduino thinks it is in.
 arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
+lickValues=[]
 
 # session variables (user won't change)
 currentTrial=1
@@ -69,6 +70,7 @@ streamNum_header=0
 streamNum_time=1
 streamNum_position=2
 streamNum_state=3
+streamNum_lickSensor=4
 
 #----------------------------------------------------------------------------------------------------
 
@@ -82,7 +84,7 @@ def savedata(dataList):
     exportArray=numpy.array(dataList)
     numpy.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
 
-def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
+def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn,yData3): # todo: organize this better
     plt.subplot(3,2,1)
     lA=plt.plot(yData1[-sampNum:-1],'k-')
     plt.ylim(-1000,6000)
@@ -91,10 +93,10 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn):
     plt.xlabel('time since session start (sec)')
 
     plt.subplot(3,2,2)
-    lB=plt.plot(yData1[-sampNum:-1],'k-')
-    plt.ylim(-1000,6000)
+    lB=plt.plot(yData3[-sampNum:-1],'k-')
+    plt.ylim(0,256)
     plt.xlim(0,sampNum)
-    plt.ylabel('lick rate')
+    plt.ylabel('lick value')
     plt.xlabel('time since session start (sec)')
 
     plt.subplot(3,2,5)
@@ -116,10 +118,12 @@ def parseData():
     global arduinoTime
     global positions
     global arStates
+    global lickValues
     arduinoTime.append(float(int(cR[streamNum_time])/1000))
     positions.append(float(cR[streamNum_position]))
     currentState=int(cR[streamNum_state])
     arStates.append(currentState)
+    lickValues.append(cR[streamNum_lickSensor])
 
 
 #----------------------------------------------------------------------------------------------------
@@ -190,7 +194,7 @@ while currentTrial<=totalTrials:
                     print('found some dope shit on rx')
                     print('... wait while I make sure it''s ready')
                     stateIt=1
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
 
                 ttd=abs(tt1[1]-tt1[0])
                 tt1[0]=tt1[1]
@@ -226,7 +230,7 @@ while currentTrial<=totalTrials:
                     stateIt=1
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # S1 conditionals
@@ -275,7 +279,7 @@ while currentTrial<=totalTrials:
                     stimSwitch=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # if stimSwitch is less than task1's probablity then send to task #1
@@ -316,7 +320,7 @@ while currentTrial<=totalTrials:
                     outcomeSwitch=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
 
@@ -376,7 +380,7 @@ while currentTrial<=totalTrials:
                     outcomeSwitch=random.random()
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # S1 conditionals
@@ -434,7 +438,7 @@ while currentTrial<=totalTrials:
                     stateIt=1;
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # S1 conditionals
@@ -478,7 +482,7 @@ while currentTrial<=totalTrials:
                     stateIt=1;
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # S1 conditionals
@@ -523,7 +527,7 @@ while currentTrial<=totalTrials:
                     stateIt=1;
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # S1 conditionals
@@ -567,7 +571,7 @@ while currentTrial<=totalTrials:
                     stateIt=1;
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
-                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial)
+                    updatePosPlot(segPlot,positions,stateDiagX,stateDiagY,currentState,currentTrial,lickValues)
                     cycleCount=0
 
                 # S1 conditionals
