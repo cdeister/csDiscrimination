@@ -19,9 +19,9 @@ if numel(numel(sessionMetaData.dirObj)>0)
                     csvread([sessionMetaData.dataPath filesep tempName]);
                 sessionMetaData.trialCount=sessionMetaData.trialCount+1;
             end
-            sessionMetaData.trialCount=sessionMetaData.trialCount-1;
         end
     end
+    sessionMetaData.trialCount=sessionMetaData.trialCount-1;
 else
     disp('can''t find data')
 end
@@ -49,15 +49,14 @@ clear k n totalStates
 
 %% This is an example of how to see all lick sensor data (derivs) in states 5,6,7,8
 figure
-hold all
 for n=1:sessionMetaData.trialCount
-    subplot(2,2,1)
+    subplot(2,2,1),hold all
     plot(trialData.states.s5.time{n}(2:end),diff(trialData.states.s5.lickSensor{n}))
-    subplot(2,2,2)
+    subplot(2,2,2),hold all
     plot(trialData.states.s6.time{n}(2:end),diff(trialData.states.s6.lickSensor{n}))
-    subplot(2,2,3)
+    subplot(2,2,3),hold all
     plot(trialData.states.s7.time{n}(2:end),diff(trialData.states.s7.lickSensor{n}))
-    subplot(2,2,4)
+    subplot(2,2,4),hold all
     plot(trialData.states.s8.time{n}(2:end),diff(trialData.states.s8.lickSensor{n}))
 end
 clear n

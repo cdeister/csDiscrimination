@@ -29,7 +29,7 @@ import struct
 animalString = 'testAnimal'
 
 # session variables
-totalTrials=4
+totalTrials=10
 stimTask1_Prob=0.5
 positive1_Prob=0.5
 positive2_Prob=0.5
