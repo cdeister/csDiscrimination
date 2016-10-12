@@ -123,7 +123,7 @@ def parseData():
     positions.append(float(cR[streamNum_position]))
     currentState=int(cR[streamNum_state])
     arStates.append(currentState)
-    lickValues.append(cR[streamNum_lickSensor])
+    lickValues.append(int(cR[streamNum_lickSensor]))
 
 
 #----------------------------------------------------------------------------------------------------
@@ -605,7 +605,7 @@ while currentTrial<=totalTrials:
         # ----------------- (S13: save state)
         elif currentState==13:
             print('in state 13; saving your bacon') # debug
-            savedata([arduinoTime,positions,arStates])
+            savedata([arduinoTime,positions,arStates,lickValues])
             if currentTrial>1:
                 linesE.pop(0).remove()
             plt.subplot(3,3,6)
@@ -621,6 +621,7 @@ while currentTrial<=totalTrials:
             arduinoTime=[]
             positions=[]
             arStates=[]
+            lickValues=[]
             currentTrial=currentTrial+1
             print('trial done')
             arduino.write(struct.pack('>B', 1))
@@ -634,12 +635,13 @@ while currentTrial<=totalTrials:
         print('EXCEPTION: peace out bitches')
         print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
         arduino.write(struct.pack('>B', 0))
-        savedata([arduinoTime,positions,arStates])
+        savedata([arduinoTime,positions,arStates,lickValues])
         print('save was a success; now I will close com port and quit')
         arduino.close()
         arduinoTime=[]
         positions=[]
         arStates=[]
+        lickValues=[]
         exit()
 
 
