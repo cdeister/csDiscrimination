@@ -10,7 +10,7 @@
 # includes
 #
 import serial
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
 import time
 import datetime
@@ -56,6 +56,7 @@ positions=[]            # This is the x-position of an optical mouse attached to
 arStates=[]             # Store the state the arduino thinks it is in.
 arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
 lickValues=[]
+lickDeltas=[]
 
 # session variables (user won't change)
 currentTrial=1
@@ -71,6 +72,7 @@ streamNum_time=1
 streamNum_position=2
 streamNum_state=3
 streamNum_lickSensor=4
+streamNum_lickDeriv=5
 
 #----------------------------------------------------------------------------------------------------
 
@@ -81,8 +83,8 @@ dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M'
 
 
 def savedata(dataList):
-    exportArray=numpy.array(dataList)
-    numpy.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
+    exportArray=np.array(dataList)
+    np.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
 
 def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn,yData3): # todo: organize this better
     plt.subplot(3,2,1)
@@ -93,8 +95,8 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn,yData3): # todo: 
     plt.xlabel('time since session start (sec)')
 
     plt.subplot(3,2,2)
-    lB=plt.plot(yData3[-sampNum:-1],'k-')
-    plt.ylim(0,256)
+    lB=plt.plot(np.diff(yData3[-sampNum:-1]),'k-')
+    plt.ylim(-20,20)
     plt.xlim(0,sampNum)
     plt.ylabel('lick value')
     plt.xlabel('time since session start (sec)')
@@ -102,7 +104,6 @@ def updatePosPlot(sampNum,yData1,xData2,yData2,stateIn,trialIn,yData3): # todo: 
     plt.subplot(3,2,5)
     lC=plt.plot(xData2,yData2,'ro',markersize=smMrk)
     lD=plt.plot(xData2[stateIn],yData2[stateIn],'go',markersize=lrMrk)
-    plt.axis('equal')
     plt.ylim(0,10)
     plt.xlim(0,10)
     plt.title(trialIn)
@@ -605,14 +606,14 @@ while currentTrial<=totalTrials:
         # ----------------- (S13: save state)
         elif currentState==13:
             print('in state 13; saving your bacon') # debug
-            savedata([arduinoTime,positions,arStates,lickValues])
+            savedata([arduinoTime,positions,arStates,lickDeltas])
             if currentTrial>1:
                 linesE.pop(0).remove()
             plt.subplot(3,3,6)
-            linesE=plt.plot(positions,'r-')
-            plt.ylim(-1000,6000)
-            plt.ylabel('position')
-            plt.xlabel('time since session start (sec)')
+            linesE=plt.plot(lickDeltas,'r-')
+            plt.ylim(20,100)
+            plt.ylabel('lick sensor val')
+            plt.xlabel('sample number')
 
             plt.pause(pltDelay)
 
@@ -622,6 +623,7 @@ while currentTrial<=totalTrials:
             positions=[]
             arStates=[]
             lickValues=[]
+            lickDeltas=[]
             currentTrial=currentTrial+1
             print('trial done')
             arduino.write(struct.pack('>B', 1))
@@ -635,13 +637,14 @@ while currentTrial<=totalTrials:
         print('EXCEPTION: peace out bitches')
         print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
         arduino.write(struct.pack('>B', 0))
-        savedata([arduinoTime,positions,arStates,lickValues])
+        savedata([arduinoTime,positions,arStates,lickValues,lickDeltas])
         print('save was a success; now I will close com port and quit')
         arduino.close()
         arduinoTime=[]
         positions=[]
         arStates=[]
         lickValues=[]
+        lickDeltas=[]
         exit()
 
 

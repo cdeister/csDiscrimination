@@ -17,6 +17,7 @@ int delayDur_1=200;
 int delayDur_2=20;
 int cueDelay=500;
 int toneDelay=2000;
+int lickDelta=0;
 
 unsigned long msOffset;
 unsigned long msCorrected;
@@ -34,6 +35,8 @@ int deltaX=0;
 int deltaY=0;
 long posX=0;
 long posY=0;
+
+int sensorBL;
 
 bool stateChange=0;
 bool cueFired=0;
@@ -125,7 +128,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -136,7 +140,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -185,7 +190,8 @@ void loop() {
       }
     }
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -234,7 +240,8 @@ void loop() {
       }
     }
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -245,7 +252,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     tone(tonePin, 900, 1000);
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -256,7 +264,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     tone(tonePin, 100, 1000);
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -267,7 +276,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     tone(tonePin, 900, 1000);
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -278,7 +288,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     tone(tonePin, 100, 1000);
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -287,7 +298,8 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     sensorValue = analogRead(sensorPin);
-    spitData(msCorrected,posX,curState,sensorValue);
+    lickDelta=sensorValue-lickDelta;
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -311,7 +323,7 @@ int lookForSerialState(){
   return pyState;
 }
 
-int spitData(int d1,int d2,int d3, int d4){
+int spitData(int d1,int d2,int d3, int d4, int d5){
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
@@ -320,6 +332,8 @@ int spitData(int d1,int d2,int d3, int d4){
   Serial.print(d3);
   Serial.print(',');
   Serial.print(d4);
+  Serial.print(',');
+  Serial.print(d5);
   Serial.println();
 }
 //----------------------- 
