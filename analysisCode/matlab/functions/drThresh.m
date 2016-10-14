@@ -44,6 +44,9 @@ function [outInd,outVector,normedTS,thrUsed,dynRange,thrType]=drThresh(parseTS,b
 %
 %   Chris Deister -- cdeister@brown.edu
 %   last rev 10/04/2016
+%
+%   todo: add a latch state to fix a minimum number of samples between
+%   events. I think people should do this somewhere else though. 
 
 
 
@@ -52,27 +55,35 @@ function [outInd,outVector,normedTS,thrUsed,dynRange,thrType]=drThresh(parseTS,b
 
 
 %determine case based on input
-if nargin==1
-    thrVal=0.5;
-    biased=1;
+if nargin==1 % user only pases a ts
+    biased=1; % look for heavyside
+    thrVal=0.1; % start low because threshold is dynamic
+    thrType=1; % bounded by min max
     parseCase=1; % biased behavior with default threshold [0->1]
-    thrType=1;
 end
 
-passedThrType=ismember(abs(thrVal),0:0.00001:1);
+if nargin==2 % user passes ts and says biased/non-biased
+    % we will treat this as a biased case because the user has not told us
+    % which side is more relevant so lets get the side that looks like
+    % it has the most hope. 
+    thrType=1; % we will default to bounded
+    thrVal=0; % 
+    parseCase=1;
+end
+
 if nargin==3
-    if biased==1 && passedThrType==1
+    passedThr=ismember(abs(thrVal),0:0.00001:1);
+    if biased==1 && passedThr==1
         parseCase=2; % use a 0->1 range threshold on a biased dist.
         thrType=1; % bounded case
-    elseif biased ==0 && passedThrType==1
+    elseif biased ==0 && passedThr==1
         parseCase=3; % use a 0->1 range threshold on an unbiased dist.
         thrType=1; % bounded case
-    elseif biased ==0 && passedThrType==0
-        parseCase=7; % use a 0->1 range threshold on an unbiased dist.
-        thrType=1; % bounded case
-    elseif biased ==1 && passedThrType==0
-        parseCase=6; % use a 0->1 range threshold on an unbiased dist.
-        thrType=1; % bounded case
+    elseif biased ==0 && passedThr==0
+        parseCase=7;
+    elseif biased ==1 && passedThr==0
+        parseCase=6;
+        thrType=0;
     elseif biased ==3
         parseCase=4; % assume literal thresholding on biased 
         thrType=0;
@@ -85,6 +96,7 @@ if nargin==3
         disp('you could have made a mistake or chris messed up.')
         disp('type doc drThresh and check the arugments or email chris to fix')
     end
+else
 end
 
 biasedCases=[1,2,4,6];
@@ -92,12 +104,12 @@ unbiasedCases=[3,5,7];
 
 
 % sort out the time-series
-tsMinMax=[min(parseTS),max(parseTS)]
+tsMinMax=[min(parseTS),max(parseTS)];
 dynRange=abs(diff(tsMinMax));
-tsMedian=median(parseTS)
+tsMedian=median(parseTS);
 blTS=parseTS-tsMedian;
-posRange=abs(max(blTS))
-negRange=abs(min(blTS))
+posRange=abs(max(blTS));
+negRange=abs(min(blTS));
 
 if ismember(parseCase,biasedCases)
     [~,tMi]=max([negRange,posRange]);
@@ -137,9 +149,9 @@ if ismember(parseCase,[1,2,3]) % then normalize
     % the noise from the data we trashed. So we need to create a min
     % threshold that takes that into account.
     if ismember(parseCase,[1,3])
-        minThreshold=opRange./usedRange
+        minThreshold=opRange./usedRange;
     elseif parseCase==2
-        minThreshold=0
+        minThreshold=0;
     end
     if thrUsed<minThreshold
         if parseCase==1

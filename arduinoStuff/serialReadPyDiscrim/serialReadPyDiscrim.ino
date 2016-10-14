@@ -36,8 +36,6 @@ int deltaY=0;
 long posX=0;
 long posY=0;
 
-int sensorBL;
-
 bool stateChange=0;
 bool cueFired=0;
 bool toneFired=0;
@@ -51,6 +49,7 @@ const int cueLED=13;
 const int tonePin=53;
 int sensorPin = A0;
 int sensorValue = 0;
+int prevSensorValue=0;
 
 // ********** mouse class
 class MouseRptParser : public MouseReportParser
@@ -127,8 +126,9 @@ void loop() {
   else if(curState==1){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -139,8 +139,9 @@ void loop() {
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -189,8 +190,9 @@ void loop() {
         inPulse=1;
       }
     }
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -239,8 +241,9 @@ void loop() {
         inPulse=1;
       }
     }
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -251,8 +254,9 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 900, 1000);
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -263,20 +267,22 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 100, 1000);
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
   }
 
-    // S7: Sensory High
+  // S7: Sensory High
   else if(curState==7){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 900, 1000);
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -287,8 +293,9 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     tone(tonePin, 100, 1000);
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -297,8 +304,9 @@ void loop() {
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
-    lickDelta=sensorValue-lickDelta;
+    lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta);
     delay(loopDelta);
     curState=lookForSerialState();
@@ -336,6 +344,7 @@ int spitData(int d1,int d2,int d3, int d4, int d5){
   Serial.print(d5);
   Serial.println();
 }
+
 //----------------------- 
 
 

@@ -194,7 +194,7 @@ ylabel('lick rate (Hz)')
 
 
 %%
-[tOI,tOV,tNorm,tThrU,tDR,ttt]=drThresh(exampleTS);
+[tOI,tOV,tNorm,tThrU,tDR,ttt]=drThresh(exampleTS,0);
 figure,plot(tNorm,'k-')
 hold all,plot([1 numel(exampleTS)],[tThrU tThrU],'r:')
 hold all,plot(tOV,'bo')
