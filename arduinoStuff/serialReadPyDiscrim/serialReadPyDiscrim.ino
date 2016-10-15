@@ -20,7 +20,10 @@ int toneDelay=2000;
 int lickDelta=0;
 
 unsigned long msOffset;
+unsigned long s1Offset;
+unsigned long twTimeReset;
 unsigned long msCorrected;
+unsigned long msInTrial;
 unsigned long cueTime;
 unsigned long pulseTime;
 unsigned long delayTime;
@@ -88,6 +91,7 @@ void setup() {
   delay(500);
   HidMouse.SetReportParser(0,(HIDReportParser*)&Prs);
   msOffset=millis();
+  s1Offset=millis();
 }
 
 void loop() {
@@ -108,6 +112,7 @@ void loop() {
     toneFired=0;
     inPulse=1;
     cueInit=0;
+    twTimeReset=millis();
   }
 
   // SO: Initialization State
@@ -126,10 +131,12 @@ void loop() {
   else if(curState==1){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    s1Offset=twTimeReset;
+    msInTrial=millis()-s1Offset;
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -139,10 +146,11 @@ void loop() {
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -151,6 +159,7 @@ void loop() {
   else if(curState==3){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     if(msCorrected>=cueDelay && cueFired==0){
       if(cueInit==0){
         ofs1=millis();
@@ -193,7 +202,7 @@ void loop() {
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -202,6 +211,7 @@ void loop() {
   else if(curState==4){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     if(msCorrected>=cueDelay && cueFired==0){
       if(cueInit==0){
         ofs1=millis();
@@ -244,7 +254,7 @@ void loop() {
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -253,11 +263,12 @@ void loop() {
   else if(curState==5){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     tone(tonePin, 900, 1000);
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -266,11 +277,12 @@ void loop() {
   else if(curState==6){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     tone(tonePin, 100, 1000);
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -279,11 +291,12 @@ void loop() {
   else if(curState==7){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     tone(tonePin, 900, 1000);
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -292,11 +305,12 @@ void loop() {
   else if(curState==8){
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     tone(tonePin, 100, 1000);
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -304,10 +318,11 @@ void loop() {
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
+    msInTrial=millis()-s1Offset;
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDelta);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -331,7 +346,7 @@ int lookForSerialState(){
   return pyState;
 }
 
-int spitData(int d1,int d2,int d3, int d4, int d5){
+int spitData(unsigned long d1,int d2,int d3, int d4, int d5, unsigned long d6){
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
@@ -342,6 +357,8 @@ int spitData(int d1,int d2,int d3, int d4, int d5){
   Serial.print(d4);
   Serial.print(',');
   Serial.print(d5);
+  Serial.print(',');
+  Serial.print(d6);
   Serial.println();
 }
 
