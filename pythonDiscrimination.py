@@ -12,11 +12,13 @@
 import serial
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
 import time
 import datetime
 import random
 import math
 import struct
+import tkinter as tk
 
 #----------------------------------------------------------------------------------------------------
 
@@ -34,12 +36,12 @@ positive1_Prob=0.5
 positive2_Prob=0.5
 
 # data streaming micro-controller location
-comPort='/dev/cu.usbmodem1411'
+comPort='/dev/cu.usbmodem1421'
 baudRate=9600
 
 # plotting variables
 uiUpdateDelta=5
-segPlot=200
+segPlot=300
 pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
 
 # lick detection vars
@@ -81,7 +83,7 @@ streamNum_state=3
 streamNum_lickSensor=4
 streamNum_lickDeriv=5
 streamNum_trialTime=6
-saveList=[arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime];
+
 
 #----------------------------------------------------------------------------------------------------
 
@@ -95,40 +97,6 @@ def savedata(dataList):
     exportArray=np.array(dataList)
     np.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
 
-def updatePosPlot(): # todo: organize this better
-    plt.subplot(3,2,1)
-    lA=plt.plot(arduinoTrialTime[-segPlot:-1],positions[-segPlot:-1],'k-')
-    plt.ylim(-1000,6000)
-    if len(arduinoTrialTime)>segPlot+5:
-        plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
-    elif len(arduinoTrialTime)<=segPlot+1:
-        plt.xlim(0,6)
-    plt.ylabel('position')
-    plt.xlabel('time since trial start (sec)')
-
-
-    plt.subplot(3,2,2)
-    lG=plt.plot(arduinoTrialTime[-segPlot:-1],detected_licks[-segPlot:-1],'b-')
-    plt.ylim(-1,3)
-    if len(arduinoTrialTime)>segPlot+2:
-        plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
-    elif len(arduinoTrialTime)<=segPlot+1:
-        plt.xlim(0,6)
-    plt.ylabel('licks (binary)')
-    plt.xlabel('time since trial start (sec)')
-
-    plt.subplot(3,2,5)
-    lC=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-    lD=plt.plot(stateDiagX[currentState],stateDiagY[currentState],'go',markersize=lrMrk)
-    plt.ylim(0,10)
-    plt.xlim(0,10)
-    plt.title(currentTrial)
-
-    plt.pause(pltDelay)
-    lA.pop(0).remove()
-    lC.pop(0).remove()
-    lD.pop(0).remove()
-    lG.pop(0).remove()
 
 def parseData():
     global currentState
@@ -137,8 +105,8 @@ def parseData():
     global arStates
     global lickValues
     global lickDeltas
-    global detected_licks
     global arduinoTrialTime
+    global detected_licks
 
     arduinoTime.append(float(int(cR[streamNum_time])/1000))
     positions.append(float(cR[streamNum_position]))
@@ -160,8 +128,8 @@ def cleanContainers():
     global arStates
     global lickValues
     global lickDeltas
-    global detected_licks
     global arduinoTrialTime
+    global detected_licks
     arduinoTime=[]
     positions=[]
     arStates=[]
@@ -197,7 +165,7 @@ def waitForStateToUpdateOnTarget(maintState):
 #----------------------------------------------------------------------------------------------------
 
 # # # # # # # # # # # # # # # # # # # # # # # # 
-# Plotting and State-Specific Variables       #
+# Plotting Specific Stuff                     #
 # # # # # # # # # # # # # # # # # # # # # # # #
 
 # ----- (Start) Plotting variables
@@ -206,11 +174,49 @@ stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
 smMrk=10
 lrMrk=20
 stateIt=0;
-postionMin=-2000;
-positionMax=6000;
+postionMin=-1000;
+positionMax=3000;
 lickMin=0
 lickMax=30
 tt1=[float(1),float(2)]
+
+def updatePosPlot(): # todo: organize this better
+    plt.subplot(2,2,1)
+    lA=plt.plot(arduinoTrialTime[-segPlot:-1],positions[-segPlot:-1],'k-')
+    plt.ylim(-1000,3000)
+    if len(arduinoTrialTime)>segPlot+5:
+        plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
+    elif len(arduinoTrialTime)<=segPlot+1:
+        plt.xlim(0,12)
+    plt.ylabel('position')
+    plt.xlabel('time since trial start (sec)')
+
+
+    plt.subplot(2,2,3)
+    lG=plt.plot(arduinoTrialTime[-segPlot:-1],detected_licks[-segPlot:-1],'b-')
+    plt.ylim(-1,3)
+    if len(arduinoTrialTime)>segPlot+2:
+        plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
+    elif len(arduinoTrialTime)<=segPlot+1:
+        plt.xlim(0,12)
+    plt.ylabel('licks (binary)')
+    plt.xlabel('time since trial start (sec)')
+
+    plt.subplot(2,2,2)
+    lC=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
+    lD=plt.plot(stateDiagX[currentState],stateDiagY[currentState],'go',markersize=lrMrk)
+    plt.ylim(0,10)
+    plt.xlim(0,10)
+    plt.title(currentTrial)
+
+
+
+
+    plt.pause(pltDelay)
+    lA.pop(0).remove()
+    lC.pop(0).remove()
+    lD.pop(0).remove()
+    lG.pop(0).remove()
 
 
 # ~~~~~~~~~> (End) Plotting Variables
@@ -231,16 +237,26 @@ dPos=float(0)
 
 
 # ----- (Start) S2 Variables
-distThr=5000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
+distThr=1000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
 
 
 # ~~~~~~~~~> (End) S2 Variables
+
 
 #----------------------------------------------------------------------------------------------------
 
 # # # # # # # # # # # # # # # # # # # # # # # # 
 # This is the task block                      #
 # # # # # # # # # # # # # # # # # # # # # # # #
+
+root = tk.Tk()
+
+button1 = tk.Button(root, command=funA)
+button1.pack()
+button2 = tk.Button(root, command=funB)
+button2.pack()
+button3 = tk.Button(root, command=funC)
+button3.pack()
 
 # Start serial communication
 arduino = serial.Serial(comPort, baudRate) #Creating our serial object named arduinoData
@@ -636,19 +652,10 @@ while currentTrial<=totalTrials:
         # ----------------- (S13: save state)
         elif currentState==13:
             print('in state 13; saving your bacon') # debug
-            savedata(saveList)
-            if currentTrial>1:
-                linesE.pop(0).remove()
-            plt.subplot(3,3,6)
-            linesE=plt.plot(lickDeltas,'r-')
-            plt.ylim(20,100)
-            plt.ylabel('lick sensor val')
-            plt.xlabel('sample number')
-
-            plt.pause(pltDelay)
-
+            savedata([arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
             # clean up plot data (memory managment)
             print('lickThr= {}'.format(lickThr[0]))
+            print('mean dt = {}'.format(np.mean(np.diff(arduinoTrialTime))))
             cleanContainers()
             currentTrial=currentTrial+1
             print('trial done')
@@ -662,7 +669,7 @@ while currentTrial<=totalTrials:
         print('EXCEPTION: peace out bitches')
         print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
         arduino.write(struct.pack('>B', 0))
-        savedata(saveList)
+        savedata([arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
         print('save was a success; now I will close com port and quit')
         arduino.close()
         cleanContainers()
