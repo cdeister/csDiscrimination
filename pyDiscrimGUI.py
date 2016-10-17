@@ -187,7 +187,6 @@ class pyDiscrim_mainGUI:
         self.detected_licks=[]
 
     def parseData(self):            #todo: this should be part of data class (and a rational function)
-        print('always be parsing') #debug
         self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000))  
         self.positions.append(float(self.sR[self.streamNum_position]))
         self.currentState=int(self.sR[self.streamNum_state])
@@ -195,8 +194,6 @@ class pyDiscrim_mainGUI:
         self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
         self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
         self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000))
-        print(self.arStates) #debug
-        print('you know it') #debug
 
     def updateLickThresholds(self):
         tA=np.abs(np.array(self.lickDeltas))
@@ -213,19 +210,13 @@ class pyDiscrim_mainGUI:
         # keeps the program cranking while you wait for the MC to update state after a python driven change.
         # !!!!! messes with global variables
         # maintState is the state you are maintaining (the one you are in)
-        print('maintaining')    #todo: debug
         self.maintState=maintState
-        while self.currentState==self.maintState:
-            print('in maint while')        
+        while self.currentState==self.maintState:      
             self.stateIt=0  
             self.readData()
-            print('in maint sR ok={}'.format(self.sR))
-            print('curS={}'.format(int(self.sR[self.streamNum_state])))
             self.currentState=int(self.sR[self.streamNum_state])
-            print('in maint cur state={}'.format(self.currentState))    
 
     def updatePosPlot(self): # todo: organize this better (should be its own class I think)
-        print('made it to gui update')
         self.segPlot=300
         self.pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
         self.stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
@@ -237,10 +228,9 @@ class pyDiscrim_mainGUI:
         self.positionMax=3000;
         self.lickMin=0
         self.lickMax=30
-        print('made it past gui variable')
 
         plt.subplot(2,2,1)
-        lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.positions[-self.segPlot:-1],'k-')
+        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.positions[-self.segPlot:-1],'k-')
         plt.ylim(-1000,3000)
         if len(self.arduinoTrialTime)>self.segPlot+5:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
@@ -250,28 +240,30 @@ class pyDiscrim_mainGUI:
         plt.xlabel('time since trial start (sec)')
 
 
-        plt.subplot(2,2,3)
-        lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'b-')
-        plt.ylim(-1,3)
-        if len(self.arduinoTrialTime)>self.segPlot+2:
-            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        elif len(self.arduinoTrialTime)<=self.segPlot+1:
-            plt.xlim(0,12)
-        plt.ylabel('licks (binary)')
-        plt.xlabel('time since trial start (sec)')
+        # plt.subplot(2,2,3)
+        # print('want to make lg')
+        # #self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'b-')
+        # print('made lg')
+        # plt.ylim(-1,3)
+        # if len(self.arduinoTrialTime)>self.segPlot+2:
+        #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        # elif len(self.arduinoTrialTime)<=self.segPlot+1:
+        #     plt.xlim(0,12)
+        # plt.ylabel('licks (binary)')
+        # plt.xlabel('time since trial start (sec)')
 
         plt.subplot(2,2,2)
-        lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
-        lD=plt.plot(self.stateDiagX[self.currentState],self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
+        self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
+        self.lD=plt.plot(self.stateDiagX[self.currentState],self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
         plt.ylim(0,10)
         plt.xlim(0,10)
         plt.title(self.currentTrial)
 
         plt.pause(self.pltDelay)
-        lA.pop(0).remove()
-        lC.pop(0).remove()
-        lD.pop(0).remove()
-        lG.pop(0).remove()
+        self.lA.pop(0).remove()
+        self.lC.pop(0).remove()
+        self.lD.pop(0).remove()
+        # self.lG.pop(0).remove()
 
     def initTaskProbs(self):
         self.stimTask1_Prob=0.5
@@ -293,8 +285,7 @@ class pyDiscrim_mainGUI:
         self.readDataFlush()
 
     def generic_InitState(self):
-        #self.parseData()
-        print('in state {}'.format(self.descrState))
+        print('in state init {}'.format(self.descrState))
         self.cycleCount=1
         self.stateIt=1
 
@@ -304,9 +295,7 @@ class pyDiscrim_mainGUI:
         self.cycleCount=0
 
     def conditionBlock_s1(self):
-        print('cB1')
         if self.arduinoTime[-1]>2:  #todo: make this a variable
-            print('cb1->t')
             self.dPos=abs(self.positions[-1]-self.positions[-2])
             
             if self.dPos>self.movThr and self.stillLatch==1:
@@ -323,8 +312,6 @@ class pyDiscrim_mainGUI:
                 self.comObj.write(struct.pack('>B', 2))
                 print('Still! ==> Out of wait')
                 self.waitForStateToUpdateOnTarget(1)
-        elif self.arduinoTime[-1]<=2:
-            print('no')
 
     def conditionBlock_s2(self):
         # if stimSwitch is less than task1's probablity then send to task #1
@@ -410,7 +397,7 @@ class pyDiscrim_mainGUI:
         self.initTaskProbs()
 
         # plotting variables
-        self.uiUpdateDelta=20
+        self.uiUpdateDelta=5
         print(self.uiUpdateDelta)
         
         # Start the task (will iterate through trials)
@@ -418,7 +405,6 @@ class pyDiscrim_mainGUI:
             try:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==0:
-                    print('state0')
                     self.generic_StateHeader(self.currentState)
                     self.readDataFlush()
 
@@ -430,10 +416,8 @@ class pyDiscrim_mainGUI:
                         self.ttd=abs(self.tt1[1]-self.tt1[0])
                         self.tt1[0]=self.tt1[1]
                         self.tt1[1]=float(int(self.sR[self.streamNum_time])/1000)
-                        print('ttd={}'.format(self.ttd))
                         if self.ttd<0.1:
                             self.lowDelta=self.lowDelta+1
-                            print('sld={}'.format(self.lowDelta))
                             if self.lowDelta>20:
                                 print('should be good; will take you to wait state (S1)')
                                 self.comObj.write(struct.pack('>B', 1))
@@ -448,23 +432,13 @@ class pyDiscrim_mainGUI:
                     if self.sR[self.streamNum_header]=='data':
                         # then just crank
                         self.parseData()
-                        print('just parsed after truth')
                         if self.stateIt==0:     
                             self.generic_InitState()
-                            print('just generic init')
                             #also, anything specific
-                            print('cycC={}'.format(self.cycleCount))
-                            print(self.uiUpdateDelta)
                         if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            print('just confirmed truth2')
-                            print('just called ui')
                             self.updatePlotCheck()
-                            print('just finished ui')
-
                         self.conditionBlock_s1()
-                        
                         self.cycleCount=self.cycleCount+1;
-                        print(self.cycleCount)
 
                 #S2 -----> trial initiation state
                 elif self.currentState==2:
@@ -481,7 +455,7 @@ class pyDiscrim_mainGUI:
                             self.updatePlotCheck()
 
                         self.conditionBlock_s2()
-                        cycleCount=cycleCount+1;
+                        self.cycleCount=self.cycleCount+1;
 
                 #S3 -----> stim task #1 cue
                 elif self.currentState==3:
