@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-#import matplotlib.pyplot as plt
 import time
 import datetime
 import random
@@ -13,42 +12,13 @@ import struct
 
 ## Globals
 animalString = 'testAnimal'
-
-# session variables
-totalTrials=10
-stimTask1_Prob=0.5
-positive1_Prob=0.5
-positive2_Prob=0.5
-
-# plotting variables
-uiUpdateDelta=5
-segPlot=300
-pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
-
-# lick detection vars
-lickThr=[12,12]
-lickMinMax=[-5,10]
-
-dPos=float(0)
-
-# ~~~~~~~~~> (End) Plotting Variables
-
-# ----- (Start) S1 Variables
-# user variable
 movThr=40       # in position units (The minimum ammount of movement allowed)
 movTimeThr=2    # in seconds (The time the mouse must be still)
-
-
 # initialization
 stillTime=float(0)
 stillLatch=0
 stillTimeStart=float(0)
 dPos=float(0)
-
-# ~~~~~~~~~> (End) S1 Variables
-
-
-# ----- (Start) S2 Variables
 distThr=1000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -67,7 +37,7 @@ detected_licks=[]
 # session variables (user won't change)
 currentTrial=1
 currentState=0
-lowDelta=0              # for handshake (todo: clean up)
+totalTrials=10
 
 
 # These are variables that can change if the task is altered.
@@ -105,12 +75,12 @@ class pyDiscrim_mainGUI:
         self.comPath=StringVar(master)
         self.comEntry = Entry(master,width=20,textvariable=self.comPath)
         self.comEntry.grid(row=2, column=0)
-        self.comPath.set('/dev/cu.usbmodem1421')
+        self.comPath.set('/dev/cu.usbmodem1411')
 
-        self.greet_button = Button(master, text="Greet", command=self.greet)
-        self.greet_button.grid(row=3, column=0)
+        self.createCom_button = Button(master, text="Start Serial", command=self.initComObj)
+        self.createCom_button.grid(row=3, column=0)
 
-        self.close_button = Button(master, text="Close", command=self.closeComObj)
+        self.close_button = Button(master, text="Close Serial", command=self.closeComObj)
         self.close_button.grid(row=4, column=0)
         self.close_button.config(state=DISABLED)
 
@@ -156,18 +126,26 @@ class pyDiscrim_mainGUI:
         self.s13_button.grid(row=6, column=3)
         self.s13_button.config(state=DISABLED)
 
+        self.currentTrial=1
+        self.currentState=0
+        self.totalTrials=10
+        self.dPos=float(0)
 
-    def greet(self):
+
+    def initComObj(self):
+        self.comObj
         print('Opening serial port')
         # Start serial communication
-        comObj = serial.Serial(self.comPath.get(), self.baudSelected.get()) #Creating our serial object named arduinoData
+        self.comObj = serial.Serial(self.comPath.get(), self.baudSelected.get()) #Creating our serial object named arduinoData
         # just in case we left it in a weird state lets flip back to the init state 0
-        comObj.write(struct.pack('>B', 0))
+        self.comObj.write(struct.pack('>B', 0)) # todo: init state should be abstracted
+        print(self.baudSelected.get())  #debug
+        print(type(arduino))            #debug
+
+        # update the GUI
         self.close_button.config(state=NORMAL)
         self.quit_button.config(state=DISABLED)
-        print(self.baudSelected.get())
-        print(type(comObj))
-        self.greet_button.config(state=NORMAL)
+        self.createCom_button.config(state=NORMAL)
         self.comEntry.config(state=NORMAL)
         self.baudPick.config(state=NORMAL)
         self.s0_button.config(state=NORMAL)
@@ -179,94 +157,77 @@ class pyDiscrim_mainGUI:
         self.s6_button.config(state=NORMAL)
         self.s7_button.config(state=NORMAL)
         self.s13_button.config(state=NORMAL)
-        return comObj
 
-    def switchState(self,comObj,stateNumber):
-        print(stateNumber)
-        comObj.write(struct.pack('>B', stateNumber))
+    def switchState(self,selectedStateNumber):
+        self.selectedStateNumber=selectedStateNumber
+        print(selectedStateNumber)
+        self.comObj.write(struct.pack('>B', selectedStateNumber))
 
 
-    def closeComObj(self,comObj):
-        comObj.write(struct.pack('>B', 0))
-        comObj.close()
+    def closeComObj(self):
+        self.comObj.write(struct.pack('>B', 0)) #todo: abstract init state
+        self.comObj.close()
         exit()
 
-    def simpleQuit(self):
-        print('audi 5k')
+    def simpleQuit(self):  #todo: finish this
+        print('audi 5k')    #debug
         exit()
 
-    def saveQuit(self,comObj):
-        savedata(self,[arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
-        comObj.write(struct.pack('>B', 0))
-        comObj.close()
+    def saveQuit(self):
+        self.comObj.write(struct.pack('>B', 0))
+        self.comObj.close()
         exit()
 
-    def savedata(self,dataList):
-        exportArray=np.array(dataList)
-        np.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
+    def makeContainers(self):           #todo: this should be part of data class
+        self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
+        self.arStates=[]             # Store the state the arduino thinks it is in.
+        self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
+        self.lickValues=[]
+        self.lickDeltas=[]
+        self.arduinoTrialTime=[]
+        self.detected_licks=[]
 
-    def parseData(self):
-        global currentState
-        global arduinoTime
-        global positions
-        global arStates
-        global lickValues
-        global lickDeltas
-        global arduinoTrialTime
-        global detected_licks
+    def parseData(self):            #todo: this should be part of data class (and a rational function)
+        self.streamNum_header=0          #todo: this is obvious jank
+        self.streamNum_time=1
+        self.streamNum_position=2
+        self.streamNum_state=3
+        self.streamNum_lickSensor=4
+        self.streamNum_lickDeriv=5
+        self.streamNum_trialTime=6
+        self.arduinoTime.append(float(int(cR[streamNum_time])/1000))  
+        self.positions.append(float(cR[streamNum_position]))
+        self.currentState=int(cR[streamNum_state])
+        self.arStates.append(currentState)
+        self.lickValues.append(int(cR[streamNum_lickSensor]))
+        self.lickDeltas.append(int(cR[streamNum_lickDeriv]))
+        self.arduinoTrialTime.append(float(int(cR[streamNum_trialTime])/1000))
 
-        arduinoTime.append(float(int(cR[streamNum_time])/1000))
-        positions.append(float(cR[streamNum_position]))
-        currentState=int(cR[streamNum_state])
-        arStates.append(currentState)
-        lickValues.append(int(cR[streamNum_lickSensor]))
-        lickDeltas.append(int(cR[streamNum_lickDeriv]))
-        arduinoTrialTime.append(float(int(cR[streamNum_trialTime])/1000))
-
-        if lickDeltas[-1]>lickThr[0]:
-            detected_licks.append(2)
-        elif lickDeltas[-1]<=lickThr[0]:
-            detected_licks.append(0)
+        self.lickThr=[12,12]            #todo: ugh look away
+        self.lickMinMax=[-5,10]
+        if self.lickDeltas[-1]>self.lickThr[0]:
+            self.detected_licks.append(2)
+        elif self.lickDeltas[-1]<=self.lickThr[0]:
+            self.detected_licks.append(0)
 
 
-    def cleanContainers(self):
-        global arduinoTime
-        global positions
-        global arStates
-        global lickValues
-        global lickDeltas
-        global arduinoTrialTime
-        global detected_licks
-        arduinoTime=[]
-        positions=[]
-        arStates=[]
-        lickValues=[]
-        lickDeltas=[]
-        arduinoTrialTime=[]
-        detected_licks=[]
+    def readData(self):
+        self.sR=self.comObj.readline().strip().decode()
+        self.sR=self.sR.split(',')
 
-    def readDataFlush(self,comObj):
-        comObj.flush()
-        sR=comObj.readline().strip().decode()
-        sR=sR.split(',')
-        return sR
-
-    def readData(self,comObj):
-        sR=comObj.readline().strip().decode()
-        sR=sR.split(',')
-        return sR
-
-    def waitForStateToUpdateOnTarget(self,comObj,maintState):
+    def waitForStateToUpdateOnTarget(self,maintState):   #todo: This reference to cR is dangerous
         # keeps the program cranking while you wait for the MC to update state after a python driven change.
         # !!!!! messes with global variables
         # maintState is the state you are maintaining (the one you are in)
-        global currentState
-        global stateIt
-        global cR
-        while currentState==maintState:
-                    stateIt=0
-                    cR=readData(comObj)
-                    currentState=int(cR[streamNum_state]) 
+
+        self.maintState=maintState
+        self.currentState
+        self.stateIt
+        self.sR
+        while self.currentState==self.maintState:
+                    self.stateIt=0  
+                    self.sR=self.readData()
+                    self.currentState=int(self.sR[self.streamNum_state]) 
 
 
     #----------------------------------------------------------------------------------------------------
@@ -276,34 +237,38 @@ class pyDiscrim_mainGUI:
     # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-    def updatePosPlot(self): # todo: organize this better
-        stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
-        stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
-        smMrk=10
-        lrMrk=20
-        stateIt=0;
-        postionMin=-1000;
-        positionMax=3000;
-        lickMin=0
-        lickMax=30
+    def updatePosPlot(self): # todo: organize this better (should be its own class I think)
+        self.segPlot=300
+        self.pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
+        self.stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
+        self.stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
+        self.smMrk=10
+        self.lrMrk=20
+        self.stateIt=0;
+        self.postionMin=-1000;
+        self.positionMax=3000;
+        self.lickMin=0
+        self.lickMax=30
+
+
 
         plt.subplot(2,2,1)
-        lA=plt.plot(arduinoTrialTime[-segPlot:-1],positions[-segPlot:-1],'k-')
+        lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.positions[-self.segPlot:-1],'k-')
         plt.ylim(-1000,3000)
-        if len(arduinoTrialTime)>segPlot+5:
-            plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
-        elif len(arduinoTrialTime)<=segPlot+1:
+        if len(self.arduinoTrialTime)>self.segPlot+5:
+            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        elif len(self.arduinoTrialTime)<=self.segPlot+1:
             plt.xlim(0,12)
         plt.ylabel('position')
         plt.xlabel('time since trial start (sec)')
 
 
         plt.subplot(2,2,3)
-        lG=plt.plot(arduinoTrialTime[-segPlot:-1],detected_licks[-segPlot:-1],'b-')
+        lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'b-')
         plt.ylim(-1,3)
-        if len(arduinoTrialTime)>segPlot+2:
-            plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
-        elif len(arduinoTrialTime)<=segPlot+1:
+        if len(self.arduinoTrialTime)>self.segPlot+2:
+            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        elif len(arduinoTrialTime)<=self.segPlot+1:
             plt.xlim(0,12)
         plt.ylabel('licks (binary)')
         plt.xlabel('time since trial start (sec)')
@@ -322,22 +287,72 @@ class pyDiscrim_mainGUI:
         lG.pop(0).remove()
 
 
-
-    # ~~~~~~~~~> (End) S2 Variables
-
     def runTask(self):
+        ## Globals
+        global animalString
+        global lickThr
+        global lickMinMax
+        global movThr
+        global movTimeThr
+        global stillTime
+        global stillLatch
+        global stillTimeStart
+        global dPos
+        global distThr
+        global positions
+        global arStates
+        global arduinoTime
+        global lickValues
+        global lickDeltas
+        global arduinoTrialTime
+        global detected_licks
+        global currentTrial
+        global currentState
+        global streamNum_header
+        global streamNum_time
+        global streamNum_position
+        global streamNum_state
+        global streamNum_lickSensor
+        global streamNum_lickDeriv
+        global streamNum_trialTime
+        global tt1
+        global dateStr
+        global totalTrials
+
+        # session variables
+        stimTask1_Prob=0.5
+        positive1_Prob=0.5
+        positive2_Prob=0.5
+        lowDelta=0 # for handshake (todo: clean up)
+
+        # plotting variables
+        uiUpdateDelta=5
+
+        def readDataFlush(self):
+        print('l1')
+        global arduino
+        arduino.flush()
+        sR=arduino.readline().strip().decode()
+        sR=sR.split(',')
+        return sR
+
         # Start the task (will iterate through trials)
         while currentTrial<=totalTrials:
             try:
                 #S0 -----> hand shake (initialization state)
+                print('start; current = {}'.format(currentState))
+
                 if currentState==0:
-                    cR=readDataFlush(arduino)
+                    print('going to flush')
+                    cR=readDataFlush(self)
+                    print('just flushed')
+
                     if cR[streamNum_header]=='data':
                         if stateIt==0:
                             print('found some dope shit on rx')
                             print('... wait while I make sure it''s ready')
                             stateIt=1
-                            updatePosPlot()
+                            updatePosPlot(self)
 
                         ttd=abs(tt1[1]-tt1[0])
                         tt1[0]=tt1[1]
@@ -347,7 +362,7 @@ class pyDiscrim_mainGUI:
                             if lowDelta>600:
                                 print('should be good; will take you to wait state (S1)')
                                 arduino.write(struct.pack('>B', 1))
-                                waitForStateToUpdateOnTarget(0)
+                                waitForStateToUpdateOnTarget(self,arduino,0)
 
                 #S1 -----> trial wait state
                 #
@@ -356,9 +371,9 @@ class pyDiscrim_mainGUI:
                 #
                 elif currentState==1:
                     # general state code
-                    cR=readDataFlush(arduino)
+                    cR=readDataFlush(self,arduino)
                     if cR[streamNum_header]=='data':
-                        parseData()
+                        parseData(self)
 
                         # we do certain things if we just entered, this is the flag for that.
                         if stateIt==0:
@@ -371,7 +386,7 @@ class pyDiscrim_mainGUI:
                             lickThr = np.percentile(tA[np.where(tA != 0)[0]],[75,95])
                             #del tA
                             lickMinMax=[min(lickDeltas),max(lickDeltas)]
-                            updatePosPlot()
+                            updatePosPlot(self)
                             cycleCount=0
 
                         # S1 conditionals
@@ -392,7 +407,7 @@ class pyDiscrim_mainGUI:
                             if stillLatch==1 and stillTime>1:
                                 arduino.write(struct.pack('>B', 2))
                                 print('Still! ==> Out of wait')
-                                waitForStateToUpdateOnTarget(1)
+                                waitForStateToUpdateOnTarget(self,arduino,1)
                         
                         cycleCount=cycleCount+1;
 
@@ -403,9 +418,9 @@ class pyDiscrim_mainGUI:
                 # exit contisions: needs to wait for a cue then walk some distance
                 #
                 elif currentState==2:
-                    cR=readDataFlush(arduino)
+                    cR=readDataFlush(self,arduino)
                     if cR[0]=='data':
-                        parseData()
+                        parseData(self)
                         if stateIt==0:
                             print('in state 2')
                             cycleCount=1;
@@ -417,29 +432,29 @@ class pyDiscrim_mainGUI:
                             lickThr = np.percentile(tA[np.where(tA > 0)[0]],[75,95])
                             #del tA
                             lickMinMax=[min(lickDeltas),max(lickDeltas)]
-                            updatePosPlot()
+                            updatePosPlot(self)
                             cycleCount=0
 
                         # if stimSwitch is less than task1's probablity then send to task #1
                         if positions[-1]>distThr and stimSwitch<=stimTask1_Prob:
                             arduino.write(struct.pack('>B', 3))
                             print('moving spout; cueing stim task #1')
-                            waitForStateToUpdateOnTarget(2)
+                            waitForStateToUpdateOnTarget(self,arduino,2)
 
                         # if stimSwitch is more than task1's probablity then send to task #2
                         elif positions[-1]>distThr and stimSwitch>stimTask1_Prob:
                             arduino.write(struct.pack('>B', 4))
                             print('moving spout; cueing stim task #2')
-                            waitForStateToUpdateOnTarget(2)
+                            waitForStateToUpdateOnTarget(self,arduino,2)
 
                         cycleCount=cycleCount+1;
 
 
                 #S3 -----> stim task #1 cue
                 elif currentState==3:
-                    cR=readDataFlush(arduino)
+                    cR=readDataFlush(self,arduino)
                     if cR[0]=='data':
-                        parseData()
+                        parseData(self)
                         if stateIt==0:
                             print('in state 3; stim task #1')
                             cycleCount=1;
@@ -447,7 +462,7 @@ class pyDiscrim_mainGUI:
                             outcomeSwitch=random.random()
 
                         if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot()
+                            updatePosPlot(self)
                             cycleCount=0
 
 
@@ -472,29 +487,23 @@ class pyDiscrim_mainGUI:
                                 if outcomeSwitch<=positive1_Prob:
                                     arduino.write(struct.pack('>B', 5))
                                     print('will play dulcet tone')
-                                    while currentState==3:
-                                        stateIt=0
-                                        cR=readData(arduino)
-                                        currentState=int(cR[streamNum_state])
+                                    waitForStateToUpdateOnTarget(self,arduino,3)
 
 
                                 # if stimSwitch is more than task1's probablity then send to task #2
                                 elif outcomeSwitch>positive1_Prob:
                                     arduino.write(struct.pack('>B', 6))
                                     print('will play ominous tone')
-                                    while currentState==3: # todo: can make these calls a function
-                                        stateIt=0
-                                        cR=readData(arduino)
-                                        currentState=int(cR[streamNum_state])
+                                    waitForStateToUpdateOnTarget(self,arduino,3)
 
                         cycleCount=cycleCount+1;
 
 
                 #S4 -----> stim task #2 cue
                 elif currentState==4:
-                    cR=readDataFlush(arduino)
+                    cR=readDataFlush(self,arduino)
                     if cR[0]=='data':
-                        parseData()
+                        parseData(self)
 
                         if stateIt==0:
                             print('in state 4; stim task #2')
@@ -503,7 +512,7 @@ class pyDiscrim_mainGUI:
                             outcomeSwitch=random.random()
 
                         if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot()
+                            updatePosPlot(self)
                             cycleCount=0
 
                         # S1 conditionals
@@ -527,29 +536,23 @@ class pyDiscrim_mainGUI:
                                 if outcomeSwitch<=positive1_Prob:
                                     arduino.write(struct.pack('>B', 7))
                                     print('will play dulcet tone')
-                                    while currentState==4:
-                                        stateIt=0
-                                        cR=readData(arduino)
-                                        currentState=int(cR[streamNum_state])
+                                    waitForStateToUpdateOnTarget(self,arduino,4)
 
 
                                 # if stimSwitch is more than task1's probablity then send to task #2
                                 elif outcomeSwitch>positive1_Prob:
                                     arduino.write(struct.pack('>B', 8))
                                     print('will play ominous tone')
-                                    while currentState==4: # todo: can make these calls a function
-                                        stateIt=0
-                                        cR=readData(arduino)
-                                        currentState=int(cR[streamNum_state])
+                                    waitForStateToUpdateOnTarget(self,arduino,4)
                                 
 
                         cycleCount=cycleCount+1;
 
                 #S5 -----> pos tone
                 elif currentState==5:
-                    cR=readDataFlush(arduino)
+                    cR=readDataFlush(self,arduino)
                     if cR[0]=='data':
-                        parseData()
+                        parseData(self)
 
                         if stateIt==0:
                             print('in state 5; playing something good')
@@ -557,7 +560,7 @@ class pyDiscrim_mainGUI:
                             stateIt=1;
 
                         if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot()
+                            updatePosPlot(self)
                             cycleCount=0
 
                         # S1 conditionals
@@ -581,16 +584,16 @@ class pyDiscrim_mainGUI:
                                 print('off to save')
                                 while currentState==5:
                                     stateIt=0
-                                    cR=readData(arduino)
+                                    cR=readData(self,arduino)
                                     currentState=int(cR[streamNum_state])
 
                         cycleCount=cycleCount+1;
 
                 #S6 -----> neg tone
                 elif currentState==6:
-                    cR=readDataFlush(arduino)
+                    cR=readDataFlush(self,arduino)
                     if cR[0]=='data':
-                        parseData()
+                        parseData(self)
 
                         if stateIt==0:
                             print('in state 6; playing something bad')
@@ -598,7 +601,7 @@ class pyDiscrim_mainGUI:
                             stateIt=1;
 
                         if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot()
+                            updatePosPlot(self)
                             cycleCount=0
 
                         # S1 conditionals
@@ -622,7 +625,7 @@ class pyDiscrim_mainGUI:
                                 print('off to save')
                                 while currentState==6:
                                     stateIt=0
-                                    cR=readData(arduino)
+                                    cR=readData(self,arduino)
                                     currentState=int(cR[streamNum_state])
 
                         cycleCount=cycleCount+1;
@@ -718,23 +721,36 @@ class pyDiscrim_mainGUI:
                     # clean up plot data (memory managment)
                     print('lickThr= {}'.format(lickThr[0]))
                     print('mean dt = {}'.format(np.mean(np.diff(arduinoTrialTime))))
-                    cleanContainers()
+                    arduinoTime=[]
+                    positions=[]
+                    arStates=[]
+                    lickValues=[]
+                    lickDeltas=[]
+                    arduinoTrialTime=[]
+                    detected_licks=[]
                     currentTrial=currentTrial+1
                     print('trial done')
                     arduino.write(struct.pack('>B', 1))
                     while currentState==13:
                         stateIt=0
-                        cR=readData(arduino)
+                        cR=readData(self,arduino)
                         currentState=int(cR[streamNum_state])          
             except:
                 print(dPos)
                 print('EXCEPTION: peace out bitches')
                 print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
                 arduino.write(struct.pack('>B', 0))
-                savedata([arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
+                exportArray=np.array([arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
+                np.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
                 print('save was a success; now I will close com port and quit')
                 arduino.close()
-                cleanContainers()
+                arduinoTime=[]
+                positions=[]
+                arStates=[]
+                lickValues=[]
+                lickDeltas=[]
+                arduinoTrialTime=[]
+                detected_licks=[]
                 exit()
 
 
@@ -743,7 +759,6 @@ class pyDiscrim_mainGUI:
         arduino.write(struct.pack('>B', 0))
         arduino.close()
         exit()
-
 
 
 root = Tk()
