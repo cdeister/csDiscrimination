@@ -10,53 +10,6 @@ import random
 import math
 import struct
 
-## Globals
-animalString = 'testAnimal'
-movThr=40       # in position units (The minimum ammount of movement allowed)
-movTimeThr=2    # in seconds (The time the mouse must be still)
-# initialization
-stillTime=float(0)
-stillLatch=0
-stillTimeStart=float(0)
-dPos=float(0)
-distThr=1000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# initialize data containers and session Variables  #
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# containers
-positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
-arStates=[]             # Store the state the arduino thinks it is in.
-arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
-lickValues=[]
-lickDeltas=[]
-arduinoTrialTime=[]
-detected_licks=[]
-
-# session variables (user won't change)
-currentTrial=1
-currentState=0
-totalTrials=10
-
-
-# These are variables that can change if the task is altered.
-# We name the data streams so that we can change their order easier if needed. 
-# They are position indicides that we use to parse the serial lines. 
-streamNum_header=0
-streamNum_time=1
-streamNum_position=2
-streamNum_state=3
-streamNum_lickSensor=4
-streamNum_lickDeriv=5
-streamNum_trialTime=6
-tt1=[float(1),float(2)]
-
-# # # # # # # # # # # # # # # # # # # # # # # # 
-# Functions and Dynamic Variables             #
-# # # # # # # # # # # # # # # # # # # # # # # #
-dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
-
 
 
 class pyDiscrim_mainGUI:
@@ -130,17 +83,47 @@ class pyDiscrim_mainGUI:
         self.currentState=0
         self.totalTrials=10
         self.dPos=float(0)
+        self.lickThr=[12,12]            #todo: ugh look away
+        self.lickMinMax=[-5,10]
 
+        ## Globals
+        self.animalString = 'testAnimal'
+        self.movThr=40       # in position units (The minimum ammount of movement allowed)
+        self.movTimeThr=2    # in seconds (The time the mouse must be still)
+        # initialization
+        self.stillTime=float(0)
+        self.stillLatch=0
+        self.stillTimeStart=float(0)
+        self.distThr=1000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
+
+
+
+        # session variables (user won't change)
+        self.currentTrial=1
+        self.currentState=0
+        self.totalTrials=10
+        self.lowDelta=0
+        self.stateIt=0;
+
+
+        self.tt1=[float(1),float(2)]
+
+        # # # # # # # # # # # # # # # # # # # # # # # # 
+        # Functions and Dynamic Variables             #
+        # # # # # # # # # # # # # # # # # # # # # # # #
+        self.dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
     def initComObj(self):
-        self.comObj
         print('Opening serial port')
         # Start serial communication
         self.comObj = serial.Serial(self.comPath.get(), self.baudSelected.get()) #Creating our serial object named arduinoData
         # just in case we left it in a weird state lets flip back to the init state 0
         self.comObj.write(struct.pack('>B', 0)) # todo: init state should be abstracted
         print(self.baudSelected.get())  #debug
-        print(type(arduino))            #debug
+        print(type(self.comObj))
+        self.readData()
+        print(self.sR)
+
 
         # update the GUI
         self.close_button.config(state=NORMAL)
@@ -160,9 +143,9 @@ class pyDiscrim_mainGUI:
 
     def switchState(self,selectedStateNumber):
         self.selectedStateNumber=selectedStateNumber
-        print(selectedStateNumber)
+        print(self.selectedStateNumber)
+        self.currentState=self.selectedStateNumber
         self.comObj.write(struct.pack('>B', selectedStateNumber))
-
 
     def closeComObj(self):
         self.comObj.write(struct.pack('>B', 0)) #todo: abstract init state
@@ -186,8 +169,6 @@ class pyDiscrim_mainGUI:
         self.lickDeltas=[]
         self.arduinoTrialTime=[]
         self.detected_licks=[]
-
-    def parseData(self):            #todo: this should be part of data class (and a rational function)
         self.streamNum_header=0          #todo: this is obvious jank
         self.streamNum_time=1
         self.streamNum_position=2
@@ -195,49 +176,56 @@ class pyDiscrim_mainGUI:
         self.streamNum_lickSensor=4
         self.streamNum_lickDeriv=5
         self.streamNum_trialTime=6
-        self.arduinoTime.append(float(int(cR[streamNum_time])/1000))  
-        self.positions.append(float(cR[streamNum_position]))
-        self.currentState=int(cR[streamNum_state])
-        self.arStates.append(currentState)
-        self.lickValues.append(int(cR[streamNum_lickSensor]))
-        self.lickDeltas.append(int(cR[streamNum_lickDeriv]))
-        self.arduinoTrialTime.append(float(int(cR[streamNum_trialTime])/1000))
 
-        self.lickThr=[12,12]            #todo: ugh look away
-        self.lickMinMax=[-5,10]
+    def cleanContainers(self):           #todo: this should be part of data class
+        self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
+        self.arStates=[]             # Store the state the arduino thinks it is in.
+        self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
+        self.lickValues=[]
+        self.lickDeltas=[]
+        self.arduinoTrialTime=[]
+        self.detected_licks=[]
+
+    def parseData(self):            #todo: this should be part of data class (and a rational function)
+        print('always be parsing') #debug
+        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000))  
+        self.positions.append(float(self.sR[self.streamNum_position]))
+        self.currentState=int(self.sR[self.streamNum_state])
+        self.arStates.append(self.currentState)
+        self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
+        self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
+        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000))
+        print(self.arStates) #debug
+        print('you know it') #debug
+
+    def updateLickThresholds(self):
+        tA=np.abs(np.array(self.lickDeltas))
+        self.lickThr = np.percentile(tA[np.where(tA != 0)[0]],[75,95])
+        self.lickMinMax=[min(self.lickDeltas),max(self.lickDeltas)]
+
+    def lickDetect(self):
         if self.lickDeltas[-1]>self.lickThr[0]:
             self.detected_licks.append(2)
         elif self.lickDeltas[-1]<=self.lickThr[0]:
             self.detected_licks.append(0)
 
-
-    def readData(self):
-        self.sR=self.comObj.readline().strip().decode()
-        self.sR=self.sR.split(',')
-
-    def waitForStateToUpdateOnTarget(self,maintState):   #todo: This reference to cR is dangerous
+    def waitForStateToUpdateOnTarget(self,maintState): 
         # keeps the program cranking while you wait for the MC to update state after a python driven change.
         # !!!!! messes with global variables
         # maintState is the state you are maintaining (the one you are in)
-
+        print('maintaining')    #todo: debug
         self.maintState=maintState
-        self.currentState
-        self.stateIt
-        self.sR
         while self.currentState==self.maintState:
-                    self.stateIt=0  
-                    self.sR=self.readData()
-                    self.currentState=int(self.sR[self.streamNum_state]) 
-
-
-    #----------------------------------------------------------------------------------------------------
-
-    # # # # # # # # # # # # # # # # # # # # # # # # 
-    # Plotting Specific Stuff                     #
-    # # # # # # # # # # # # # # # # # # # # # # # #
-
+            print('in maint while')        
+            self.stateIt=0  
+            self.readData()
+            print('in maint sR ok={}'.format(self.sR))
+            print('curS={}'.format(int(self.sR[self.streamNum_state])))
+            self.currentState=int(self.sR[self.streamNum_state])
+            print('in maint cur state={}'.format(self.currentState))    
 
     def updatePosPlot(self): # todo: organize this better (should be its own class I think)
+        print('made it to gui update')
         self.segPlot=300
         self.pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
         self.stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
@@ -249,8 +237,7 @@ class pyDiscrim_mainGUI:
         self.positionMax=3000;
         self.lickMin=0
         self.lickMax=30
-
-
+        print('made it past gui variable')
 
         plt.subplot(2,2,1)
         lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.positions[-self.segPlot:-1],'k-')
@@ -268,496 +255,371 @@ class pyDiscrim_mainGUI:
         plt.ylim(-1,3)
         if len(self.arduinoTrialTime)>self.segPlot+2:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        elif len(arduinoTrialTime)<=self.segPlot+1:
+        elif len(self.arduinoTrialTime)<=self.segPlot+1:
             plt.xlim(0,12)
         plt.ylabel('licks (binary)')
         plt.xlabel('time since trial start (sec)')
 
         plt.subplot(2,2,2)
-        lC=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
-        lD=plt.plot(stateDiagX[currentState],stateDiagY[currentState],'go',markersize=lrMrk)
+        lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
+        lD=plt.plot(self.stateDiagX[self.currentState],self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
         plt.ylim(0,10)
         plt.xlim(0,10)
-        plt.title(currentTrial)
+        plt.title(self.currentTrial)
 
-        plt.pause(pltDelay)
+        plt.pause(self.pltDelay)
         lA.pop(0).remove()
         lC.pop(0).remove()
         lD.pop(0).remove()
         lG.pop(0).remove()
 
+    def initTaskProbs(self):
+        self.stimTask1_Prob=0.5
+        self.positive1_Prob=0.5
+        self.positive2_Prob=0.5
+
+    def readData(self):
+        self.sR=self.comObj.readline().strip().decode()
+        self.sR=self.sR.split(',')
+
+    def readDataFlush(self):
+        self.comObj.flush()
+        self.sR=self.comObj.readline().strip().decode()
+        self.sR=self.sR.split(',')
+
+    def generic_StateHeader(self,descrState):
+        # general state code
+        self.descrState=descrState
+        self.readDataFlush()
+
+    def generic_InitState(self):
+        #self.parseData()
+        print('in state {}'.format(self.descrState))
+        self.cycleCount=1
+        self.stateIt=1
+
+    def updatePlotCheck(self):
+        self.updateLickThresholds()
+        self.updatePosPlot()
+        self.cycleCount=0
+
+    def conditionBlock_s1(self):
+        print('cB1')
+        if self.arduinoTime[-1]>2:  #todo: make this a variable
+            print('cb1->t')
+            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+
+            if self.dPos<self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+
+            if self.stillLatch==1 and self.stillTime>1:
+                self.comObj.write(struct.pack('>B', 2))
+                print('Still! ==> Out of wait')
+                self.waitForStateToUpdateOnTarget(1)
+        elif self.arduinoTime[-1]<=2:
+            print('no')
+
+    def conditionBlock_s2(self):
+        # if stimSwitch is less than task1's probablity then send to task #1
+        if self.positions[-1]>self.distThr and self.stimSwitch<=self.stimTask1_Prob:
+            self.comObj.write(struct.pack('>B', 3))
+            print('moving spout; cueing stim task #1')
+            self.waitForStateToUpdateOnTarget(2)
+
+        # if stimSwitch is more than task1's probablity then send to task #2
+        elif self.positions[-1]>self.distThr and self.stimSwitch>self.stimTask1_Prob:
+            self.comObj.write(struct.pack('>B', 4))
+            print('moving spout; cueing stim task #2')
+            self.waitForStateToUpdateOnTarget(2)
+
+    def conditionBlock_s3(self):  #todo; mov could be a func
+        if self.arduinoTime[-1]>2:
+            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+            if self.dPos<=self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+            if self.stillLatch==1 and self.stillTime>1:
+                print('Still!')
+                if self.outcomeSwitch<=self.positive1_Prob:
+                    self.comObj.write(struct.pack('>B', 5))
+                    print('will play dulcet tone')
+                    self.waitForStateToUpdateOnTarget(3)
+                # if stimSwitch is more than task1's probablity then send to task #2
+                elif self.outcomeSwitch>self.positive1_Prob:
+                    self.comObj.write(struct.pack('>B', 6))
+                    print('will play ominous tone')
+                    self.waitForStateToUpdateOnTarget(3)
+
+    def conditionBlock_s4(self):  #todo; mov could be a func
+        if self.arduinoTime[-1]>2:
+            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+            if self.dPos<=self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+            if self.stillLatch==1 and self.stillTime>1:
+                print('Still!')
+                if self.outcomeSwitch<=self.positive1_Prob:
+                    self.comObj.write(struct.pack('>B', 7))
+                    print('will play dulcet tone')
+                    self.waitForStateToUpdateOnTarget(4)
+                # if stimSwitch is more than task1's probablity then send to task #2
+                elif self.outcomeSwitch>self.positive1_Prob:
+                    self.comObj.write(struct.pack('>B', 8))
+                    print('will play ominous tone')
+                    self.waitForStateToUpdateOnTarget(self.currentState)
+    
+    def conditionBlock_tones(self):
+        if self.arduinoTime[-1]>2:
+            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+            if self.dPos<=self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+            if self.stillLatch==1 and self.stillTime>1:
+                print('Still!')
+                self.comObg.write(struct.pack('>B', 13))
+                print('off to save')
+                self.waitForStateToUpdateOnTarget(self.currentState)
+
+    def saveData(self):
+        self.exportArray=np.array([self.arduinoTime,self.positions,self.arStates,
+            self.lickValues,self.lickDeltas,self.arduinoTrialTime])
+        np.savetxt('{}_{}_trial_{}.csv'.format(self.animalString,self.dateStr,self.currentTrial), 
+            self.exportArray, delimiter=",",fmt="%f")
 
     def runTask(self):
-        ## Globals
-        global animalString
-        global lickThr
-        global lickMinMax
-        global movThr
-        global movTimeThr
-        global stillTime
-        global stillLatch
-        global stillTimeStart
-        global dPos
-        global distThr
-        global positions
-        global arStates
-        global arduinoTime
-        global lickValues
-        global lickDeltas
-        global arduinoTrialTime
-        global detected_licks
-        global currentTrial
-        global currentState
-        global streamNum_header
-        global streamNum_time
-        global streamNum_position
-        global streamNum_state
-        global streamNum_lickSensor
-        global streamNum_lickDeriv
-        global streamNum_trialTime
-        global tt1
-        global dateStr
-        global totalTrials
-
-        # session variables
-        stimTask1_Prob=0.5
-        positive1_Prob=0.5
-        positive2_Prob=0.5
-        lowDelta=0 # for handshake (todo: clean up)
+        self.makeContainers()
+        self.initTaskProbs()
 
         # plotting variables
-        uiUpdateDelta=5
-
-        def readDataFlush(self):
-        print('l1')
-        global arduino
-        arduino.flush()
-        sR=arduino.readline().strip().decode()
-        sR=sR.split(',')
-        return sR
-
+        self.uiUpdateDelta=20
+        print(self.uiUpdateDelta)
+        
         # Start the task (will iterate through trials)
-        while currentTrial<=totalTrials:
+        while self.currentTrial<=self.totalTrials:
             try:
                 #S0 -----> hand shake (initialization state)
-                print('start; current = {}'.format(currentState))
+                if self.currentState==0:
+                    print('state0')
+                    self.generic_StateHeader(self.currentState)
+                    self.readDataFlush()
 
-                if currentState==0:
-                    print('going to flush')
-                    cR=readDataFlush(self)
-                    print('just flushed')
+                    if self.sR[self.streamNum_header]=='data':
+                        if self.stateIt==0:
+                            self.stateIt=1
+                            self.updatePosPlot()
 
-                    if cR[streamNum_header]=='data':
-                        if stateIt==0:
-                            print('found some dope shit on rx')
-                            print('... wait while I make sure it''s ready')
-                            stateIt=1
-                            updatePosPlot(self)
-
-                        ttd=abs(tt1[1]-tt1[0])
-                        tt1[0]=tt1[1]
-                        tt1[1]=float(int(cR[streamNum_time])/1000)
-                        if ttd<0.1:
-                            lowDelta=lowDelta+1
-                            if lowDelta>600:
+                        self.ttd=abs(self.tt1[1]-self.tt1[0])
+                        self.tt1[0]=self.tt1[1]
+                        self.tt1[1]=float(int(self.sR[self.streamNum_time])/1000)
+                        print('ttd={}'.format(self.ttd))
+                        if self.ttd<0.1:
+                            self.lowDelta=self.lowDelta+1
+                            print('sld={}'.format(self.lowDelta))
+                            if self.lowDelta>20:
                                 print('should be good; will take you to wait state (S1)')
-                                arduino.write(struct.pack('>B', 1))
-                                waitForStateToUpdateOnTarget(self,arduino,0)
+                                self.comObj.write(struct.pack('>B', 1))
+                                print('wrote 1')
+                                self.waitForStateToUpdateOnTarget(0) #todo self.currentState right?
 
                 #S1 -----> trial wait state
-                #
-                # entry conditions: S0->S1 or S7->S1
-                # exit contisions: needs to be still for 2 seconds
-                #
-                elif currentState==1:
-                    # general state code
-                    cR=readDataFlush(self,arduino)
-                    if cR[streamNum_header]=='data':
-                        parseData(self)
+                elif self.currentState==1:
+                    # wait for data
+                    self.generic_StateHeader(1)
+                    self.readDataFlush()
+                    if self.sR[self.streamNum_header]=='data':
+                        # then just crank
+                        self.parseData()
+                        print('just parsed after truth')
+                        if self.stateIt==0:     
+                            self.generic_InitState()
+                            print('just generic init')
+                            #also, anything specific
+                            print('cycC={}'.format(self.cycleCount))
+                            print(self.uiUpdateDelta)
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            print('just confirmed truth2')
+                            print('just called ui')
+                            self.updatePlotCheck()
+                            print('just finished ui')
 
-                        # we do certain things if we just entered, this is the flag for that.
-                        if stateIt==0:
-                            print('in state 1')
-                            cycleCount=1
-                            stateIt=1
-
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            tA=np.abs(np.array(lickDeltas))
-                            lickThr = np.percentile(tA[np.where(tA != 0)[0]],[75,95])
-                            #del tA
-                            lickMinMax=[min(lickDeltas),max(lickDeltas)]
-                            updatePosPlot(self)
-                            cycleCount=0
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                arduino.write(struct.pack('>B', 2))
-                                print('Still! ==> Out of wait')
-                                waitForStateToUpdateOnTarget(self,arduino,1)
+                        self.conditionBlock_s1()
                         
-                        cycleCount=cycleCount+1;
-
+                        self.cycleCount=self.cycleCount+1;
+                        print(self.cycleCount)
 
                 #S2 -----> trial initiation state
-                #
-                # entry conditions: S1->S2
-                # exit contisions: needs to wait for a cue then walk some distance
-                #
-                elif currentState==2:
-                    cR=readDataFlush(self,arduino)
-                    if cR[0]=='data':
-                        parseData(self)
-                        if stateIt==0:
-                            print('in state 2')
-                            cycleCount=1;
-                            stateIt=1;
-                            stimSwitch=random.random()
+                elif self.currentState==2:
+                    # wait for data
+                    self.generic_StateHeader(2)
+                    self.readDataFlush()
+                    if self.sR[self.streamNum_header]=='data':
+                        # then just crank
+                        self.parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            self.stimSwitch=random.random() #todo: make sure I am seeding this right
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            tA=np.abs(np.array(lickDeltas))
-                            lickThr = np.percentile(tA[np.where(tA > 0)[0]],[75,95])
-                            #del tA
-                            lickMinMax=[min(lickDeltas),max(lickDeltas)]
-                            updatePosPlot(self)
-                            cycleCount=0
-
-                        # if stimSwitch is less than task1's probablity then send to task #1
-                        if positions[-1]>distThr and stimSwitch<=stimTask1_Prob:
-                            arduino.write(struct.pack('>B', 3))
-                            print('moving spout; cueing stim task #1')
-                            waitForStateToUpdateOnTarget(self,arduino,2)
-
-                        # if stimSwitch is more than task1's probablity then send to task #2
-                        elif positions[-1]>distThr and stimSwitch>stimTask1_Prob:
-                            arduino.write(struct.pack('>B', 4))
-                            print('moving spout; cueing stim task #2')
-                            waitForStateToUpdateOnTarget(self,arduino,2)
-
+                        self.conditionBlock_s2()
                         cycleCount=cycleCount+1;
-
 
                 #S3 -----> stim task #1 cue
-                elif currentState==3:
-                    cR=readDataFlush(self,arduino)
-                    if cR[0]=='data':
-                        parseData(self)
-                        if stateIt==0:
-                            print('in state 3; stim task #1')
-                            cycleCount=1;
-                            stateIt=1;
-                            outcomeSwitch=random.random()
+                elif self.currentState==3:
+                    # wait for data
+                    self.generic_StateHeader(3)
+                    self.readDataFlush()
+                    if sR[self.streamNum_header]=='data':
+                        # then just crank
+                        parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            self.outcomeSwitch=random.random() #todo: make sure I am seeding this right
+                        
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot(self)
-                            cycleCount=0
-
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                print('Still! ==> Out of wait')
-
-                                if outcomeSwitch<=positive1_Prob:
-                                    arduino.write(struct.pack('>B', 5))
-                                    print('will play dulcet tone')
-                                    waitForStateToUpdateOnTarget(self,arduino,3)
-
-
-                                # if stimSwitch is more than task1's probablity then send to task #2
-                                elif outcomeSwitch>positive1_Prob:
-                                    arduino.write(struct.pack('>B', 6))
-                                    print('will play ominous tone')
-                                    waitForStateToUpdateOnTarget(self,arduino,3)
-
+                        self.conditionBlock_s3()
                         cycleCount=cycleCount+1;
 
-
                 #S4 -----> stim task #2 cue
-                elif currentState==4:
-                    cR=readDataFlush(self,arduino)
-                    if cR[0]=='data':
-                        parseData(self)
+                elif self.currentState==4:
+                    # wait for data
+                    self.generic_StateHeader(4)
+                    self.readDataFlush()
+                    if sR[self.streamNum_header]=='data':
+                        # then just crank
+                        parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            self.outcomeSwitch=random.random() #todo: make sure I am seeding this right
+                        
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if stateIt==0:
-                            print('in state 4; stim task #2')
-                            cycleCount=1;
-                            stateIt=1;
-                            outcomeSwitch=random.random()
-
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot(self)
-                            cycleCount=0
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                print('Still! ==> Out of wait')
-
-                                if outcomeSwitch<=positive1_Prob:
-                                    arduino.write(struct.pack('>B', 7))
-                                    print('will play dulcet tone')
-                                    waitForStateToUpdateOnTarget(self,arduino,4)
-
-
-                                # if stimSwitch is more than task1's probablity then send to task #2
-                                elif outcomeSwitch>positive1_Prob:
-                                    arduino.write(struct.pack('>B', 8))
-                                    print('will play ominous tone')
-                                    waitForStateToUpdateOnTarget(self,arduino,4)
-                                
-
+                        self.conditionBlock_s4()
                         cycleCount=cycleCount+1;
 
                 #S5 -----> pos tone
-                elif currentState==5:
-                    cR=readDataFlush(self,arduino)
-                    if cR[0]=='data':
-                        parseData(self)
+                elif self.currentState==5:
+                    # wait for data
+                    self.generic_StateHeader(5)
+                    self.readDataFlush()
+                    if sR[self.streamNum_header]=='data':
+                        # then just crank
+                        parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            # 5 specific?
+                        
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if stateIt==0:
-                            print('in state 5; playing something good')
-                            cycleCount=1;
-                            stateIt=1;
-
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot(self)
-                            cycleCount=0
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                print('Still! ==> Out of wait')
-                                arduino.write(struct.pack('>B', 13))
-                                print('off to save')
-                                while currentState==5:
-                                    stateIt=0
-                                    cR=readData(self,arduino)
-                                    currentState=int(cR[streamNum_state])
-
+                        self.conditionBlock_tones()
                         cycleCount=cycleCount+1;
 
                 #S6 -----> neg tone
-                elif currentState==6:
-                    cR=readDataFlush(self,arduino)
-                    if cR[0]=='data':
-                        parseData(self)
+                elif self.currentState==6:
+                    # wait for data
+                    self.generic_StateHeader(self.currentState)
+                    self.readDataFlush()
+                    if sR[self.streamNum_header]=='data':
+                        # then just crank
+                        parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            # 5 specific?
+                        
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if stateIt==0:
-                            print('in state 6; playing something bad')
-                            cycleCount=1;
-                            stateIt=1;
-
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot(self)
-                            cycleCount=0
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                print('Still! ==> Out of wait')
-                                arduino.write(struct.pack('>B', 13))
-                                print('off to save')
-                                while currentState==6:
-                                    stateIt=0
-                                    cR=readData(self,arduino)
-                                    currentState=int(cR[streamNum_state])
-
+                        self.conditionBlock_tones()
                         cycleCount=cycleCount+1;
 
-
                 #S7 -----> pos tone
-                elif currentState==7:
-                    cR=readDataFlush(arduino)
-                    if cR[0]=='data':
+                elif self.currentState==7:
+                    # wait for data
+                    self.generic_StateHeader(self.currentState)
+                    self.readDataFlush()
+                    if sR[self.streamNum_header]=='data':
+                        # then just crank
                         parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            # 5 specific?
+                        
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if stateIt==0:
-                            print('in state 7; playing something good')
-                            cycleCount=1;
-                            stateIt=1;
-
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot()
-                            cycleCount=0
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                print('Still! ==> Out of wait')
-                                arduino.write(struct.pack('>B', 13))
-                                print('off to save')
-                                while currentState==7:
-                                    stateIt=0
-                                    cR=readData(arduino)
-                                    currentState=int(cR[streamNum_state])
-
+                        self.conditionBlock_tones()
                         cycleCount=cycleCount+1;
 
                 #S8 -----> neg tone
-                elif currentState==8:
-                    cR=readDataFlush(arduino)
-                    if cR[0]=='data':
+                elif self.currentState==8:
+                    # wait for data
+                    self.generic_StateHeader(self.currentState)
+                    self.readDataFlush()
+                    if sR[self.streamNum_header]=='data':
+                        # then just crank
                         parseData()
+                        if self.stateIt==0:
+                            self.generic_InitState()
+                            # 5 specific?
+                        
+                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                            self.updatePlotCheck()
 
-                        if stateIt==0:
-                            print('in state 8; playing something bad')
-                            cycleCount=1;
-                            stateIt=1;
-
-                        if int(cycleCount) % int(uiUpdateDelta)==0:
-                            updatePosPlot()
-                            cycleCount=0
-
-                        # S1 conditionals
-                        # we are going to wait for the animal to be still for some specific time.
-                        if arduinoTime[-1]>2:
-                            dPos=abs(positions[-1]-positions[-2])
-                            
-                            if dPos>movThr and stillLatch==1:
-                                stillLatch=0
-
-                            if dPos<=movThr and stillLatch==0:
-                                stillTimeStart=arduinoTime[-1]
-                                stillLatch=1
-
-                            if dPos<=movThr and stillLatch==1:
-                                stillTime=arduinoTime[-1]-stillTimeStart
-
-                            if stillLatch==1 and stillTime>1:
-                                print('Still! ==> Out of wait')
-                                arduino.write(struct.pack('>B', 13))
-                                print('off to save')
-                                while currentState==8:
-                                    stateIt=0
-                                    cR=readData(arduino)
-                                    currentState=int(cR[streamNum_state])
-
+                        self.conditionBlock_tones()
                         cycleCount=cycleCount+1;
-                
+
 
                 # ----------------- (S13: save state)
-                elif currentState==13:
+                elif self.currentState==13:
                     print('in state 13; saving your bacon') # debug
-                    savedata([arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
-                    # clean up plot data (memory managment)
-                    print('lickThr= {}'.format(lickThr[0]))
-                    print('mean dt = {}'.format(np.mean(np.diff(arduinoTrialTime))))
-                    arduinoTime=[]
-                    positions=[]
-                    arStates=[]
-                    lickValues=[]
-                    lickDeltas=[]
-                    arduinoTrialTime=[]
-                    detected_licks=[]
-                    currentTrial=currentTrial+1
+                    self.saveData()                    # clean up plot data (memory managment)
+                    print('lickThr= {}'.format(self.lickThr[0]))
+                    print('mean dt = {}'.format(np.mean(np.diff(self.arduinoTrialTime))))  #todo: make histo
+                    self.cleanContainers()
+                    self.currentTrial=self.currentTrial+1
                     print('trial done')
-                    arduino.write(struct.pack('>B', 1))
+                    self.comObj.write(struct.pack('>B', 1)) #todo: abstract wait
                     while currentState==13:
                         stateIt=0
-                        cR=readData(self,arduino)
-                        currentState=int(cR[streamNum_state])          
+                        self.readData()
+                        self.currentState=int(self.sR[streamNum_state])          
             except:
-                print(dPos)
+                print(self.dPos)
                 print('EXCEPTION: peace out bitches')
-                print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(currentTrial,currentState))
-                arduino.write(struct.pack('>B', 0))
-                exportArray=np.array([arduinoTime,positions,arStates,lickValues,lickDeltas,arduinoTrialTime])
-                np.savetxt('{}_{}_trial_{}.csv'.format(animalString,dateStr,currentTrial), exportArray, delimiter=",",fmt="%f")
+                print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(self.currentTrial,self.currentState))
+                self.comObj.write(struct.pack('>B', 0))
+                self.saveData() 
                 print('save was a success; now I will close com port and quit')
-                arduino.close()
-                arduinoTime=[]
-                positions=[]
-                arStates=[]
-                lickValues=[]
-                lickDeltas=[]
-                arduinoTrialTime=[]
-                detected_licks=[]
+                self.comObj.close()
                 exit()
 
-
         print('NORMAL: peace out bitches')
-        print('I completed {} trials.'.format(currentTrial-1))
-        arduino.write(struct.pack('>B', 0))
-        arduino.close()
+        print('I completed {} trials.'.format(self.currentTrial-1))
+        self.comObj.write(struct.pack('>B', 0))  #todo: abstract reset state
+        self.comObj.close()
         exit()
 
 
