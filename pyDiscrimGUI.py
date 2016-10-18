@@ -1,3 +1,12 @@
+# pyDiscrim:
+# This is a python program that runs sensory discrimination tasks in a state-based manner.
+# It works with microcontrolors or dac boards (conceptually). It can easily be modified to suit different needs.
+#
+# version 3.0 (1st GUI; Start Object Oriented Reorg)
+# 10/18/2016
+# questions? --> Chris Deister --> cdeister@Bbrown.edu
+
+
 from tkinter import *
 import serial
 import numpy as np
@@ -216,22 +225,22 @@ class pyDiscrim_mainGUI:
         if len(self.arduinoTrialTime)>self.segPlot+5:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
         elif len(self.arduinoTrialTime)<=self.segPlot+1:
-            plt.xlim(0,12)
+            plt.xlim(0,3)
         plt.ylabel('position')
         plt.xlabel('time since trial start (sec)')
 
 
-        # plt.subplot(2,2,3)
-        # print('want to make lg')
-        # #self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'b-')
-        # print('made lg')
-        # plt.ylim(-1,3)
-        # if len(self.arduinoTrialTime)>self.segPlot+2:
-        #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        # elif len(self.arduinoTrialTime)<=self.segPlot+1:
-        #     plt.xlim(0,12)
-        # plt.ylabel('licks (binary)')
-        # plt.xlabel('time since trial start (sec)')
+        plt.subplot(2,2,3)
+        print('want to make lg')
+        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'b-')
+        print('made lg')
+        plt.ylim(-1,3)
+        if len(self.arduinoTrialTime)>self.segPlot+2:
+            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        elif len(self.arduinoTrialTime)<=self.segPlot+1:
+            plt.xlim(0,3)
+        plt.ylabel('licks (binary)')
+        plt.xlabel('time since trial start (sec)')
 
         plt.subplot(2,2,2)
         self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
@@ -505,8 +514,6 @@ class pyDiscrim_mainGUI:
                 elif self.currentState==13:
                     print('in state 13; saving your bacon') # debug
                     self.saveData()                    # clean up plot data (memory managment)
-                    print('lickThr= {}'.format(self.lickThr[0]))
-                    print('mean dt = {}'.format(np.mean(np.diff(self.arduinoTrialTime))))  #todo: make histo
                     self.cleanContainers()
                     self.currentTrial=self.currentTrial+1
                     print('trial done')
@@ -522,13 +529,15 @@ class pyDiscrim_mainGUI:
                 self.comObj.close()
                 exit()
 
-        print('NORMAL: peace out bitches')
+        print('NORMAL: peace out')
         print('I completed {} trials.'.format(self.currentTrial-1))
         self.comObj.write(struct.pack('>B', 0))  #todo: abstract reset state
         self.comObj.close()
         exit()
 
-
+#rando todo
+#print('lickThr= {}'.format(self.lickThr[0]))
+#print('mean dt = {}'.format(np.mean(np.diff(self.arduinoTrialTime))))  #todo: make histo
 root = Tk()
 my_gui = pyDiscrim_mainGUI(root)
 root.mainloop()
