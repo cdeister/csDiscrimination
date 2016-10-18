@@ -44,6 +44,7 @@ bool cueFired=0;
 bool toneFired=0;
 bool inPulse=1;
 bool cueInit=0;
+bool bef;
 
 const int posPin=3;       // Engage Postive Reinforcment
 const int negPin=4;       // Engage Aversive Reinforcment
@@ -102,7 +103,6 @@ void loop() {
   if(stateChange){
     posX=0;
     posY=0;
-    msOffset=millis();
     digitalWrite(negPin,LOW);
     digitalWrite(posPin,LOW);
     digitalWrite(waterPin,LOW);
@@ -119,8 +119,13 @@ void loop() {
   // This is just a state that ensures that the arduino lets python know 
   // it is ready to spit out real data and not garbage
   if(curState==0){
-    msOffset=millis();  // Reset time because this is technically the begining of the task
-    Serial.print(String("data,0,0,0,0"));
+    while(bef==0){
+      msOffset=millis();
+      bef=1;
+    }
+    msCorrected=millis()-msOffset;
+    //Serial.print(String("data,0,0,0,0,0"));
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     Serial.println();
     delay(loopDelta);
     curState=lookForSerialState();
@@ -129,6 +134,7 @@ void loop() {
 
   // S1: Trial wait state.
   else if(curState==1){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     s1Offset=twTimeReset;
@@ -143,6 +149,7 @@ void loop() {
 
   // S2: Trial initiation state.
   else if(curState==2){
+    bef=0;
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
@@ -157,6 +164,7 @@ void loop() {
 
   // S3: Sensory Task #1 Cue
   else if(curState==3){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
@@ -209,6 +217,7 @@ void loop() {
   
   // S4: Sensory Task #2 Cue
   else if(curState==4){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
@@ -261,6 +270,7 @@ void loop() {
   
   // S5: Sensory High
   else if(curState==5){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
@@ -275,6 +285,7 @@ void loop() {
 
   // S6: Sensory Low
   else if(curState==6){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
@@ -289,6 +300,7 @@ void loop() {
 
   // S7: Sensory High
   else if(curState==7){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
@@ -303,6 +315,7 @@ void loop() {
 
   // S8: Sensory Low
   else if(curState==8){
+    bef=0;
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
@@ -315,6 +328,7 @@ void loop() {
     curState=lookForSerialState();
   }
   else {
+    bef=0;
     noTone(tonePin);
     // timestamp, dump data, check state
     msCorrected=millis()-msOffset;

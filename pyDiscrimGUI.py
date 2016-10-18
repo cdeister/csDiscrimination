@@ -105,6 +105,14 @@ class pyDiscrim_mainGUI:
         self.lowDelta=0
         self.stateIt=0;
 
+        self.streamNum_header=0          #todo: this is obvious jank
+        self.streamNum_time=1
+        self.streamNum_position=2
+        self.streamNum_state=3
+        self.streamNum_lickSensor=4
+        self.streamNum_lickDeriv=5
+        self.streamNum_trialTime=6
+
 
         self.tt1=[float(1),float(2)]
 
@@ -169,13 +177,6 @@ class pyDiscrim_mainGUI:
         self.lickDeltas=[]
         self.arduinoTrialTime=[]
         self.detected_licks=[]
-        self.streamNum_header=0          #todo: this is obvious jank
-        self.streamNum_time=1
-        self.streamNum_position=2
-        self.streamNum_state=3
-        self.streamNum_lickSensor=4
-        self.streamNum_lickDeriv=5
-        self.streamNum_trialTime=6
 
     def cleanContainers(self):           #todo: this should be part of data class
         self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
@@ -185,15 +186,6 @@ class pyDiscrim_mainGUI:
         self.lickDeltas=[]
         self.arduinoTrialTime=[]
         self.detected_licks=[]
-
-    def parseData(self):            #todo: this should be part of data class (and a rational function)
-        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000))  
-        self.positions.append(float(self.sR[self.streamNum_position]))
-        self.currentState=int(self.sR[self.streamNum_state])
-        self.arStates.append(self.currentState)
-        self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
-        self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
-        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000))
 
     def updateLickThresholds(self):
         tA=np.abs(np.array(self.lickDeltas))
@@ -206,24 +198,13 @@ class pyDiscrim_mainGUI:
         elif self.lickDeltas[-1]<=self.lickThr[0]:
             self.detected_licks.append(0)
 
-    def waitForStateToUpdateOnTarget(self,maintState): 
-        # keeps the program cranking while you wait for the MC to update state after a python driven change.
-        # !!!!! messes with global variables
-        # maintState is the state you are maintaining (the one you are in)
-        self.maintState=maintState
-        while self.currentState==self.maintState:      
-            self.stateIt=0  
-            self.readData()
-            self.currentState=int(self.sR[self.streamNum_state])
-
     def updatePosPlot(self): # todo: organize this better (should be its own class I think)
-        self.segPlot=300
+        self.segPlot=100
         self.pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
         self.stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
         self.stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
         self.smMrk=10
         self.lrMrk=20
-        self.stateIt=0;
         self.postionMin=-1000;
         self.positionMax=3000;
         self.lickMin=0
@@ -273,19 +254,35 @@ class pyDiscrim_mainGUI:
     def readData(self):
         self.sR=self.comObj.readline().strip().decode()
         self.sR=self.sR.split(',')
+        if self.sR[self.streamNum_header]=='data' and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[2])==1 and str.isnumeric(self.sR[3])==1 and str.isnumeric(self.sR[4])==1 and str.isnumeric(self.sR[5])==1:
+            self.dataAvail=1  #todo: i tink this affects negative numbers
+        elif self.sR[self.streamNum_header]!='data' or str.isnumeric(self.sR[1])!=1 or str.isnumeric(self.sR[2])!=1 or str.isnumeric(self.sR[3])!=1 or str.isnumeric(self.sR[4])!=1 or str.isnumeric(self.sR[5])!=1:
+            self.dataAvail=0
 
     def readDataFlush(self):
         self.comObj.flush()
-        self.sR=self.comObj.readline().strip().decode()
-        self.sR=self.sR.split(',')
+        self.readData()
 
-    def generic_StateHeader(self,descrState):
+    def parseData(self):
+        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000))  
+        self.positions.append(float(self.sR[self.streamNum_position]))
+        self.currentState=int(self.sR[self.streamNum_state])
+        self.arStates.append(self.currentState)
+        self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
+        self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
+        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000))
+
+    def generic_StateHeader(self):
         # general state code
-        self.descrState=descrState
+        #print('stateIt={}'.format(self.stateIt))
+        while self.stateIt==0:
+            self.generic_InitState()
         self.readDataFlush()
+        if self.dataAvail==1:
+            self.parseData()
 
     def generic_InitState(self):
-        print('in state init {}'.format(self.descrState))
+        print('in state init {}'.format(self.currentState))
         self.cycleCount=1
         self.stateIt=1
 
@@ -361,12 +358,12 @@ class pyDiscrim_mainGUI:
             if self.stillLatch==1 and self.stillTime>1:
                 print('Still!')
                 if self.outcomeSwitch<=self.positive1_Prob:
-                    self.comObj.write(struct.pack('>B', 7))
+                    self.comObj.write(struct.pack('>B', 6))
                     print('will play dulcet tone')
                     self.waitForStateToUpdateOnTarget(4)
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif self.outcomeSwitch>self.positive1_Prob:
-                    self.comObj.write(struct.pack('>B', 8))
+                    self.comObj.write(struct.pack('>B', 5))
                     print('will play ominous tone')
                     self.waitForStateToUpdateOnTarget(self.currentState)
     
@@ -382,7 +379,7 @@ class pyDiscrim_mainGUI:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
                 print('Still!')
-                self.comObg.write(struct.pack('>B', 13))
+                self.comObj.write(struct.pack('>B', 13))
                 print('off to save')
                 self.waitForStateToUpdateOnTarget(self.currentState)
 
@@ -392,178 +389,116 @@ class pyDiscrim_mainGUI:
         np.savetxt('{}_{}_trial_{}.csv'.format(self.animalString,self.dateStr,self.currentTrial), 
             self.exportArray, delimiter=",",fmt="%f")
 
+    def handShake(self):
+        print('should be good; will take you to wait state (S1)')
+        self.comObj.write(struct.pack('>B', 1))
+        print('hands')
+        self.waitForStateToUpdateOnTarget(self.currentState) #todo self.currentState right?
+        print('did maint call')
+
+    def waitForStateToUpdateOnTarget(self,maintState): 
+    # keeps the program cranking while you wait for the MC to update state after a python driven change.
+    # !!!!! messes with global variables
+    # maintState is the state you are maintaining (the one you are in)
+        self.maintState=maintState
+        while self.currentState==self.maintState:      
+            self.stateIt=0  
+            self.readDataFlush()
+            if self.dataAvail==1:
+                self.parseData()
+                self.currentState=int(self.sR[self.streamNum_state])
+
     def runTask(self):
         self.makeContainers()
         self.initTaskProbs()
 
         # plotting variables
-        self.uiUpdateDelta=5
+        self.uiUpdateDelta=4
         print(self.uiUpdateDelta)
         
         # Start the task (will iterate through trials)
         while self.currentTrial<=self.totalTrials:
+            self.updatePosPlot()
+            self.initTime=0  # debug
             try:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==0:
-                    self.generic_StateHeader(self.currentState)
-                    self.readDataFlush()
-
-                    if self.sR[self.streamNum_header]=='data':
-                        if self.stateIt==0:
-                            self.stateIt=1
-                            self.updatePosPlot()
-
-                        self.ttd=abs(self.tt1[1]-self.tt1[0])
-                        self.tt1[0]=self.tt1[1]
-                        self.tt1[1]=float(int(self.sR[self.streamNum_time])/1000)
-                        if self.ttd<0.1:
-                            self.lowDelta=self.lowDelta+1
-                            if self.lowDelta>20:
-                                print('should be good; will take you to wait state (S1)')
-                                self.comObj.write(struct.pack('>B', 1))
-                                print('wrote 1')
-                                self.waitForStateToUpdateOnTarget(0) #todo self.currentState right?
+                    td=[float(0)]  #debug #document: inset inits before the while!
+                    while self.currentState==0:
+                        self.generic_StateHeader() # gets data
+                        if self.dataAvail==1:
+                            td.append(float(self.arduinoTime[-1]-self.initTime)) #todo: jank but useful to track in self
+                            #print(td[-1])
+                            #print(np.var(td))
+                            self.initTime=self.arduinoTime[-1]
+                            if len(td)>300: #todo: bigtime jank here
+                                if np.var(td[-98:-1])<0.01:
+                                    print('cond fine') 
+                                    self.handShake()  
 
                 #S1 -----> trial wait state
                 elif self.currentState==1:
-                    # wait for data
-                    self.generic_StateHeader(1)
-                    self.readDataFlush()
-                    if self.sR[self.streamNum_header]=='data':
-                        # then just crank
-                        self.parseData()
-                        if self.stateIt==0:     
-                            self.generic_InitState()
-                            #also, anything specific
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-                        self.conditionBlock_s1()
-                        self.cycleCount=self.cycleCount+1;
+                    print('in s1')
+                    while self.currentState==1:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.conditionBlock_s1()
+                            self.cycleCount=self.cycleCount+1;
 
                 #S2 -----> trial initiation state
                 elif self.currentState==2:
-                    # wait for data
-                    self.generic_StateHeader(2)
-                    self.readDataFlush()
-                    if self.sR[self.streamNum_header]=='data':
-                        # then just crank
-                        self.parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            self.stimSwitch=random.random() #todo: make sure I am seeding this right
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_s2()
-                        self.cycleCount=self.cycleCount+1;
+                    self.stimSwitch=random.random()
+                    while self.currentState==2:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.conditionBlock_s2()
+                            self.cycleCount=self.cycleCount+1;
 
                 #S3 -----> stim task #1 cue
                 elif self.currentState==3:
-                    # wait for data
-                    self.generic_StateHeader(3)
-                    self.readDataFlush()
-                    if sR[self.streamNum_header]=='data':
-                        # then just crank
-                        parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            self.outcomeSwitch=random.random() #todo: make sure I am seeding this right
-                        
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_s3()
-                        cycleCount=cycleCount+1;
+                    self.outcomeSwitch=random.random() # debug
+                    while self.currentState==3:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.conditionBlock_s3()
+                            self.cycleCount=self.cycleCount+1;
 
                 #S4 -----> stim task #2 cue
                 elif self.currentState==4:
-                    # wait for data
-                    self.generic_StateHeader(4)
-                    self.readDataFlush()
-                    if sR[self.streamNum_header]=='data':
-                        # then just crank
-                        parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            self.outcomeSwitch=random.random() #todo: make sure I am seeding this right
-                        
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_s4()
-                        cycleCount=cycleCount+1;
+                    self.outcomeSwitch=random.random() # debug
+                    while self.currentState==4:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.conditionBlock_s4()
+                            self.cycleCount=self.cycleCount+1;
 
                 #S5 -----> pos tone
                 elif self.currentState==5:
-                    # wait for data
-                    self.generic_StateHeader(5)
-                    self.readDataFlush()
-                    if sR[self.streamNum_header]=='data':
-                        # then just crank
-                        parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            # 5 specific?
-                        
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_tones()
-                        cycleCount=cycleCount+1;
+                    while self.currentState==5:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.conditionBlock_tones()
+                            self.cycleCount=self.cycleCount+1;
 
                 #S6 -----> neg tone
                 elif self.currentState==6:
-                    # wait for data
-                    self.generic_StateHeader(self.currentState)
-                    self.readDataFlush()
-                    if sR[self.streamNum_header]=='data':
-                        # then just crank
-                        parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            # 5 specific?
-                        
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_tones()
-                        cycleCount=cycleCount+1;
-
-                #S7 -----> pos tone
-                elif self.currentState==7:
-                    # wait for data
-                    self.generic_StateHeader(self.currentState)
-                    self.readDataFlush()
-                    if sR[self.streamNum_header]=='data':
-                        # then just crank
-                        parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            # 5 specific?
-                        
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_tones()
-                        cycleCount=cycleCount+1;
-
-                #S8 -----> neg tone
-                elif self.currentState==8:
-                    # wait for data
-                    self.generic_StateHeader(self.currentState)
-                    self.readDataFlush()
-                    if sR[self.streamNum_header]=='data':
-                        # then just crank
-                        parseData()
-                        if self.stateIt==0:
-                            self.generic_InitState()
-                            # 5 specific?
-                        
-                        if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                            self.updatePlotCheck()
-
-                        self.conditionBlock_tones()
-                        cycleCount=cycleCount+1;
+                    while self.currentState==6:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.conditionBlock_tones()
+                            self.cycleCount=self.cycleCount+1;
 
 
                 # ----------------- (S13: save state)
@@ -576,10 +511,7 @@ class pyDiscrim_mainGUI:
                     self.currentTrial=self.currentTrial+1
                     print('trial done')
                     self.comObj.write(struct.pack('>B', 1)) #todo: abstract wait
-                    while currentState==13:
-                        stateIt=0
-                        self.readData()
-                        self.currentState=int(self.sR[streamNum_state])          
+                    self.waitForStateToUpdateOnTarget(13)         
             except:
                 print(self.dPos)
                 print('EXCEPTION: peace out bitches')

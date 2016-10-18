@@ -18,7 +18,6 @@ import datetime
 import random
 import math
 import struct
-import tkinter as tk
 
 #----------------------------------------------------------------------------------------------------
 
@@ -36,7 +35,7 @@ positive1_Prob=0.5
 positive2_Prob=0.5
 
 # data streaming micro-controller location
-comPort='/dev/cu.usbmodem1421'
+comPort='/dev/cu.usbmodem1411'
 baudRate=9600
 
 # plotting variables
@@ -61,7 +60,7 @@ dPos=float(0)
 # containers
 positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
 arStates=[]             # Store the state the arduino thinks it is in.
-arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
+arduinoTime=[0]          # This is the time as reported by the arduino, which resets every trial. 
 lickValues=[]
 lickDeltas=[]
 arduinoTrialTime=[]
@@ -249,14 +248,7 @@ distThr=1000;  # This is the distance the mouse needs to move to initiate a stim
 # This is the task block                      #
 # # # # # # # # # # # # # # # # # # # # # # # #
 
-root = tk.Tk()
 
-button1 = tk.Button(root, command=funA)
-button1.pack()
-button2 = tk.Button(root, command=funB)
-button2.pack()
-button3 = tk.Button(root, command=funC)
-button3.pack()
 
 # Start serial communication
 arduino = serial.Serial(comPort, baudRate) #Creating our serial object named arduinoData
@@ -306,7 +298,7 @@ while currentTrial<=totalTrials:
 
                 if int(cycleCount) % int(uiUpdateDelta)==0:
                     tA=np.abs(np.array(lickDeltas))
-                    lickThr = np.percentile(tA[np.where(tA != 0)[0]],[75,95])
+                    lickThr = np.percentile(tA[np.where(tA != 0)[0]],[95,95])
                     #del tA
                     lickMinMax=[min(lickDeltas),max(lickDeltas)]
                     updatePosPlot()
