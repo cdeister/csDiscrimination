@@ -60,7 +60,7 @@ dPos=float(0)
 # containers
 positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
 arStates=[]             # Store the state the arduino thinks it is in.
-arduinoTime=[0]          # This is the time as reported by the arduino, which resets every trial. 
+arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
 lickValues=[]
 lickDeltas=[]
 arduinoTrialTime=[]
@@ -191,15 +191,15 @@ def updatePosPlot(): # todo: organize this better
     plt.xlabel('time since trial start (sec)')
 
 
-    plt.subplot(2,2,3)
-    lG=plt.plot(arduinoTrialTime[-segPlot:-1],detected_licks[-segPlot:-1],'b-')
-    plt.ylim(-1,3)
-    if len(arduinoTrialTime)>segPlot+2:
-        plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
-    elif len(arduinoTrialTime)<=segPlot+1:
-        plt.xlim(0,12)
-    plt.ylabel('licks (binary)')
-    plt.xlabel('time since trial start (sec)')
+    # plt.subplot(2,2,3)
+    # lG=plt.plot(arduinoTrialTime[-segPlot:-1],detected_licks[-segPlot:-1],'b-')
+    # plt.ylim(-1,3)
+    # if len(arduinoTrialTime)>segPlot+2:
+    #     plt.xlim(arduinoTrialTime[-segPlot],arduinoTrialTime[-1])
+    # elif len(arduinoTrialTime)<=segPlot+1:
+    #     plt.xlim(0,12)
+    # plt.ylabel('licks (binary)')
+    # plt.xlabel('time since trial start (sec)')
 
     plt.subplot(2,2,2)
     lC=plt.plot(stateDiagX,stateDiagY,'ro',markersize=smMrk)
