@@ -27,7 +27,9 @@ class pyDiscrim_mainGUI:
 
     def __init__(self, master):
         self.master = master
+        self.frame = Frame(self.master)
         master.title("pyDiscrim")
+        self.probsSet=0 # this gets set in a new window so we need to track if it is there
 
         # serial stuff
         self.comPortEntry_label = Label(master, text="COM Port Location")
@@ -136,118 +138,19 @@ class pyDiscrim_mainGUI:
         self.aStringEntry.grid(row=5, column=1)
         self.aString.set('cj_dX')
 
-        taskStartRow=8
-        taskStartCol=1
-        # define task 1 params
-        self.sTask1_prob_label = Label(master, text="sensory task 1 prob.")
-        self.sTask1_prob_label.grid(row=taskStartRow, column=taskStartCol)
-        self.sTask1_prob=StringVar(master)
-        self.sTask1_prob_entry=Entry(master,width=6,textvariable=self.sTask1_prob)
-        self.sTask1_prob_entry.grid(row=taskStartRow, column=taskStartCol-1)
-        self.sTask1_prob.set('0.5')
-
-        self.sTask1_target_prob_label = Label(master, text="task 1: target prob.")
-        self.sTask1_target_prob_label.grid(row=taskStartRow+1, column=taskStartCol)
-        self.sTask1_target_prob=StringVar(master)
-        self.sTask1_target_prob_entry=Entry(master,width=6,textvariable=self.sTask1_target_prob)
-        self.sTask1_target_prob_entry.grid(row=taskStartRow+1, column=taskStartCol-1)
-        self.sTask1_target_prob.set('0.5')
-
-        self.sTask1_distract_prob_label = Label(master, text="task 1: distract prob.")
-        self.sTask1_distract_prob_label.grid(row=taskStartRow+2, column=taskStartCol)
-        self.sTask1_distract_prob=StringVar(master)
-        self.sTask1_distract_prob_entry=Entry(master,width=6,textvariable=self.sTask1_distract_prob)
-        self.sTask1_distract_prob_entry.grid(row=taskStartRow+2, column=taskStartCol-1)
-        self.sTask1_distract_prob.set('0.5')
-
-        self.sTask1_target_reward_prob_label = Label(master, text="task 1: target reward prob.")
-        self.sTask1_target_reward_prob_label.grid(row=taskStartRow+3, column=taskStartCol)
-        self.sTask1_target_reward_prob=StringVar(master)
-        self.sTask1_target_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask1_target_reward_prob)
-        self.sTask1_target_reward_prob_entry.grid(row=taskStartRow+3, column=taskStartCol-1)
-        self.sTask1_target_reward_prob.set('1.0')
-
-        self.sTask1_target_punish_prob_label = Label(master, text="task 1: target punish prob.")
-        self.sTask1_target_punish_prob_label.grid(row=taskStartRow+4, column=taskStartCol)
-        self.sTask1_target_punish_prob=StringVar(master)
-        self.sTask1_target_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask1_target_punish_prob)
-        self.sTask1_target_punish_prob_entry.grid(row=taskStartRow+4, column=taskStartCol-1)
-        self.sTask1_target_punish_prob.set('0.0')
-
-        self.sTask1_distract_reward_prob_label = Label(master, text="task 1: distract reward prob.")
-        self.sTask1_distract_reward_prob_label.grid(row=taskStartRow+5, column=taskStartCol)
-        self.sTask1_distract_reward_prob=StringVar(master)
-        self.sTask1_distract_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask1_distract_reward_prob)
-        self.sTask1_distract_reward_prob_entry.grid(row=taskStartRow+5, column=taskStartCol-1)
-        self.sTask1_distract_reward_prob.set('0.0')
-
-        self.sTask1_distract_punish_prob_label = Label(master, text="task 1: target punish prob.")
-        self.sTask1_distract_punish_prob_label.grid(row=taskStartRow+6, column=taskStartCol)
-        self.sTask1_distract_punish_prob=StringVar(master)
-        self.sTask1_distract_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask1_distract_punish_prob)
-        self.sTask1_distract_punish_prob_entry.grid(row=taskStartRow+6, column=taskStartCol-1)
-        self.sTask1_distract_punish_prob.set('1.0')
-
-
-        # define task 2 params
-        self.sTask2_prob_label = Label(master, text="sensory task 2 prob.")
-        self.sTask2_prob_label.grid(row=taskStartRow, column=taskStartCol+2)
-        self.sTask2_prob=StringVar(master)
-        self.sTask2_prob_entry=Entry(master,width=6,textvariable=self.sTask2_prob)
-        self.sTask2_prob_entry.grid(row=taskStartRow, column=taskStartCol+1)
-        self.sTask2_prob.set('0.5')
-
-        self.sTask2_target_prob_label = Label(master, text="task 2: target prob.")
-        self.sTask2_target_prob_label.grid(row=taskStartRow+1, column=taskStartCol+2)
-        self.sTask2_target_prob=StringVar(master)
-        self.sTask2_target_prob_entry=Entry(master,width=6,textvariable=self.sTask2_target_prob)
-        self.sTask2_target_prob_entry.grid(row=taskStartRow+1, column=taskStartCol+1)
-        self.sTask2_target_prob.set('0.5')
-
-        self.sTask2_distract_prob_label = Label(master, text="task 2: distract prob.")
-        self.sTask2_distract_prob_label.grid(row=taskStartRow+2, column=taskStartCol+2)
-        self.sTask2_distract_prob=StringVar(master)
-        self.sTask2_distract_prob_entry=Entry(master,width=6,textvariable=self.sTask2_distract_prob)
-        self.sTask2_distract_prob_entry.grid(row=taskStartRow+2, column=taskStartCol+1)
-        self.sTask2_distract_prob.set('0.5')
-
-        self.sTask2_target_reward_prob_label = Label(master, text="task 2: target reward prob.")
-        self.sTask2_target_reward_prob_label.grid(row=taskStartRow+3, column=taskStartCol+2)
-        self.sTask2_target_reward_prob=StringVar(master)
-        self.sTask2_target_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask2_target_reward_prob)
-        self.sTask2_target_reward_prob_entry.grid(row=taskStartRow+3, column=taskStartCol+1)
-        self.sTask2_target_reward_prob.set('1.0')
-
-        self.sTask2_target_punish_prob_label = Label(master, text="task 2: target punish prob.")
-        self.sTask2_target_punish_prob_label.grid(row=taskStartRow+4, column=taskStartCol+2)
-        self.sTask2_target_punish_prob=StringVar(master)
-        self.sTask2_target_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask2_target_punish_prob)
-        self.sTask2_target_punish_prob_entry.grid(row=taskStartRow+4, column=taskStartCol+1)
-        self.sTask2_target_punish_prob.set('0.0')
-
-        self.sTask2_distract_reward_prob_label = Label(master, text="task 2: distract reward prob.")
-        self.sTask2_distract_reward_prob_label.grid(row=taskStartRow+5, column=taskStartCol+2)
-        self.sTask2_distract_reward_prob=StringVar(master)
-        self.sTask2_distract_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask2_distract_reward_prob)
-        self.sTask2_distract_reward_prob_entry.grid(row=taskStartRow+5, column=taskStartCol+1)
-        self.sTask2_distract_reward_prob.set('0.0')
-
-        self.sTask2_distract_punish_prob_label = Label(master, text="task 2: target punish prob.")
-        self.sTask2_distract_punish_prob_label.grid(row=taskStartRow+6, column=taskStartCol+2)
-        self.sTask2_distract_punish_prob=StringVar(master)
-        self.sTask2_distract_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask2_distract_punish_prob)
-        self.sTask2_distract_punish_prob_entry.grid(row=taskStartRow+6, column=taskStartCol+1)
-        self.sTask2_distract_punish_prob.set('1.0')
-
         self.s13_button = Button(master, text="Save/Quit", bg='red', command=lambda: self.saveQuit())
         self.s13_button.grid(row=16, column=0)
         self.s13_button.config(state=NORMAL)
 
         self.ux_adaptThresh=StringVar(master)
         self.ux_adaptThreshToggle=Checkbutton(master, text="Use Adaptive Threshold",variable=self.ux_adaptThresh)
-        #,onvalue = 1,offvalue = 0
         self.ux_adaptThreshToggle.grid(row=20, column=2)
         self.ux_adaptThreshToggle.select()
+
+        self.lickValuesOrDeltas=StringVar(master)
+        self.ux_lickValuesToggle=Checkbutton(master, text="Plot Lick Values",variable=self.lickValuesOrDeltas)
+        self.ux_lickValuesToggle.grid(row=20, column=1)
+        self.ux_lickValuesToggle.select()
 
 
         self.sampPlot_label = Label(master, text="samples to plot")
@@ -264,12 +167,32 @@ class pyDiscrim_mainGUI:
         self.lickMax_entry.grid(row=24, column=2)
         self.lickPlotMax.set('100')
 
+        self.lickThreshold_label = Label(master, text="lick threshold")
+        self.lickThreshold_label.grid(row=23, column=1)
+        self.lickThr=StringVar(master)
+        self.lickMax_entry=Entry(master,width=6,textvariable=self.lickThr)
+        self.lickMax_entry.grid(row=24, column=1)
+        self.lickThr.set(12)   
+
+        self.nwButton = Button(master, text = 'Task Probs', width = 10, command = self.result_frame)
+        self.nwButton.grid(row=1, column=2)
+
         # init counters etc
         self.dPos=float(0)
         self.currentTrial=1
         self.currentState=0
 
-        self.lickThr=[12,12]            #todo: ugh look away
+        #self.t1_probEntries='sTask1_prob','sTask1_target_prob','sTask1_distract_prob','sTask1_target_reward_prob',\
+        self.t2_probEntries='sTask2_prob','sTask2_target_prob','sTask2_distract_prob','sTask2_target_reward_prob',\
+        'sTask2_target_punish_prob','sTask2_distract_reward_prob','sTask2_distract_punish_prob'
+       # self.t1_probEntriesDefaultValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+        self.t2_probEntriesDefaultValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
+        #self.initProbDefaults()
+        self.t1_probEntries='sTask1_prob','sTask1_target_prob','sTask1_distract_prob','sTask1_target_reward_prob',\
+        'sTask1_target_punish_prob','sTask1_distract_reward_prob','sTask1_distract_punish_prob'
+        self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+
+
         self.lickMinMax=[-5,10]
 
         ## Globals
@@ -317,6 +240,133 @@ class pyDiscrim_mainGUI:
         self.lickMin=0
         self.lickMax=30
 
+    def result_frame(self):
+        #self.frame = Frame(self.master)
+        result = Toplevel()
+        result.title('Task Probs')
+        self.result=result
+
+        #result.geometry('1600x150')
+        self.makeProbEntries_t1()
+        # taskStartRow=1
+        # taskStartCol=1
+        # # define task 1 params
+        # self.sTask1_prob_label = Label(result, text="sensory task 1 prob.")
+        # self.sTask1_prob_label.grid(row=taskStartRow, column=taskStartCol)
+        # self.sTask1_prob=StringVar(result)
+        # self.sTask1_prob_entry=Entry(result,width=6,textvariable=self.sTask1_prob)
+        # self.sTask1_prob_entry.grid(row=taskStartRow, column=taskStartCol-1)
+        # self.sTask1_prob.set(str(self.sTask1_prob_captured))
+        # self.sTask1_prob_captured=float(self.sTask1_prob.get())
+        # self.sTask1_prob.set(str(self.sTask1_prob_captured))
+
+        # self.sTask1_target_prob_label = Label(result, text="task 1: target prob.")
+        # self.sTask1_target_prob_label.grid(row=taskStartRow+1, column=taskStartCol)
+        # self.sTask1_target_prob=StringVar(result)
+        # self.sTask1_target_prob_entry=Entry(result,width=6,textvariable=self.sTask1_target_prob)
+        # self.sTask1_target_prob_entry.grid(row=taskStartRow+1, column=taskStartCol-1)
+        # self.sTask1_target_prob.set('0.5')
+
+        # self.sTask1_distract_prob_label = Label(result, text="task 1: distract prob.")
+        # self.sTask1_distract_prob_label.grid(row=taskStartRow+2, column=taskStartCol)
+        # self.sTask1_distract_prob=StringVar(result)
+        # self.sTask1_distract_prob_entry=Entry(result,width=6,textvariable=self.sTask1_distract_prob)
+        # self.sTask1_distract_prob_entry.grid(row=taskStartRow+2, column=taskStartCol-1)
+        # self.sTask1_distract_prob.set('0.5')
+
+        # self.sTask1_target_reward_prob_label = Label(result, text="task 1: target reward prob.")
+        # self.sTask1_target_reward_prob_label.grid(row=taskStartRow+3, column=taskStartCol)
+        # self.sTask1_target_reward_prob=StringVar(result)
+        # self.sTask1_target_reward_prob_entry=Entry(result,width=6,textvariable=self.sTask1_target_reward_prob)
+        # self.sTask1_target_reward_prob_entry.grid(row=taskStartRow+3, column=taskStartCol-1)
+        # self.sTask1_target_reward_prob.set('1.0')
+
+        # self.sTask1_target_punish_prob_label = Label(result, text="task 1: target punish prob.")
+        # self.sTask1_target_punish_prob_label.grid(row=taskStartRow+4, column=taskStartCol)
+        # self.sTask1_target_punish_prob=StringVar(result)
+        # self.sTask1_target_punish_prob_entry=Entry(result,width=6,textvariable=self.sTask1_target_punish_prob)
+        # self.sTask1_target_punish_prob_entry.grid(row=taskStartRow+4, column=taskStartCol-1)
+        # self.sTask1_target_punish_prob.set('0.0')
+
+        # self.sTask1_distract_reward_prob_label = Label(result, text="task 1: distract reward prob.")
+        # self.sTask1_distract_reward_prob_label.grid(row=taskStartRow+5, column=taskStartCol)
+        # self.sTask1_distract_reward_prob=StringVar(result)
+        # self.sTask1_distract_reward_prob_entry=Entry(result,width=6,textvariable=self.sTask1_distract_reward_prob)
+        # self.sTask1_distract_reward_prob_entry.grid(row=taskStartRow+5, column=taskStartCol-1)
+        # self.sTask1_distract_reward_prob.set('0.0')
+
+        # self.sTask1_distract_punish_prob_label = Label(result, text="task 1: target punish prob.")
+        # self.sTask1_distract_punish_prob_label.grid(row=taskStartRow+6, column=taskStartCol)
+        # self.sTask1_distract_punish_prob=StringVar(result)
+        # self.sTask1_distract_punish_prob_entry=Entry(result,width=6,textvariable=self.sTask1_distract_punish_prob)
+        # self.sTask1_distract_punish_prob_entry.grid(row=taskStartRow+6, column=taskStartCol-1)
+        # self.sTask1_distract_punish_prob.set('1.0')
+
+
+        # # define task 2 params
+        # self.sTask2_prob_label = Label(result, text="sensory task 2 prob.")
+        # self.sTask2_prob_label.grid(row=taskStartRow, column=taskStartCol+2)
+        # self.sTask2_prob=StringVar(result)
+        # self.sTask2_prob_entry=Entry(result,width=6,textvariable=self.sTask2_prob)
+        # self.sTask2_prob_entry.grid(row=taskStartRow, column=taskStartCol+1)
+        # self.sTask2_prob.set('0.5')
+
+        # self.sTask2_target_prob_label = Label(result, text="task 2: target prob.")
+        # self.sTask2_target_prob_label.grid(row=taskStartRow+1, column=taskStartCol+2)
+        # self.sTask2_target_prob=StringVar(result)
+        # self.sTask2_target_prob_entry=Entry(result,width=6,textvariable=self.sTask2_target_prob)
+        # self.sTask2_target_prob_entry.grid(row=taskStartRow+1, column=taskStartCol+1)
+        # self.sTask2_target_prob.set('0.5')
+
+        # self.sTask2_distract_prob_label = Label(result, text="task 2: distract prob.")
+        # self.sTask2_distract_prob_label.grid(row=taskStartRow+2, column=taskStartCol+2)
+        # self.sTask2_distract_prob=StringVar(result)
+        # self.sTask2_distract_prob_entry=Entry(result,width=6,textvariable=self.sTask2_distract_prob)
+        # self.sTask2_distract_prob_entry.grid(row=taskStartRow+2, column=taskStartCol+1)
+        # self.sTask2_distract_prob.set('0.5')
+
+        # self.sTask2_target_reward_prob_label = Label(result, text="task 2: target reward prob.")
+        # self.sTask2_target_reward_prob_label.grid(row=taskStartRow+3, column=taskStartCol+2)
+        # self.sTask2_target_reward_prob=StringVar(result)
+        # self.sTask2_target_reward_prob_entry=Entry(result,width=6,textvariable=self.sTask2_target_reward_prob)
+        # self.sTask2_target_reward_prob_entry.grid(row=taskStartRow+3, column=taskStartCol+1)
+        # self.sTask2_target_reward_prob.set('1.0')
+
+        # self.sTask2_target_punish_prob_label = Label(result, text="task 2: target punish prob.")
+        # self.sTask2_target_punish_prob_label.grid(row=taskStartRow+4, column=taskStartCol+2)
+        # self.sTask2_target_punish_prob=StringVar(result)
+        # self.sTask2_target_punish_prob_entry=Entry(result,width=6,textvariable=self.sTask2_target_punish_prob)
+        # self.sTask2_target_punish_prob_entry.grid(row=taskStartRow+4, column=taskStartCol+1)
+        # self.sTask2_target_punish_prob.set('0.0')
+
+        # self.sTask2_distract_reward_prob_label = Label(result, text="task 2: distract reward prob.")
+        # self.sTask2_distract_reward_prob_label.grid(row=taskStartRow+5, column=taskStartCol+2)
+        # self.sTask2_distract_reward_prob=StringVar(result)
+        # self.sTask2_distract_reward_prob_entry=Entry(result,width=6,textvariable=self.sTask2_distract_reward_prob)
+        # self.sTask2_distract_reward_prob_entry.grid(row=taskStartRow+5, column=taskStartCol+1)
+        # self.sTask2_distract_reward_prob.set('0.0')
+
+        # self.sTask2_distract_punish_prob_label = Label(result, text="task 2: target punish prob.")
+        # self.sTask2_distract_punish_prob_label.grid(row=taskStartRow+6, column=taskStartCol+2)
+        # self.sTask2_distract_punish_prob=StringVar(result)
+        # self.sTask2_distract_punish_prob_entry=Entry(result,width=6,textvariable=self.sTask2_distract_punish_prob)
+        # self.sTask2_distract_punish_prob_entry.grid(row=taskStartRow+6, column=taskStartCol+1)
+        # self.sTask2_distract_punish_prob.set('1.0')
+
+
+        self.closeTaskProbWindowButton = Button(result, text = 'Set and Close', width = 10, command = self.closeProbEntryWindow)
+        self.closeTaskProbWindowButton.grid(row=8, column=1)
+
+    def closeProbEntryWindow(self):
+        self.sTask1_prob_captured=float(self.sTask1_prob.get())
+        self.sTask1_prob.set(str(self.sTask1_prob_captured))
+        self.probsSet=1
+
+    def captureEntry(self,entryString="a"):  #sTask1_prob
+        print(entryString)
+        #eval('self.{}_captured=float(self.{}.get())'.format(entryString,entryString))
+
+
     def initComObj(self):
         print('Opening serial port')
         # Start serial communication
@@ -336,6 +386,10 @@ class pyDiscrim_mainGUI:
         self.comEntry.config(state=NORMAL)
         self.baudPick.config(state=NORMAL)
         self.toggleStateButtons(tS=1,tempBut=[0,1,2,3,4,5,6,7,8,9,10,11,12,13])
+
+    def new_window(self):
+        self.newWindow = Toplevel(self.master)
+        self.app = pyDiscrim_subGUI(self.newWindow)
 
     def toggleStateButtons(self,tS=1,tempBut=[0]):
         if tS==1:
@@ -364,6 +418,18 @@ class pyDiscrim_mainGUI:
         self.comObj.write(struct.pack('>B', 0))
         self.comObj.close()
         exit()
+
+    def makeProbEntries_t1(self):
+        for x in range(0,len(self.t1_probEntries)):
+            exec('self.{}=StringVar(self.result)'.format(self.t1_probEntries[x]))
+            exec('self.{}_label = Label(self.result, text="{}")'.format(self.t1_probEntries[x],self.t1_probEntries[x]))
+            arg1Str='self.{}_entry=Entry(self.result,width=6,textvariable=self.{})'.format(self.t1_probEntries[x],self.t1_probEntries[x])
+            print(arg1Str)
+            exec(arg1Str)
+            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
+            #todo: set
+
 
     def initTaskProbs(self):
         self.sTask1_prob.get()
@@ -400,19 +466,20 @@ class pyDiscrim_mainGUI:
         self.detected_licks=[]
 
     def updateLickThresholds(self):
-        self.ux_adaptThresh.get()
         if self.ux_adaptThresh.get()==1:
+            print('uo')
             tA=np.abs(np.array(self.lickDeltas))
-            self.lickThr = np.percentile(tA[np.where(tA != 0)[0]],[75,95])
+            print(int(np.percentile(aaa[np.where(aaa != 0)[0]],75)))
+            self.lickThr.set(str(np.percentile(tA[np.where(tA != 0)[0]],75)))
             self.lickMinMax=[min(self.lickDeltas),max(self.lickDeltas)]
 
     def lickDetect(self):
-        if self.lickDeltas[-1]>self.lickThr[0]:
+        if self.lickDeltas[-1]>int(self.lickThr.get()):
             self.detected_licks.append(int(self.lickPlotMax.get())/2)
-        elif self.lickDeltas[-1]<=self.lickThr[0]:
+        elif self.lickDeltas[-1]<=int(self.lickThr.get()):
             self.detected_licks.append(0)
 
-    def updatePosPlot(self): # todo: organize this better (should be its own class I think)
+    def updatePosPlot(self): # todo: organize this better (shoul be its own class I think)
         if len(self.arduinoTrialTime)>2:
             self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
             self.tTP=self.segPlot*self.cTD
@@ -438,7 +505,7 @@ class pyDiscrim_mainGUI:
             plt.xlim(0,self.tTP)
         plt.ylabel('licks (binary)')
         plt.xlabel('time since trial start (sec)')
-        plt.title(self.lickThr)
+        plt.title(int(self.lickThr.get()))
 
         plt.subplot(2,2,2)
         self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
@@ -458,7 +525,7 @@ class pyDiscrim_mainGUI:
         self.sR=self.comObj.readline().strip().decode()
         self.sR=self.sR.split(',')
         if self.sR[self.streamNum_header]=='data' and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[3])==1 and str.isnumeric(self.sR[4])==1 and str.isnumeric(self.sR[5])==1:
-            self.dataAvail=1  #todo: i tink this affects negative numbers
+            self.dataAvail=1
         elif self.sR[self.streamNum_header]!='data' or str.isnumeric(self.sR[1])!=1  or str.isnumeric(self.sR[3])!=1 or str.isnumeric(self.sR[4])!=1 or str.isnumeric(self.sR[5])!=1:
             self.dataAvail=0
 
@@ -756,6 +823,127 @@ class pyDiscrim_mainGUI:
         self.comObj.close()
         exit()
 
-root = Tk()
-my_gui = pyDiscrim_mainGUI(root)
-root.mainloop()
+class pyDiscrim_subGUI:
+    def __init__(self, master):
+        self.master = master
+        self.frame = Frame(self.master)
+        # self.quitButton = Button(self.frame, text = 'Quit', width = 25, command = self.close_windows)
+        # self.quitButton.pack()
+        # self.frame.pack()
+
+        self.quitButton = Button(self.frame, text = 'Quit', width = 25, command = self.close_windows)
+        self.quitButton.grid(row=20, column=1)
+
+        taskStartRow=1
+        taskStartCol=1
+        # define task 1 params
+        self.sTask1_prob_label = Label(master, text="sensory task 1 prob.")
+        self.sTask1_prob_label.grid(row=taskStartRow, column=taskStartCol)
+        self.sTask1_prob=StringVar(master)
+        self.sTask1_prob_entry=Entry(master,width=6,textvariable=self.sTask1_prob)
+        self.sTask1_prob_entry.grid(row=taskStartRow, column=taskStartCol-1)
+        self.sTask1_prob.set('0.5')
+
+        self.sTask1_target_prob_label = Label(master, text="task 1: target prob.")
+        self.sTask1_target_prob_label.grid(row=taskStartRow+1, column=taskStartCol)
+        self.sTask1_target_prob=StringVar(master)
+        self.sTask1_target_prob_entry=Entry(master,width=6,textvariable=self.sTask1_target_prob)
+        self.sTask1_target_prob_entry.grid(row=taskStartRow+1, column=taskStartCol-1)
+        self.sTask1_target_prob.set('0.5')
+
+        self.sTask1_distract_prob_label = Label(master, text="task 1: distract prob.")
+        self.sTask1_distract_prob_label.grid(row=taskStartRow+2, column=taskStartCol)
+        self.sTask1_distract_prob=StringVar(master)
+        self.sTask1_distract_prob_entry=Entry(master,width=6,textvariable=self.sTask1_distract_prob)
+        self.sTask1_distract_prob_entry.grid(row=taskStartRow+2, column=taskStartCol-1)
+        self.sTask1_distract_prob.set('0.5')
+
+        self.sTask1_target_reward_prob_label = Label(master, text="task 1: target reward prob.")
+        self.sTask1_target_reward_prob_label.grid(row=taskStartRow+3, column=taskStartCol)
+        self.sTask1_target_reward_prob=StringVar(master)
+        self.sTask1_target_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask1_target_reward_prob)
+        self.sTask1_target_reward_prob_entry.grid(row=taskStartRow+3, column=taskStartCol-1)
+        self.sTask1_target_reward_prob.set('1.0')
+
+        self.sTask1_target_punish_prob_label = Label(master, text="task 1: target punish prob.")
+        self.sTask1_target_punish_prob_label.grid(row=taskStartRow+4, column=taskStartCol)
+        self.sTask1_target_punish_prob=StringVar(master)
+        self.sTask1_target_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask1_target_punish_prob)
+        self.sTask1_target_punish_prob_entry.grid(row=taskStartRow+4, column=taskStartCol-1)
+        self.sTask1_target_punish_prob.set('0.0')
+
+        self.sTask1_distract_reward_prob_label = Label(master, text="task 1: distract reward prob.")
+        self.sTask1_distract_reward_prob_label.grid(row=taskStartRow+5, column=taskStartCol)
+        self.sTask1_distract_reward_prob=StringVar(master)
+        self.sTask1_distract_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask1_distract_reward_prob)
+        self.sTask1_distract_reward_prob_entry.grid(row=taskStartRow+5, column=taskStartCol-1)
+        self.sTask1_distract_reward_prob.set('0.0')
+
+        self.sTask1_distract_punish_prob_label = Label(master, text="task 1: target punish prob.")
+        self.sTask1_distract_punish_prob_label.grid(row=taskStartRow+6, column=taskStartCol)
+        self.sTask1_distract_punish_prob=StringVar(master)
+        self.sTask1_distract_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask1_distract_punish_prob)
+        self.sTask1_distract_punish_prob_entry.grid(row=taskStartRow+6, column=taskStartCol-1)
+        self.sTask1_distract_punish_prob.set('1.0')
+
+
+        # define task 2 params
+        self.sTask2_prob_label = Label(master, text="sensory task 2 prob.")
+        self.sTask2_prob_label.grid(row=taskStartRow, column=taskStartCol+2)
+        self.sTask2_prob=StringVar(master)
+        self.sTask2_prob_entry=Entry(master,width=6,textvariable=self.sTask2_prob)
+        self.sTask2_prob_entry.grid(row=taskStartRow, column=taskStartCol+1)
+        self.sTask2_prob.set('0.5')
+
+        self.sTask2_target_prob_label = Label(master, text="task 2: target prob.")
+        self.sTask2_target_prob_label.grid(row=taskStartRow+1, column=taskStartCol+2)
+        self.sTask2_target_prob=StringVar(master)
+        self.sTask2_target_prob_entry=Entry(master,width=6,textvariable=self.sTask2_target_prob)
+        self.sTask2_target_prob_entry.grid(row=taskStartRow+1, column=taskStartCol+1)
+        self.sTask2_target_prob.set('0.5')
+
+        self.sTask2_distract_prob_label = Label(master, text="task 2: distract prob.")
+        self.sTask2_distract_prob_label.grid(row=taskStartRow+2, column=taskStartCol+2)
+        self.sTask2_distract_prob=StringVar(master)
+        self.sTask2_distract_prob_entry=Entry(master,width=6,textvariable=self.sTask2_distract_prob)
+        self.sTask2_distract_prob_entry.grid(row=taskStartRow+2, column=taskStartCol+1)
+        self.sTask2_distract_prob.set('0.5')
+
+        self.sTask2_target_reward_prob_label = Label(master, text="task 2: target reward prob.")
+        self.sTask2_target_reward_prob_label.grid(row=taskStartRow+3, column=taskStartCol+2)
+        self.sTask2_target_reward_prob=StringVar(master)
+        self.sTask2_target_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask2_target_reward_prob)
+        self.sTask2_target_reward_prob_entry.grid(row=taskStartRow+3, column=taskStartCol+1)
+        self.sTask2_target_reward_prob.set('1.0')
+
+        self.sTask2_target_punish_prob_label = Label(master, text="task 2: target punish prob.")
+        self.sTask2_target_punish_prob_label.grid(row=taskStartRow+4, column=taskStartCol+2)
+        self.sTask2_target_punish_prob=StringVar(master)
+        self.sTask2_target_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask2_target_punish_prob)
+        self.sTask2_target_punish_prob_entry.grid(row=taskStartRow+4, column=taskStartCol+1)
+        self.sTask2_target_punish_prob.set('0.0')
+
+        self.sTask2_distract_reward_prob_label = Label(master, text="task 2: distract reward prob.")
+        self.sTask2_distract_reward_prob_label.grid(row=taskStartRow+5, column=taskStartCol+2)
+        self.sTask2_distract_reward_prob=StringVar(master)
+        self.sTask2_distract_reward_prob_entry=Entry(master,width=6,textvariable=self.sTask2_distract_reward_prob)
+        self.sTask2_distract_reward_prob_entry.grid(row=taskStartRow+5, column=taskStartCol+1)
+        self.sTask2_distract_reward_prob.set('0.0')
+
+        self.sTask2_distract_punish_prob_label = Label(master, text="task 2: target punish prob.")
+        self.sTask2_distract_punish_prob_label.grid(row=taskStartRow+6, column=taskStartCol+2)
+        self.sTask2_distract_punish_prob=StringVar(master)
+        self.sTask2_distract_punish_prob_entry=Entry(master,width=6,textvariable=self.sTask2_distract_punish_prob)
+        self.sTask2_distract_punish_prob_entry.grid(row=taskStartRow+6, column=taskStartCol+1)
+        self.sTask2_distract_punish_prob.set('1.0')
+        print(self.comPath)
+    def close_windows(self):
+        self.master.destroy()
+
+def main(): 
+    root = Tk()
+    app = pyDiscrim_mainGUI(root)
+    root.mainloop()
+
+if __name__ == '__main__':
+    main()

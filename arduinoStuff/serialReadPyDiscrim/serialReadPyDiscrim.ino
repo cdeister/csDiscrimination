@@ -127,7 +127,7 @@ void loop() {
     }
     msCorrected=millis()-msOffset;
     //Serial.print(String("data,0,0,0,0,0"));
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     Serial.println();
     delay(loopDelta);
     curState=lookForSerialState();
@@ -146,7 +146,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -163,7 +163,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -218,7 +218,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -273,7 +273,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -288,7 +288,7 @@ void loop() {
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -305,7 +305,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -322,7 +322,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -339,7 +339,7 @@ void loop() {
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
@@ -352,7 +352,7 @@ void loop() {
     prevSensorValue=sensorValue;
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
-    spitData(msCorrected,posX,curState,sensorValue,lickDeltaDelta,msInTrial);
+    spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
     curState=lookForSerialState();
   }
