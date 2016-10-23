@@ -1,9 +1,10 @@
 # pyDiscrim:
 # This is a python program that runs sensory discrimination tasks in a state-based manner.
-# It works with microcontrolors or dac boards (conceptually). It can easily be modified to suit different needs.
+# It works with microcontrolors or dac boards (conceptually). 
+# It can easily be modified to suit different needs.
 #
-# version 3.0 (1st GUI; Start Object Oriented Reorg)
-# 10/18/2016
+# version 3.1 (Cleaning Up Objects)
+# 10/22/2016
 # questions? --> Chris Deister --> cdeister@Bbrown.edu
 
 # todo: find alternative to isnumeric so signed variables are handeled ok and pass lists.
@@ -21,8 +22,6 @@ import random
 import math
 import struct
 
-
-
 class pyDiscrim_mainGUI:
 
     def __init__(self, master):
@@ -39,56 +38,49 @@ class pyDiscrim_mainGUI:
 
         self.comPath=StringVar(master)
         self.comPath.set('/dev/cu.usbmodem1411')
-        self.comEntry = OptionMenu(master,self.comPath, '/dev/cu.usbmodem1411','/dev/cu.usbmodem1421')
+        self.comEntry = OptionMenu(master,self.comPath, \
+            '/dev/cu.usbmodem1411','/dev/cu.usbmodem1421')
         self.comEntry.grid(row=1, column=0)
+        self.comEntry.config(width=20)
 
-        self.baudEntry_label = Label(master, text="BAUD Rate")
+        self.baudEntry_label = Label(master,text="BAUD Rate")
         self.baudEntry_label.grid(row=2, column=0)
 
         self.baudSelected=IntVar(master)
         self.baudSelected.set(9600)
-        self.baudPick = OptionMenu(master, self.baudSelected, 9600,987)
+        self.baudPick = OptionMenu(master,self.baudSelected,9600,19200)
         self.baudPick.grid(row=3, column=0)
+        self.baudPick.config(width=20)
 
-        self.createCom_button = Button(master, text="Start Serial", command=self.initComObj)
-        self.createCom_button.grid(row=4, column=0)
+        # ------>
+        self.animalIDStr_label = Label(master, text="animal id").grid(row=4,sticky=W)
+        self.animalIDStr=StringVar(master)
+        self.animalIDStr_entry=Entry(master,textvariable=self.animalIDStr)
+        self.animalIDStr_entry.grid(row=4, column=0)
+        self.animalIDStr.set('cj_dX')
+        self.animalIDStr_entry.config(width=10)
 
-        self.close_button = Button(master, text="Close Serial", command=self.closeComObj)
-        self.close_button.grid(row=5, column=0)
-        self.close_button.config(state=DISABLED)
+        self.totalTrials_label = Label(master, text="total trials").grid(row=5,sticky=W)
+        self.totalTrials=StringVar(master)
+        self.totalTrials_entry=Entry(master,textvariable=self.totalTrials)
+        self.totalTrials_entry.grid(row=5, column=0)
+        self.totalTrials.set('100')
+        self.totalTrials_entry.config(width=10)
 
         # session variables
         self.quit_button = Button(master, text="Exit", command=self.simpleQuit)
         self.quit_button.grid(row=15, column=1)
 
-        self.start_button = Button(master, text="Start", command=self.runTask)
-        self.start_button.grid(row=15, column=0)
-
-        self.ttlabel = Label(master, text="total trials")
-        self.ttlabel.grid(row=2, column=1)
-        self.totalTrials=StringVar(master)
-        self.totalTrialsEntry=Entry(master,width=6,textvariable=self.totalTrials)
-        self.totalTrialsEntry.grid(row=3, column=1)
-        self.totalTrials.set('100')
-
-        self.aString_label = Label(master, text="animal id")
-        self.aString_label.grid(row=4, column=1)
-        self.aString=StringVar(master)
-        self.aStringEntry=Entry(master,width=6,textvariable=self.aString)
-        self.aStringEntry.grid(row=5, column=1)
-        self.aString.set('cj_dX')
-
-        self.s13_button = Button(master, text="Save/Quit", bg='red', command=lambda: self.saveQuit())
-        self.s13_button.grid(row=16, column=0)
-        self.s13_button.config(state=NORMAL)
 
         self.ux_adaptThresh=StringVar(master)
-        self.ux_adaptThreshToggle=Checkbutton(master, text="Use Adaptive Threshold",variable=self.ux_adaptThresh)
+        self.ux_adaptThreshToggle=Checkbutton(master, \
+            text="Use Adaptive Threshold",variable=self.ux_adaptThresh)
         self.ux_adaptThreshToggle.grid(row=20, column=2)
         self.ux_adaptThreshToggle.select()
 
         self.lickValuesOrDeltas=StringVar(master)
-        self.ux_lickValuesToggle=Checkbutton(master, text="Plot Lick Values",variable=self.lickValuesOrDeltas)
+        self.ux_lickValuesToggle=Checkbutton(master, \
+            text="Plot Lick Values",variable=self.lickValuesOrDeltas)
         self.ux_lickValuesToggle.grid(row=20, column=1)
         self.ux_lickValuesToggle.select()
 
@@ -112,24 +104,44 @@ class pyDiscrim_mainGUI:
         self.lickThr=StringVar(master)
         self.lickMax_entry=Entry(master,width=6,textvariable=self.lickThr)
         self.lickMax_entry.grid(row=24, column=1)
-        self.lickThr.set(12)   
+        self.lickThr.set(12)
 
-        self.nwButton = Button(master, text = 'Task Probs', width = 10, command = self.taskProb_frame)
+        self.createCom_button = Button(master, text="Start Serial",\
+         width = 10, command=self.initComObj)
+        self.createCom_button.grid(row=0, column=2)   
+
+        self.nwButton = Button(master, text = 'Task Probs',\
+         width = 10, command = self.taskProb_frame)
         self.nwButton.grid(row=1, column=2)
+        self.nwButton.config(state=DISABLED)
 
-        self.stW_Button = Button(master, text = 'State Toggles', width = 10, command = self.stateToggle_frame)
+        self.stW_Button = Button(master, text = 'State Toggles',\
+         width = 10, command = self.stateToggle_frame)
         self.stW_Button.grid(row=2, column=2)
+        self.stW_Button.config(state=DISABLED)
+
+        self.start_button = Button(master, text="Start Task",\
+            width = 10, command=self.runTask)
+        self.start_button.grid(row=3, column=2)
+        self.start_button.config(state=DISABLED)
+
+        self.close_button = Button(master, text="Close Serial",\
+            width = 10, command=self.closeComObj)
+        self.close_button.grid(row=4, column=2)
+        self.close_button.config(state=DISABLED)
 
         # init counters etc
         self.dPos=float(0)
         self.currentTrial=1
         self.currentState=0
 
-        self.t1_probEntries='sTask1_prob','sTask1_target_prob','sTask1_distract_prob','sTask1_target_reward_prob',\
-        'sTask1_target_punish_prob','sTask1_distract_reward_prob','sTask1_distract_punish_prob'
+        self.t1_probEntries='sTask1_prob','sTask1_target_prob','sTask1_distract_prob',\
+        'sTask1_target_reward_prob','sTask1_target_punish_prob',\
+        'sTask1_distract_reward_prob','sTask1_distract_punish_prob'
         self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        self.t2_probEntries='sTask2_prob','sTask2_target_prob','sTask2_distract_prob','sTask2_target_reward_prob',\
-        'sTask2_target_punish_prob','sTask2_distract_reward_prob','sTask2_distract_punish_prob'
+        self.t2_probEntries='sTask2_prob','sTask2_target_prob','sTask2_distract_prob',\
+        'sTask2_target_reward_prob','sTask2_target_punish_prob',\
+        'sTask2_distract_reward_prob','sTask2_distract_punish_prob'
         self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
 
 
@@ -142,7 +154,8 @@ class pyDiscrim_mainGUI:
         self.stillTime=float(0)
         self.stillLatch=0
         self.stillTimeStart=float(0)
-        self.distThr=1000;  # This is the distance the mouse needs to move to initiate a stimulus trial.
+        self.distThr=1000;  
+        # This is the distance the mouse needs to move to initiate a stimulus trial.
 
 
 
@@ -170,7 +183,9 @@ class pyDiscrim_mainGUI:
         self.dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
         self.initPltRng=2.5
-        self.pltDelay=0.0000001 # this can be changed, but doesn't need to be. We have to have a plot delay, but it can be tiny.
+        self.pltDelay=0.0000001 
+        # this can be changed, but doesn't need to be. 
+        #We have to have a plot delay, but it can be tiny.
         self.stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
         self.stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
         self.smMrk=10
@@ -179,10 +194,6 @@ class pyDiscrim_mainGUI:
         self.positionMax=3000;
         self.lickMin=0
         self.lickMax=30
-
-    # ***************************
-    # ***** task prob stuff *****
-    # ***************************
 
     def taskProb_frame(self):
         #self.frame = Frame(self.master)
@@ -193,10 +204,18 @@ class pyDiscrim_mainGUI:
         #result.geometry('1600x150')
         self.makeProbEntries_t1()
         self.makeProbEntries_t2()
-        self.closeTaskProbWindowButton = Button(tb_frame, text = 'Set and Close', width = 10, command = self.close_taskProbFrame)
+        self.closeTaskProbWindowButton = Button(tb_frame, text = 'Set and Close', width = 10, command = self.taskProb_frame_close)
         self.closeTaskProbWindowButton.grid(row=8, column=1)
 
-    def close_taskProbFrame(self):
+        # update the GUI
+        self.close_button.config(state=NORMAL)
+        self.comEntry.config(state=DISABLED)
+        self.baudPick.config(state=DISABLED)
+        self.createCom_button.config(state=NORMAL)      #button 1
+        self.nwButton.config(state=NORMAL)              #button 2
+        self.stW_Button.config(state=NORMAL)            #button 3
+
+    def taskProb_frame_close(self):
         self.sTask1_prob_captured=float(self.sTask1_prob.get())
         self.sTask1_prob.set(str(self.sTask1_prob_captured))
         self.probsSet=1
@@ -222,10 +241,6 @@ class pyDiscrim_mainGUI:
     def captureEntry(self,entryString="a"):  #sTask1_prob
         print(entryString)
         #eval('self.{}_captured=float(self.{}.get())'.format(entryString,entryString))
-
-    # ****************************
-    # ***** state view stuff *****
-    # ****************************
 
     def stateToggle_frame(self):
         st_frame = Toplevel()
@@ -295,6 +310,20 @@ class pyDiscrim_mainGUI:
         self.s13_button.grid(row=stateStartRow+1, column=stateStartColumn)
         self.s13_button.config(state=DISABLED)
 
+        # self.s13_button = Button(master, text="Save/Quit", bg='red', command=lambda: self.saveQuit())
+        # self.s13_button.grid(row=16, column=0)
+        # self.s13_button.config(state=NORMAL)
+
+        # update the GUI
+        self.close_button.config(state=NORMAL)
+        self.quit_button.config(state=DISABLED)
+        self.createCom_button.config(state=NORMAL)
+        self.comEntry.config(state=NORMAL)
+        self.baudPick.config(state=NORMAL)
+        self.nwButton.config(state=NORMAL)
+        self.stW_Button.config(state=NORMAL)
+        self.start_button.config(state=NORMAL)        #button 4
+
     def toggleStateButtons(self,tS=1,tempBut=[0]):
         if tS==1:
             for tMem in range(0,len(tempBut)):
@@ -309,11 +338,6 @@ class pyDiscrim_mainGUI:
         self.currentState=self.selectedStateNumber
         self.comObj.write(struct.pack('>B', selectedStateNumber))
 
-    #def close_stateToggleFrame(self):
-
-
-    # $$$$
-
     def initComObj(self):
         print('Opening serial port')
         # Start serial communication
@@ -325,25 +349,21 @@ class pyDiscrim_mainGUI:
         self.readData()
         print(self.sR)
 
-
         # update the GUI
         self.close_button.config(state=NORMAL)
-        self.quit_button.config(state=DISABLED)
-        self.createCom_button.config(state=NORMAL)
-        self.comEntry.config(state=NORMAL)
-        self.baudPick.config(state=NORMAL)
-        self.toggleStateButtons(tS=1,tempBut=[0,1,2,3,4,5,6,7,8,9,10,11,12,13])
-
-    def new_window(self):
-        self.newWindow = Toplevel(self.master)
-        self.app = pyDiscrim_subGUI(self.newWindow)
-
+        self.comEntry.config(state=DISABLED)
+        self.baudPick.config(state=DISABLED)
+        self.createCom_button.config(state=NORMAL)      #button 1
+        self.nwButton.config(state=NORMAL)              #button 2
+        self.stW_Button.config(state=DISABLED)          #button 3
+        self.start_button.config(state=DISABLED)        #button 4
+        
     def closeComObj(self):
         self.comObj.write(struct.pack('>B', 0)) #todo: abstract init state
         self.comObj.close()
         exit()
 
-    def simpleQuit(self):  #todo: finish this
+    def simpleQuit(self):  #todo: delete this
         print('audi 5k')    #debug
         exit()
 
@@ -368,7 +388,7 @@ class pyDiscrim_mainGUI:
         self.sTask2_distract_reward_prob.get()
         self.sTask2_distract_punish_prob.get()
 
-    def makeContainers(self):           #todo: this should be part of data class
+    def makeContainers(self):
         self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
         self.arStates=[]             # Store the state the arduino thinks it is in.
         self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
@@ -377,7 +397,7 @@ class pyDiscrim_mainGUI:
         self.arduinoTrialTime=[]
         self.detected_licks=[]
 
-    def cleanContainers(self):           #todo: this should be part of data class
+    def cleanContainers(self):
         self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
         self.arStates=[]             # Store the state the arduino thinks it is in.
         self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
@@ -400,7 +420,7 @@ class pyDiscrim_mainGUI:
         elif self.lickDeltas[-1]<=int(self.lickThr.get()):
             self.detected_licks.append(0)
 
-    def updatePosPlot(self): # todo: organize this better (shoul be its own class I think)
+    def updatePosPlot(self): 
         if len(self.arduinoTrialTime)>2:
             self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
             self.tTP=self.segPlot*self.cTD
@@ -442,6 +462,13 @@ class pyDiscrim_mainGUI:
         self.lG.pop(0).remove()
         self.lH.pop(0).remove()
 
+    def handShake(self):
+        print('should be good; will take you to wait state (S1)')
+        self.comObj.write(struct.pack('>B', 1))
+        print('hands')
+        self.waitForStateToUpdateOnTarget(self.currentState) #todo self.currentState right?
+        print('did maint call')
+
     def readData(self):
         self.sR=self.comObj.readline().strip().decode()
         self.sR=self.sR.split(',')
@@ -471,7 +498,7 @@ class pyDiscrim_mainGUI:
         if self.dataAvail==1:
             self.parseData()
 
-    def generic_InitState(self):  #apendix todo
+    def generic_InitState(self):
         print('in state init {}'.format(self.currentState))
         self.cycleCount=1
         self.stateIt=1
@@ -587,15 +614,9 @@ class pyDiscrim_mainGUI:
     def saveData(self):
         self.exportArray=np.array([self.arduinoTime,self.positions,self.arStates,
             self.lickValues,self.lickDeltas,self.arduinoTrialTime])
-        np.savetxt('{}_{}_trial_{}.csv'.format(self.aString.get(),self.dateStr,self.currentTrial), 
+        np.savetxt('{}_{}_trial_{}.csv'.format(self.animalIDStr.get(),\
+            self.dateStr,self.currentTrial), 
             self.exportArray, delimiter=",",fmt="%f")
-
-    def handShake(self):
-        print('should be good; will take you to wait state (S1)')
-        self.comObj.write(struct.pack('>B', 1))
-        print('hands')
-        self.waitForStateToUpdateOnTarget(self.currentState) #todo self.currentState right?
-        print('did maint call')
 
     def getStateSetDiff(self):
         aa={self.currentState}
@@ -634,7 +655,8 @@ class pyDiscrim_mainGUI:
                     while self.currentState==0:
                         self.generic_StateHeader() # gets data
                         if self.dataAvail==1:
-                            td.append(float(self.arduinoTime[-1]-self.initTime)) #todo: jank but useful to track in self
+                            td.append(float(self.arduinoTime[-1]-self.initTime)) 
+                            #todo: jank but useful to track in self
                             #print(td[-1])
                             #print(np.var(td))
                             self.initTime=self.arduinoTime[-1]
@@ -663,7 +685,8 @@ class pyDiscrim_mainGUI:
                     while self.currentState==2:
                         self.generic_StateHeader() 
                         if self.dataAvail==1: # todo: in all states
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0: # todo: in all states
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0: 
+                            # todo: in all states
                                 self.updatePlotCheck()   # todo: in all states
                             self.conditionBlock_s2()  # condition blocks are unique (always custom)
                             self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
@@ -731,7 +754,8 @@ class pyDiscrim_mainGUI:
             except:
                 print(self.dPos)
                 print('EXCEPTION: peace out bitches')
-                print('last trial = {} and the last state was {}. I will try to save last trial ...'.format(self.currentTrial,self.currentState))
+                print('last trial = {} and the last state was {}. \
+                    I will try to save last trial ...'.format(self.currentTrial,self.currentState))
                 self.comObj.write(struct.pack('>B', 0))
                 self.saveData() 
                 print('save was a success; now I will close com port and quit')
