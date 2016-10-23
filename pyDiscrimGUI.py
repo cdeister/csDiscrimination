@@ -29,9 +29,11 @@ class pyDiscrim_mainGUI:
         self.master = master
         self.frame = Frame(self.master)
         master.title("pyDiscrim")
+        
+        # the programs has some critical components needed to run so we should keep track
         self.probsSet=0 # this gets set in a new window so we need to track if it is there
 
-        # serial stuff
+        # ------> serial stuff
         self.comPortEntry_label = Label(master, text="COM Port Location")
         self.comPortEntry_label.grid(row=0, column=0)
 
@@ -54,68 +56,6 @@ class pyDiscrim_mainGUI:
         self.close_button = Button(master, text="Close Serial", command=self.closeComObj)
         self.close_button.grid(row=5, column=0)
         self.close_button.config(state=DISABLED)
-
-        #State Buttons
-        stateStartColumn=6
-        stateStartRow=4
-        self.stateStartColumn=stateStartColumn
-        self.stateStartRow=stateStartRow
-
-        self.s0_button = Button(master, text="S0: Boot", command=lambda: self.switchState(0))
-        self.s0_button.grid(row=stateStartRow-1, column=stateStartColumn)
-        self.s0_button.config(state=DISABLED)
-
-        self.s1_button = Button(master, text="S1: Wait", command=lambda: self.switchState(1))
-        self.s1_button.grid(row=stateStartRow, column=stateStartColumn)
-        self.s1_button.config(state=DISABLED)
-
-        self.s2_button = Button(master, text="S2: Initiate", command=lambda: self.switchState(2))
-        self.s2_button.grid(row=stateStartRow, column=stateStartColumn+1)
-        self.s2_button.config(state=DISABLED)
-
-        self.s3_button = Button(master, text="S3: Cue 1", command=lambda: self.switchState(3))
-        self.s3_button.grid(row=stateStartRow-1, column=stateStartColumn+2)
-        self.s3_button.config(state=DISABLED)
-
-        self.s4_button = Button(master, text="S4: Cue 2", command=lambda: self.switchState(4))
-        self.s4_button.grid(row=stateStartRow+1, column=stateStartColumn+2)
-        self.s4_button.config(state=DISABLED)
-
-        self.s5_button = Button(master, text="S3a: Stim 1", command=lambda: self.switchState(5))
-        self.s5_button.grid(row=stateStartRow-2, column=stateStartColumn+3)
-        self.s5_button.config(state=DISABLED)
-
-        self.s6_button = Button(master, text="S3b: Stim 2",command=lambda: self.switchState(6))
-        self.s6_button.grid(row=stateStartRow-1, column=stateStartColumn+3)
-        self.s6_button.config(state=DISABLED)
-
-        self.s7_button = Button(master, text="SC: Catch", command=lambda: self.switchState(7))
-        self.s7_button.grid(row=stateStartRow, column=stateStartColumn+3)
-        self.s7_button.config(state=DISABLED)
-
-        self.s8_button = Button(master, text="S4a: Stim 2", command=lambda: self.switchState(8))
-        self.s8_button.grid(row=stateStartRow+1, column=stateStartColumn+3)
-        self.s8_button.config(state=DISABLED)
-
-        self.s9_button = Button(master, text="S4b: Stim 1", command=lambda: self.switchState(9))
-        self.s9_button.grid(row=stateStartRow+2, column=stateStartColumn+3)
-        self.s9_button.config(state=DISABLED)
-
-        self.s10_button = Button(master, text="SR: Reward", command=lambda: self.switchState(10))
-        self.s10_button.grid(row=stateStartRow-1, column=stateStartColumn+4)
-        self.s10_button.config(state=DISABLED)
-
-        self.s11_button = Button(master, text="SN: Neutral", command=lambda: self.switchState(11))
-        self.s11_button.grid(row=stateStartRow, column=stateStartColumn+4)
-        self.s11_button.config(state=DISABLED)
-
-        self.s12_button = Button(master, text="SP: Punish", command=lambda: self.switchState(12))
-        self.s12_button.grid(row=stateStartRow+1, column=stateStartColumn+4)
-        self.s12_button.config(state=DISABLED)
-
-        self.s13_button = Button(master, text="SS: Saving", command=lambda: self.switchState(13))
-        self.s13_button.grid(row=stateStartRow+1, column=stateStartColumn)
-        self.s13_button.config(state=DISABLED)
 
         # session variables
         self.quit_button = Button(master, text="Exit", command=self.simpleQuit)
@@ -174,8 +114,11 @@ class pyDiscrim_mainGUI:
         self.lickMax_entry.grid(row=24, column=1)
         self.lickThr.set(12)   
 
-        self.nwButton = Button(master, text = 'Task Probs', width = 10, command = self.result_frame)
+        self.nwButton = Button(master, text = 'Task Probs', width = 10, command = self.taskProb_frame)
         self.nwButton.grid(row=1, column=2)
+
+        self.stW_Button = Button(master, text = 'State Toggles', width = 10, command = self.stateToggle_frame)
+        self.stW_Button.grid(row=2, column=2)
 
         # init counters etc
         self.dPos=float(0)
@@ -237,27 +180,139 @@ class pyDiscrim_mainGUI:
         self.lickMin=0
         self.lickMax=30
 
-    def result_frame(self):
+    # ***************************
+    # ***** task prob stuff *****
+    # ***************************
+
+    def taskProb_frame(self):
         #self.frame = Frame(self.master)
-        result = Toplevel()
-        result.title('Task Probs')
-        self.result=result
+        tb_frame = Toplevel()
+        tb_frame.title('Task Probs')
+        self.tb_frame=tb_frame
 
         #result.geometry('1600x150')
         self.makeProbEntries_t1()
         self.makeProbEntries_t2()
-        self.closeTaskProbWindowButton = Button(result, text = 'Set and Close', width = 10, command = self.closeProbEntryWindow)
+        self.closeTaskProbWindowButton = Button(tb_frame, text = 'Set and Close', width = 10, command = self.close_taskProbFrame)
         self.closeTaskProbWindowButton.grid(row=8, column=1)
 
-    def closeProbEntryWindow(self):
+    def close_taskProbFrame(self):
         self.sTask1_prob_captured=float(self.sTask1_prob.get())
         self.sTask1_prob.set(str(self.sTask1_prob_captured))
         self.probsSet=1
+
+    def makeProbEntries_t1(self):
+        for x in range(0,len(self.t1_probEntries)):
+            exec('self.{}=StringVar(self.tb_frame)'.format(self.t1_probEntries[x]))
+            exec('self.{}_label = Label(self.tb_frame, text="{}")'.format(self.t1_probEntries[x],self.t1_probEntries[x]))
+            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.format(self.t1_probEntries[x],self.t1_probEntries[x]))
+            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
+            exec('self.{}.set({})'.format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
+
+    def makeProbEntries_t2(self):
+        for x in range(0,len(self.t2_probEntries)):
+            exec('self.{}=StringVar(self.tb_frame)'.format(self.t2_probEntries[x]))
+            exec('self.{}_label = Label(self.tb_frame, text="{}")'.format(self.t2_probEntries[x],self.t2_probEntries[x]))
+            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.format(self.t2_probEntries[x],self.t2_probEntries[x]))
+            exec('self.{}_label.grid(row=x, column=3)'.format(self.t2_probEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
+            exec('self.{}.set({})'.format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
 
     def captureEntry(self,entryString="a"):  #sTask1_prob
         print(entryString)
         #eval('self.{}_captured=float(self.{}.get())'.format(entryString,entryString))
 
+    # ****************************
+    # ***** state view stuff *****
+    # ****************************
+
+    def stateToggle_frame(self):
+        st_frame = Toplevel()
+        st_frame.title('States in Task')
+        self.st_frame=st_frame
+
+        #result.geometry('1600x150')
+                # ------> state update stuff
+        stateStartColumn=0
+        stateStartRow=4
+        self.stateStartColumn=stateStartColumn
+        self.stateStartRow=stateStartRow
+
+        self.s0_button = Button(st_frame, text="S0: Boot", command=lambda: self.switchState(0))
+        self.s0_button.grid(row=stateStartRow-1, column=stateStartColumn)
+        self.s0_button.config(state=DISABLED)
+
+        self.s1_button = Button(st_frame, text="S1: Wait", command=lambda: self.switchState(1))
+        self.s1_button.grid(row=stateStartRow, column=stateStartColumn)
+        self.s1_button.config(state=DISABLED)
+
+        self.s2_button = Button(st_frame, text="S2: Initiate", command=lambda: self.switchState(2))
+        self.s2_button.grid(row=stateStartRow, column=stateStartColumn+1)
+        self.s2_button.config(state=DISABLED)
+
+        self.s3_button = Button(st_frame, text="S3: Cue 1", command=lambda: self.switchState(3))
+        self.s3_button.grid(row=stateStartRow-1, column=stateStartColumn+2)
+        self.s3_button.config(state=DISABLED)
+
+        self.s4_button = Button(st_frame, text="S4: Cue 2", command=lambda: self.switchState(4))
+        self.s4_button.grid(row=stateStartRow+1, column=stateStartColumn+2)
+        self.s4_button.config(state=DISABLED)
+
+        self.s5_button = Button(st_frame, text="S3a: Stim 1", command=lambda: self.switchState(5))
+        self.s5_button.grid(row=stateStartRow-2, column=stateStartColumn+3)
+        self.s5_button.config(state=DISABLED)
+
+        self.s6_button = Button(st_frame, text="S3b: Stim 2",command=lambda: self.switchState(6))
+        self.s6_button.grid(row=stateStartRow-1, column=stateStartColumn+3)
+        self.s6_button.config(state=DISABLED)
+
+        self.s7_button = Button(st_frame, text="SC: Catch", command=lambda: self.switchState(7))
+        self.s7_button.grid(row=stateStartRow, column=stateStartColumn+3)
+        self.s7_button.config(state=DISABLED)
+
+        self.s8_button = Button(st_frame, text="S4a: Stim 2", command=lambda: self.switchState(8))
+        self.s8_button.grid(row=stateStartRow+1, column=stateStartColumn+3)
+        self.s8_button.config(state=DISABLED)
+
+        self.s9_button = Button(st_frame, text="S4b: Stim 1", command=lambda: self.switchState(9))
+        self.s9_button.grid(row=stateStartRow+2, column=stateStartColumn+3)
+        self.s9_button.config(state=DISABLED)
+
+        self.s10_button = Button(st_frame, text="SR: Reward", command=lambda: self.switchState(10))
+        self.s10_button.grid(row=stateStartRow-1, column=stateStartColumn+4)
+        self.s10_button.config(state=DISABLED)
+
+        self.s11_button = Button(st_frame, text="SN: Neutral", command=lambda: self.switchState(11))
+        self.s11_button.grid(row=stateStartRow, column=stateStartColumn+4)
+        self.s11_button.config(state=DISABLED)
+
+        self.s12_button = Button(st_frame, text="SP: Punish", command=lambda: self.switchState(12))
+        self.s12_button.grid(row=stateStartRow+1, column=stateStartColumn+4)
+        self.s12_button.config(state=DISABLED)
+
+        self.s13_button = Button(st_frame, text="SS: Saving", command=lambda: self.switchState(13))
+        self.s13_button.grid(row=stateStartRow+1, column=stateStartColumn)
+        self.s13_button.config(state=DISABLED)
+
+    def toggleStateButtons(self,tS=1,tempBut=[0]):
+        if tS==1:
+            for tMem in range(0,len(tempBut)):
+                eval('self.s{}_button.config(state=NORMAL)'.format(tempBut[tMem]))
+        elif tS==0:
+            for tMem in range(0,len(tempBut)):
+                eval('self.s{}_button.config(state=DISABLED)'.format(tempBut[tMem]))
+
+    def switchState(self,selectedStateNumber):
+        self.selectedStateNumber=selectedStateNumber
+        print(self.selectedStateNumber)
+        self.currentState=self.selectedStateNumber
+        self.comObj.write(struct.pack('>B', selectedStateNumber))
+
+    #def close_stateToggleFrame(self):
+
+
+    # $$$$
 
     def initComObj(self):
         print('Opening serial port')
@@ -283,20 +338,6 @@ class pyDiscrim_mainGUI:
         self.newWindow = Toplevel(self.master)
         self.app = pyDiscrim_subGUI(self.newWindow)
 
-    def toggleStateButtons(self,tS=1,tempBut=[0]):
-        if tS==1:
-            for tMem in range(0,len(tempBut)):
-                eval('self.s{}_button.config(state=NORMAL)'.format(tempBut[tMem]))
-        elif tS==0:
-            for tMem in range(0,len(tempBut)):
-                eval('self.s{}_button.config(state=DISABLED)'.format(tempBut[tMem]))
-
-    def switchState(self,selectedStateNumber):
-        self.selectedStateNumber=selectedStateNumber
-        print(self.selectedStateNumber)
-        self.currentState=self.selectedStateNumber
-        self.comObj.write(struct.pack('>B', selectedStateNumber))
-
     def closeComObj(self):
         self.comObj.write(struct.pack('>B', 0)) #todo: abstract init state
         self.comObj.close()
@@ -310,28 +351,6 @@ class pyDiscrim_mainGUI:
         self.comObj.write(struct.pack('>B', 0))
         self.comObj.close()
         exit()
-
-    def makeProbEntries_t1(self):
-        for x in range(0,len(self.t1_probEntries)):
-            exec('self.{}=StringVar(self.result)'.format(self.t1_probEntries[x]))
-            exec('self.{}_label = Label(self.result, text="{}")'.format(self.t1_probEntries[x],self.t1_probEntries[x]))
-            exec('self.{}_entry=Entry(self.result,width=6,textvariable=self.{})'.format(self.t1_probEntries[x],self.t1_probEntries[x]))
-            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
-            exec('self.{}.set({})'.format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
-
-            #todo: set
-
-    def makeProbEntries_t2(self):
-        for x in range(0,len(self.t2_probEntries)):
-            exec('self.{}=StringVar(self.result)'.format(self.t2_probEntries[x]))
-            exec('self.{}_label = Label(self.result, text="{}")'.format(self.t2_probEntries[x],self.t2_probEntries[x]))
-            exec('self.{}_entry=Entry(self.result,width=6,textvariable=self.{})'.format(self.t2_probEntries[x],self.t2_probEntries[x]))
-            exec('self.{}_label.grid(row=x, column=3)'.format(self.t2_probEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
-            exec('self.{}.set({})'.format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
-
-
 
     def initTaskProbs(self):
         self.sTask1_prob.get()
