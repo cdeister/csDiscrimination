@@ -53,6 +53,7 @@ class pyDiscrim_mainGUI:
         self.baudPick.config(width=20)
 
         # ------>
+
         self.animalIDStr_label = Label(master, text="animal id").grid(row=4,sticky=W)
         self.animalIDStr=StringVar(master)
         self.animalIDStr_entry=Entry(master,textvariable=self.animalIDStr)
@@ -68,20 +69,20 @@ class pyDiscrim_mainGUI:
         self.totalTrials_entry.config(width=10)
 
         # session variables
-        self.quit_button = Button(master, text="Exit", command=self.simpleQuit)
-        self.quit_button.grid(row=15, column=1)
+        self.quit_button = Button(master, text="Exit", command=self.simpleQuit, width=10)
+        self.quit_button.grid(row=20, column=2)
 
 
         self.ux_adaptThresh=StringVar(master)
         self.ux_adaptThreshToggle=Checkbutton(master, \
-            text="Use Adaptive Threshold",variable=self.ux_adaptThresh)
-        self.ux_adaptThreshToggle.grid(row=20, column=2)
+            text="Ad Thr?",variable=self.ux_adaptThresh)
+        self.ux_adaptThreshToggle.grid(row=20, column=0)
         self.ux_adaptThreshToggle.select()
 
         self.lickValuesOrDeltas=StringVar(master)
         self.ux_lickValuesToggle=Checkbutton(master, \
-            text="Plot Lick Values",variable=self.lickValuesOrDeltas)
-        self.ux_lickValuesToggle.grid(row=20, column=1)
+            text="Lk Val?",variable=self.lickValuesOrDeltas)
+        self.ux_lickValuesToggle.grid(row=21, column=0)
         self.ux_lickValuesToggle.select()
 
 
@@ -100,10 +101,10 @@ class pyDiscrim_mainGUI:
         self.lickPlotMax.set('100')
 
         self.lickThreshold_label = Label(master, text="lick threshold")
-        self.lickThreshold_label.grid(row=23, column=1)
+        self.lickThreshold_label.grid(row=23, sticky=W)
         self.lickThr=StringVar(master)
         self.lickMax_entry=Entry(master,width=6,textvariable=self.lickThr)
-        self.lickMax_entry.grid(row=24, column=1)
+        self.lickMax_entry.grid(row=23, column=0)
         self.lickThr.set(12)
 
         self.createCom_button = Button(master, text="Start Serial",\
@@ -324,6 +325,7 @@ class pyDiscrim_mainGUI:
         self.stW_Button.config(state=NORMAL)
         self.start_button.config(state=NORMAL)        #button 4
 
+
     def toggleStateButtons(self,tS=1,tempBut=[0]):
         if tS==1:
             for tMem in range(0,len(tempBut)):
@@ -357,6 +359,9 @@ class pyDiscrim_mainGUI:
         self.nwButton.config(state=NORMAL)              #button 2
         self.stW_Button.config(state=DISABLED)          #button 3
         self.start_button.config(state=DISABLED)        #button 4
+
+        self.nwButton.invoke()
+        self.stW_Button.invoke()
         
     def closeComObj(self):
         self.comObj.write(struct.pack('>B', 0)) #todo: abstract init state
@@ -408,7 +413,7 @@ class pyDiscrim_mainGUI:
 
     def updateLickThresholds(self):
         if self.ux_adaptThresh.get()==1:
-            print('uo')
+            print(int(self.lickThr))
             tA=np.abs(np.array(self.lickDeltas))
             print(int(np.percentile(aaa[np.where(aaa != 0)[0]],75)))
             self.lickThr.set(str(np.percentile(tA[np.where(tA != 0)[0]],75)))
