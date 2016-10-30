@@ -91,14 +91,14 @@ class pyDiscrim_mainGUI:
         self.sampsToPlot=StringVar(master)
         self.sampPlot_entry=Entry(master,width=6,textvariable=self.sampsToPlot)
         self.sampPlot_entry.grid(row=22, column=2)
-        self.sampsToPlot.set('10000')
+        self.sampsToPlot.set('1000')
 
         self.lickMax_label = Label(master, text="lick max")
         self.lickMax_label.grid(row=23, column=2)
         self.lickPlotMax=StringVar(master)
         self.lickMax_entry=Entry(master,width=6,textvariable=self.lickPlotMax)
         self.lickMax_entry.grid(row=24, column=2)
-        self.lickPlotMax.set('2000')
+        self.lickPlotMax.set('1024')
 
         self.lickThreshold_label = Label(master, text="lick threshold")
         self.lickThreshold_label.grid(row=23, sticky=W)
@@ -145,7 +145,6 @@ class pyDiscrim_mainGUI:
         'sTask2_distract_reward_prob','sTask2_distract_punish_prob'
         self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
 
-
         self.lickMinMax=[-5,10]
 
         ## Globals
@@ -173,10 +172,10 @@ class pyDiscrim_mainGUI:
         self.streamNum_lickSensor=4
         self.streamNum_lickDeriv=5
         self.streamNum_trialTime=6
-        self.segPlot=10000
+        self.segPlot=1000
 
 
-        self.tt1=[float(1),float(2)]
+        self.tt1=[float(1),float(2)]  #cleanUp
 
         # # # # # # # # # # # # # # # # # # # # # # # # 
         # Functions and Dynamic Variables             #
@@ -395,13 +394,35 @@ class pyDiscrim_mainGUI:
         self.sTask2_distract_punish_prob.get()
 
     def makeContainers(self):
-        self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
+        self.positions=[]           # This is the x-position of an optical mouse attached to a USB host shield
         self.arStates=[]             # Store the state the arduino thinks it is in.
         self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
         self.lickValues=[]
         self.lickDeltas=[]
         self.arduinoTrialTime=[]
         self.detected_licks=[]
+
+    def readData(self):
+        self.sR=self.comObj.readline().strip().decode()
+        self.sR=self.sR.split(',')
+        if self.sR[self.streamNum_header]=='data' and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[3])==1 and str.isnumeric(self.sR[4])==1 and str.isnumeric(self.sR[5])==1:
+            self.dataAvail=1
+        elif self.sR[self.streamNum_header]!='data' or str.isnumeric(self.sR[1])!=1  or str.isnumeric(self.sR[3])!=1 or str.isnumeric(self.sR[4])!=1 or str.isnumeric(self.sR[5])!=1:
+            self.dataAvail=0
+
+    def readDataFlush(self):
+        self.comObj.flush()
+        self.readData()
+
+    def parseData(self):
+        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000000))  
+        self.positions.append(int(self.sR[self.streamNum_position]))
+        self.currentState=int(self.sR[self.streamNum_state])
+        self.arStates.append(self.currentState)
+        self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
+        self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
+        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000000))
+        self.lickDetect()
 
     def cleanContainers(self):
         self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
@@ -470,35 +491,12 @@ class pyDiscrim_mainGUI:
         self.lG.pop(0).remove()
        # self.lH.pop(0).remove()
 
-
     def handShake(self):
         print('should be good; will take you to wait state (S1)')
         self.comObj.write(struct.pack('>B', 1))
         print('hands')
         self.waitForStateToUpdateOnTarget(self.currentState) #todo self.currentState right?
         print('did maint call')
-
-    def readData(self):
-        self.sR=self.comObj.readline().strip().decode()
-        self.sR=self.sR.split(',')
-        if self.sR[self.streamNum_header]=='data' and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[3])==1 and str.isnumeric(self.sR[4])==1 and str.isnumeric(self.sR[5])==1:
-            self.dataAvail=1
-        elif self.sR[self.streamNum_header]!='data' or str.isnumeric(self.sR[1])!=1  or str.isnumeric(self.sR[3])!=1 or str.isnumeric(self.sR[4])!=1 or str.isnumeric(self.sR[5])!=1:
-            self.dataAvail=0
-
-    def readDataFlush(self):
-        self.comObj.flush()
-        self.readData()
-
-    def parseData(self):
-        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000000))  
-        self.positions.append(float(self.sR[self.streamNum_position]))
-        self.currentState=int(self.sR[self.streamNum_state])
-        self.arStates.append(self.currentState)
-        self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
-        self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
-        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000000))
-        self.lickDetect()
 
     def generic_StateHeader(self):
         while self.stateIt==0:
@@ -537,7 +535,6 @@ class pyDiscrim_mainGUI:
                 self.waitForStateToUpdateOnTarget(self.currentState)  #<--- has to be in every cond block
 
     def conditionBlock_s2(self):
-        # if stimSwitch is less than task1's probablity then send to task #1
         t1P=float(self.sTask1_prob.get())
         if self.positions[-1]>self.distThr:
             if self.task_switch<=t1P:
@@ -577,7 +574,6 @@ class pyDiscrim_mainGUI:
                     self.waitForStateToUpdateOnTarget(3)
 
     def conditionBlock_s4(self):  #todo; mov could be a func
-        print('in cond block')
         trP=float(self.sTask2_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
             self.dPos=abs(self.positions[-1]-self.positions[-2])
@@ -621,8 +617,8 @@ class pyDiscrim_mainGUI:
                 self.waitForStateToUpdateOnTarget(self.currentState)
 
     def saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.positions,self.arStates,self.lickValues])
-        np.savetxt('aa.csv', self.exportArray, delimiter=",",fmt="%g")
+        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.positions,self.arStates])
+        np.savetxt('aad_{}.csv'.format(currentTrial), self.exportArray, delimiter=",",fmt="%g")
         # self.arduinoTime,self.positions,self.arStates,
         #     self.lickValues,self.lickDeltas,
 
@@ -650,7 +646,7 @@ class pyDiscrim_mainGUI:
         #self.initTaskProbs()
 
         # plotting variables
-        self.uiUpdateDelta=300
+        self.uiUpdateDelta=1000
         
         # Start the task (will iterate through trials)
         while self.currentTrial<=int(self.totalTrials.get()):
@@ -664,9 +660,6 @@ class pyDiscrim_mainGUI:
                         self.generic_StateHeader() # gets data
                         if self.dataAvail==1:
                             td.append(float(self.arduinoTime[-1]-self.initTime)) 
-                            #todo: jank but useful to track in self
-                            #print(td[-1])
-                            #print(np.var(td))
                             self.initTime=self.arduinoTime[-1]
                             if len(td)>300: #todo: bigtime jank here
                                 if np.var(td[-98:-1])<0.01:

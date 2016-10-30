@@ -9,8 +9,9 @@
 
 #include <hidboot.h>
 #include <usbhub.h>
+#include <CapacitiveSensor.h>
 
-int loopDelta=5;
+int loopDelta=1;
 int cueDuration=1000;
 int pulseDur=40;
 int delayDur_1=200;
@@ -20,6 +21,7 @@ int toneDelay=2000;
 int lickDelta=0;
 int lickDeltaDelta=0;
 int oldLickDelta=0;
+int capArg=400;
 
 unsigned long msOffset;
 unsigned long s1Offset;
@@ -32,6 +34,10 @@ unsigned long delayTime;
 unsigned long ofs1;
 unsigned long ofs2;
 unsigned long ofs3;
+
+int sensorValue;
+int sensorValue2;
+
 
 int lastState;
 int curState;
@@ -54,7 +60,6 @@ const int waterPin=5;     // Engage Water
 const int cueLED=13;
 const int tonePin=53;
 int sensorPin = A0;
-int sensorValue = 0;
 int prevSensorValue=0;
 
 // ********** mouse class
@@ -69,6 +74,7 @@ void MouseRptParser::OnMouseMove(MOUSEINFO *mi){
     deltaY=(mi->dY);
     posX=posX+deltaX;
     posY=posY+deltaY;
+    
 };
 
 USB Usb;
@@ -77,6 +83,9 @@ HIDBoot<HID_PROTOCOL_MOUSE> HidMouse(&Usb);
 MouseRptParser  Prs;
 
 // ************** end mouse
+
+CapacitiveSensor   cs_4_6 = CapacitiveSensor(4,6);        // 10M resistor between pins 4 & 6, pin 6 is sensor pin, add a wire and or foil
+CapacitiveSensor   cs_4_8 = CapacitiveSensor(4,8);        // 10M resistor between pins 4 & 8, pin 8 is sensor pin, add a wire and or foil
 
 
 void setup() {
@@ -95,6 +104,10 @@ void setup() {
   HidMouse.SetReportParser(0,(HIDReportParser*)&Prs);
   msOffset=millis();
   s1Offset=millis();
+  cs_4_8.reset_CS_AutoCal();
+  cs_4_6.reset_CS_AutoCal();
+  cs_4_6.set_CS_AutocaL_Millis(0xFFFFFFFF); 
+  cs_4_8.set_CS_AutocaL_Millis(0xFFFFFFFF); 
 }
 
 void loop() {
@@ -126,7 +139,11 @@ void loop() {
       bef=1;
     }
     msCorrected=millis()-msOffset;
+    cs_4_8.reset_CS_AutoCal();
+    cs_4_6.reset_CS_AutoCal();
     //Serial.print(String("data,0,0,0,0,0"));
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     Serial.println();
     delay(loopDelta);
@@ -142,7 +159,8 @@ void loop() {
     s1Offset=twTimeReset;
     msInTrial=millis()-s1Offset;
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);    
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
@@ -159,7 +177,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
@@ -214,7 +233,8 @@ void loop() {
       }
     }
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
@@ -269,7 +289,8 @@ void loop() {
       }
     }
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
@@ -286,7 +307,8 @@ void loop() {
     msInTrial=millis()-s1Offset;
     tone(tonePin, 900, 1000);
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
@@ -301,7 +323,8 @@ void loop() {
     msInTrial=millis()-s1Offset;
     tone(tonePin, 100, 1000);
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
@@ -317,7 +340,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
     tone(tonePin, 900, 1000);
-    prevSensorValue=sensorValue;
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     sensorValue = analogRead(sensorPin);
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
@@ -335,7 +359,8 @@ void loop() {
     msInTrial=millis()-s1Offset;
     tone(tonePin, 100, 1000);
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     lickDeltaDelta=lickDelta-oldLickDelta;
     oldLickDelta=lickDelta;
@@ -350,7 +375,8 @@ void loop() {
     msCorrected=millis()-msOffset;
     msInTrial=millis()-s1Offset;
     prevSensorValue=sensorValue;
-    sensorValue = analogRead(sensorPin);
+    sensorValue =  cs_4_6.capacitiveSensor(capArg);
+    sensorValue2 =  cs_4_8.capacitiveSensor(capArg);
     lickDelta=sensorValue-prevSensorValue;
     spitData(msCorrected,posX,curState,sensorValue,lickDelta,msInTrial);
     delay(loopDelta);
@@ -376,7 +402,9 @@ int lookForSerialState(){
   return pyState;
 }
 
-int spitData(unsigned long d1,int d2,int d3, int d4, int d5, unsigned long d6){
+
+
+int spitData(unsigned long d1,int d2,int d3, unsigned long d4, int d5, unsigned long d6){
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
