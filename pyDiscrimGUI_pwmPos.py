@@ -100,12 +100,19 @@ class pyDiscrim_mainGUI:
         self.lickMax_entry.grid(row=24, column=2)
         self.lickPlotMax.set('1024')
 
-        self.lickThreshold_label = Label(master, text="lick threshold")
-        self.lickThreshold_label.grid(row=23, sticky=W)
-        self.lickThr=StringVar(master)
-        self.lickMax_entry=Entry(master,width=6,textvariable=self.lickThr)
-        self.lickMax_entry.grid(row=23, column=0)
-        self.lickThr.set(12)
+        self.lickThrA=StringVar(master)
+        self.lickThresholdA_label = Label(master, text="lick a threshold")
+        self.lickThresholdA_label.grid(row=23, sticky=W)
+        self.lickThrA_entry=Entry(master,width=6,textvariable=self.lickThrA)
+        self.lickThrA_entry.grid(row=23, column=0)
+        self.lickThrA.set(100)
+        self.lickThrB=StringVar(master)
+        self.lickThresholdB_label = Label(master, text="lick b threshold")
+        self.lickThresholdB_label.grid(row=24, sticky=W)
+        self.lickThrB_entry=Entry(master,width=6,textvariable=self.lickThrB)
+        self.lickThrB_entry.grid(row=24, column=0)
+        self.lickThrB.set(100)
+
 
         self.createCom_button = Button(master, text="Start Serial",\
          width = 10, command=self.initComObj)
@@ -156,9 +163,6 @@ class pyDiscrim_mainGUI:
         self.stillLatch=0
         self.stillTimeStart=float(0)
         self.distThr=1000;  
-        # This is the distance the mouse needs to move to initiate a stimulus trial.
-
-
 
         # session variables (user won't change)
         self.currentTrial=1
@@ -168,15 +172,14 @@ class pyDiscrim_mainGUI:
 
         self.streamNum_header=0          #todo: this is obvious jank
         self.streamNum_time=1
-        self.streamNum_position=2
-        self.streamNum_state=3
-        self.streamNum_lickSensor=4
-        self.streamNum_lickDeriv=5
-        self.streamNum_trialTime=6
+        self.streamNum_trialTime=2
+        self.streamNum_posDelta_positive=3
+        self.streamNum_posDelta_negative=4
+        self.streamNum_state=5
+        self.streamNum_lickSensor_left=6
+        self.streamNum_lickSensor_right=7
         self.segPlot=1000
 
-
-        self.tt1=[float(1),float(2)]  #cleanUp
 
         # # # # # # # # # # # # # # # # # # # # # # # # 
         # Functions and Dynamic Variables             #
@@ -191,10 +194,11 @@ class pyDiscrim_mainGUI:
         self.stateDiagY=[3,5,5,6,4,8,6,4,2,8,6,4,2,7]
         self.smMrk=10
         self.lrMrk=20
-        self.postionMin=-1000;
-        self.positionMax=3000;
+        self.postionMin=-1000
+        self.positionMax=3000
         self.lickMin=0
         self.lickMax=1000
+        self.timeBase=1000000
 
     def taskProb_frame(self):
         #self.frame = Frame(self.master)
@@ -373,8 +377,8 @@ class pyDiscrim_mainGUI:
         exit()
 
     def saveQuit(self):
-        self.saveData() 
         self.comObj.write(struct.pack('>B', 0))
+        self.saveData() 
         self.comObj.close()
         exit()
 
@@ -395,22 +399,24 @@ class pyDiscrim_mainGUI:
         self.sTask2_distract_punish_prob.get()
 
     def makeContainers(self):
-        self.positions=[]           # This is the x-position of an optical mouse attached to a USB host shield
-        self.arStates=[]             # Store the state the arduino thinks it is in.
-        self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
-        self.lickValues=[]
-        self.lickDeltas=[]
-        self.arduinoTrialTime=[]
-        self.detected_licks=[]
-        self.absolutePosition=[]
-        self.negPositions=[] 
+        self.arStates=[]          
+        self.arduinoTime=[]
+        self.arduinoTrialTime=[]  
+        self.posSensA_vals=[]
+        self.posSensB_vals=[]  
+        self.absolutePosition=[]      
+        self.lickValues_a=[]
+        self.lickValues_b=[]
+        self.detectedLicks_a=[]
+        self.detectedLicks_b=[]
+        self.lastAbsPos=0
 
     def readData(self):
         self.sR=self.comObj.readline().strip().decode()
         self.sR=self.sR.split(',')
-        if self.sR[self.streamNum_header]=='data' and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[3])==1 and str.isnumeric(self.sR[4])==1 and str.isnumeric(self.sR[5])==1:
+        if self.sR[self.streamNum_header]=='data' and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[3])==1 and str.isnumeric(self.sR[4])==1 and str.isnumeric(self.sR[5])==1 and str.isnumeric(self.sR[6])==1:
             self.dataAvail=1
-        elif self.sR[self.streamNum_header]!='data' or str.isnumeric(self.sR[1])!=1  or str.isnumeric(self.sR[3])!=1 or str.isnumeric(self.sR[4])!=1 or str.isnumeric(self.sR[5])!=1:
+        elif self.sR[self.streamNum_header]!='data' or str.isnumeric(self.sR[1])!=1  or str.isnumeric(self.sR[3])!=1 or str.isnumeric(self.sR[4])!=1 or str.isnumeric(self.sR[5])!=1 or str.isnumeric(self.sR[6])!=1:
             self.dataAvail=0
 
     def readDataFlush(self):
@@ -418,26 +424,51 @@ class pyDiscrim_mainGUI:
         self.readData()
 
     def parseData(self):
-        tmpPosPos=int(self.sR[self.streamNum_position])
-        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000000))  
-        self.positions.append(tmpPosPos)
+        # self.streamNum_header=0          #todo: this is obvious jank
+        # self.streamNum_time=1
+        # self.streamNum_trialTime=2
+        # self.streamNum_posDelta_positive=3
+        # self.streamNum_posDelta_negative=4
+        # self.streamNum_state=5
+        # self.streamNum_lickSensor_left=6
+        # self.streamNum_lickSensor_right=7
+
+        self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/self.timeBase))
+        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/self.timeBase))
+        #print('parsed time vars') #debug
+
+        self.posSensA_vals.append(int(self.sR[self.streamNum_posDelta_positive]))
+        self.posSensB_vals.append(int(self.sR[self.streamNum_posDelta_negative]))
+        #print('parsed pos vars') #debug
+
         self.currentState=int(self.sR[self.streamNum_state])
-        self.arStates.append(self.currentState)
-        self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
-        self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
-        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000000))
+        self.arStates.append(self.currentState)  #todo: wtf?
+        #print('parsed state vars') #debug
+
+        self.lickValues_a.append(int(self.sR[self.streamNum_lickSensor_left]))
+        self.lickValues_b.append(int(self.sR[self.streamNum_lickSensor_right]))
+        #print('parsed lick vars') #debug
+
         self.absolutePosition.append(0)
         self.lastAbsPos=self.absolutePosition[-1]
+        #print('computed abs pos vars') #debug
+        #self.lastAbsPos+(self.posSensA_vals[-1]-self.posSensB_vals[-1])
+
         self.lickDetect()
+        #print('did lick stuff') #debug
 
     def cleanContainers(self):
-        self.positions=[]            # This is the x-position of an optical mouse attached to a USB host shield
-        self.arStates=[]             # Store the state the arduino thinks it is in.
-        self.arduinoTime=[]          # This is the time as reported by the arduino, which resets every trial. 
-        self.lickValues=[]
-        self.lickDeltas=[]
-        self.arduinoTrialTime=[]
-        self.detected_licks=[]
+        self.arStates=[]          
+        self.arduinoTime=[]
+        self.arduinoTrialTime=[]  
+        self.posSensA_vals=[]
+        self.posSensB_vals=[]  
+        self.absolutePosition=[]      
+        self.lickValues_a=[]
+        self.lickValues_b=[]
+        self.detectedLicks_a=[]
+        self.detectedLicks_b=[]
+        self.lastAbsPos=0
 
     def updateLickThresholds(self):   #todo: I think the asignment conflicts now because of the graph
         if self.ux_adaptThresh.get()==1:
@@ -448,10 +479,14 @@ class pyDiscrim_mainGUI:
             self.lickMinMax=[min(self.lickValues),max(self.lickValues)]
 
     def lickDetect(self):
-        if self.lickDeltas[-1]>int(self.lickThr.get()):
-            self.detected_licks.append(int(self.lickPlotMax.get())/2)
-        elif self.lickValues[-1]<=int(self.lickThr.get()):
-            self.lickDeltas.append(0)
+        if self.lickValues_a[-1]>int(self.lickThrA.get()):
+            self.detectedLicks_a.append(1)
+        elif self.lickValues_a[-1]<=int(self.lickThrA.get()):
+            self.detectedLicks_a.append(0)
+        if self.lickValues_b[-1]>int(self.lickThrB.get()):
+            self.detectedLicks_b.append(1)
+        elif self.lickValues_b[-1]<=int(self.lickThrB.get()):
+            self.detectedLicks_b.append(0)
 
     def updatePosPlot(self): 
         if len(self.arduinoTrialTime)>2:
@@ -459,8 +494,9 @@ class pyDiscrim_mainGUI:
             self.tTP=self.segPlot*self.cTD
         self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
         int(self.sampsToPlot.get())
+
         plt.subplot(2,2,1)
-        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],np.array(self.positions[-self.segPlot:-1])-np.array(self.lickValues[-self.segPlot:-1]),'k-')
+        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.absolutePosition[-self.segPlot:-1],'k-')
         plt.ylim(-1024,1024)
         if len(self.arduinoTrialTime)>self.segPlot+1:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
@@ -470,7 +506,7 @@ class pyDiscrim_mainGUI:
         plt.xlabel('time since trial start (sec)')
 
         plt.subplot(2,2,3)
-        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.lickValues[-self.segPlot:-1],'k-')
+        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.lickValues_a[-self.segPlot:-1],'k-')
         # self.lH=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'ro')
         plt.ylim(0,int(self.lickPlotMax.get()))
         if len(self.arduinoTrialTime)>self.segPlot+1:
@@ -506,7 +542,9 @@ class pyDiscrim_mainGUI:
             self.generic_InitState()
         self.readData()
         if self.dataAvail==1:
+            #print('bout to parse') #debug
             self.parseData()
+            #print('parsed that shit') # debug
 
     def generic_InitState(self):
         print('in state init {}'.format(self.currentState))
@@ -520,7 +558,7 @@ class pyDiscrim_mainGUI:
 
     def conditionBlock_s1(self):
         if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
-            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            self.dPos=abs(self.posSensA_vals[-1]-self.posSensA_vals[-2])
             
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
@@ -538,8 +576,13 @@ class pyDiscrim_mainGUI:
                 self.waitForStateToUpdateOnTarget(self.currentState)  #<--- has to be in every cond block
 
     def conditionBlock_s2(self):
+
+        self.dPos=self.posSensA_vals[-1]-self.posSensA_vals[-2]
         t1P=float(self.sTask1_prob.get())
-        if self.positions[-1]>self.distThr:
+        if self.posSensA_vals[-1]>self.distThr and self.distSwitch==0:
+            self.distSwitch=1
+            print('moved enough')
+        if abs(self.posSensA_vals[-1])<=100 and self.distSwitch==1:
             if self.task_switch<=t1P:
                 print('t1')
                 self.comObj.write(struct.pack('>B', 3))
@@ -555,7 +598,7 @@ class pyDiscrim_mainGUI:
     def conditionBlock_s3(self):  #todo; mov could be a func
         trP=float(self.sTask1_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
-            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            self.dPos=abs(self.posSensA_vals[-1]-self.posSensA_vals[-2])
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
             if self.dPos<=self.movThr and self.stillLatch==0:
@@ -579,7 +622,7 @@ class pyDiscrim_mainGUI:
     def conditionBlock_s4(self):  #todo; mov could be a func
         trP=float(self.sTask2_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
-            self.dPos=abs(self.positions[-1]-self.positions[-2])
+            self.dPos=abs(self.posSensA_vals[-1]-self.posSensA_vals[-2])
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
             if self.dPos<=self.movThr and self.stillLatch==0:
@@ -604,26 +647,28 @@ class pyDiscrim_mainGUI:
                     self.waitForStateToUpdateOnTarget(4)
     
     def conditionBlock_tones(self):
-        if self.arduinoTrialTime[-1]-self.entryTime>self.entryTime:
-            self.dPos=abs(self.positions[-1]-self.positions[-2])
-            if self.dPos>self.movThr and self.stillLatch==1:
-                self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
-                self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
-            if self.stillLatch==1 and self.stillTime>1:
-                print('Still!')
-                self.comObj.write(struct.pack('>B', 13))
-                print('off to save')
-                self.waitForStateToUpdateOnTarget(self.currentState)
+        if self.arduinoTime[-1]-self.entryTime>6:
+            print('Done With Tone.')
+            self.comObj.write(struct.pack('>B', 13))
+            print('off to save')
+            self.waitForStateToUpdateOnTarget(self.currentState)
 
     def saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.positions,self.lickValues,self.arStates])
+        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.arStates,self.absolutePosition,\
+            self.posSensA_vals,self.posSensB_vals,self.detectedLicks_a,self.detectedLicks_b])
         np.savetxt('aad_{}.csv'.format(self.currentTrial), self.exportArray, delimiter=",",fmt="%f")
-        # self.arduinoTime,self.positions,self.arStates,
-        #     self.lickValues,self.lickDeltas,
+
+        # self.arStates=[]          
+        # self.arduinoTime=[]
+        # self.arduinoTrialTime=[]  
+        # self.posSensA_vals=[]
+        # self.posSensB_vals=[]  
+        # self.absolutePosition=[]      
+        # self.lickValues_a=[]
+        # self.lickValues_b=[]
+        # self.detectedLicks_a=[]
+        # self.detectedLicks_b=[]
+        # self.lastAbsPos=0
 
     def getStateSetDiff(self):
         aa={self.currentState}
@@ -649,7 +694,7 @@ class pyDiscrim_mainGUI:
         #self.initTaskProbs()
 
         # plotting variables
-        self.uiUpdateDelta=200
+        self.uiUpdateDelta=200  # 200 is good for 1kHz; 400 is ok for 2kHz; 
         
         # Start the task (will iterate through trials)
         while self.currentTrial<=int(self.totalTrials.get()):
@@ -685,6 +730,7 @@ class pyDiscrim_mainGUI:
 
                 #S2 -----> trial initiation state
                 elif self.currentState==2:
+                    self.distSwitch=0
                     self.updateStateButtons()
                     self.task_switch=random.random()
                     print('in s2')
@@ -747,7 +793,6 @@ class pyDiscrim_mainGUI:
                                 self.updatePlotCheck()
                             self.conditionBlock_tones()
                             self.cycleCount=self.cycleCount+1;
-
 
                 # ----------------- (S13: save state)
                 elif self.currentState==13:
