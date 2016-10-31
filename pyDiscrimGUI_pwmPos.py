@@ -3,8 +3,8 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can easily be modified to suit different needs.
 #
-# version 3.1 (Cleaning Up Objects)
-# 10/22/2016
+# version 1.2 (Retooled to take better advantage of arm boards; version decrment)
+# 10/29/2016
 # questions? --> Chris Deister --> cdeister@Bbrown.edu
 
 # todo: find alternative to isnumeric so signed variables are handeled ok and pass lists.
@@ -29,7 +29,7 @@ class pyDiscrim_mainGUI:
         self.frame = Frame(self.master)
         master.title("pyDiscrim")
         
-        # the programs has some critical components needed to run so we should keep track
+        # Key Initialization
         self.probsSet=0 # this gets set in a new window so we need to track if it is there
 
         # ------> serial stuff
@@ -135,6 +135,7 @@ class pyDiscrim_mainGUI:
         self.dPos=float(0)
         self.currentTrial=1
         self.currentState=0
+        self.lastAbsPos=0;
 
         self.t1_probEntries='sTask1_prob','sTask1_target_prob','sTask1_distract_prob',\
         'sTask1_target_reward_prob','sTask1_target_punish_prob',\
@@ -148,7 +149,7 @@ class pyDiscrim_mainGUI:
         self.lickMinMax=[-5,10]
 
         ## Globals
-        self.movThr=40       # in position units (The minimum ammount of movement allowed)
+        self.movThr=500       # in position units (The minimum ammount of movement allowed)
         self.movTimeThr=2    # in seconds (The time the mouse must be still)
         # initialization
         self.stillTime=float(0)
@@ -183,7 +184,7 @@ class pyDiscrim_mainGUI:
         self.dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
         self.initPltRng=2.5
-        self.pltDelay=0.0000001 
+        self.pltDelay=0.00000001 
         # this can be changed, but doesn't need to be. 
         #We have to have a plot delay, but it can be tiny.
         self.stateDiagX=[1,1,3,5,5,7,7,7,7,9,9,9,9,1]
@@ -401,6 +402,8 @@ class pyDiscrim_mainGUI:
         self.lickDeltas=[]
         self.arduinoTrialTime=[]
         self.detected_licks=[]
+        self.absolutePosition=[]
+        self.negPositions=[] 
 
     def readData(self):
         self.sR=self.comObj.readline().strip().decode()
@@ -415,13 +418,16 @@ class pyDiscrim_mainGUI:
         self.readData()
 
     def parseData(self):
+        tmpPosPos=int(self.sR[self.streamNum_position])
         self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/1000000))  
-        self.positions.append(int(self.sR[self.streamNum_position]))
+        self.positions.append(tmpPosPos)
         self.currentState=int(self.sR[self.streamNum_state])
         self.arStates.append(self.currentState)
         self.lickValues.append(int(self.sR[self.streamNum_lickSensor]))
         self.lickDeltas.append(int(self.sR[self.streamNum_lickDeriv]))
         self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/1000000))
+        self.absolutePosition.append(0)
+        self.lastAbsPos=self.absolutePosition[-1]
         self.lickDetect()
 
     def cleanContainers(self):
@@ -454,8 +460,8 @@ class pyDiscrim_mainGUI:
         self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
         int(self.sampsToPlot.get())
         plt.subplot(2,2,1)
-        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.positions[-self.segPlot:-1],'k-')
-        plt.ylim(-500,2000)
+        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],np.array(self.positions[-self.segPlot:-1])-np.array(self.lickValues[-self.segPlot:-1]),'k-')
+        plt.ylim(-1024,1024)
         if len(self.arduinoTrialTime)>self.segPlot+1:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
         elif len(self.arduinoTrialTime)<=self.segPlot+1:
@@ -473,9 +479,7 @@ class pyDiscrim_mainGUI:
             plt.xlim(0,self.tTP)
         plt.ylabel('licks (binary)')
         plt.xlabel('time since trial start (sec)')
-        plt.title(int(1000000*np.mean(np.diff(np.array(self.arduinoTrialTime[-self.segPlot:-1])))))
-
-
+        #plt.title(int(1000000*np.mean(np.diff(np.array(self.arduinoTrialTime[-self.segPlot:-1])))))
 
         plt.subplot(2,2,2)
         self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
@@ -489,7 +493,6 @@ class pyDiscrim_mainGUI:
         self.lC.pop(0).remove()
         self.lD.pop(0).remove()
         self.lG.pop(0).remove()
-       # self.lH.pop(0).remove()
 
     def handShake(self):
         print('should be good; will take you to wait state (S1)')
@@ -501,7 +504,7 @@ class pyDiscrim_mainGUI:
     def generic_StateHeader(self):
         while self.stateIt==0:
             self.generic_InitState()
-        self.readDataFlush()
+        self.readData()
         if self.dataAvail==1:
             self.parseData()
 
@@ -617,8 +620,8 @@ class pyDiscrim_mainGUI:
                 self.waitForStateToUpdateOnTarget(self.currentState)
 
     def saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.positions,self.arStates])
-        np.savetxt('aad_{}.csv'.format(currentTrial), self.exportArray, delimiter=",",fmt="%g")
+        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.positions,self.lickValues,self.arStates])
+        np.savetxt('aad_{}.csv'.format(self.currentTrial), self.exportArray, delimiter=",",fmt="%f")
         # self.arduinoTime,self.positions,self.arStates,
         #     self.lickValues,self.lickDeltas,
 
@@ -646,7 +649,7 @@ class pyDiscrim_mainGUI:
         #self.initTaskProbs()
 
         # plotting variables
-        self.uiUpdateDelta=1000
+        self.uiUpdateDelta=200
         
         # Start the task (will iterate through trials)
         while self.currentTrial<=int(self.totalTrials.get()):
@@ -656,6 +659,7 @@ class pyDiscrim_mainGUI:
                 if self.currentState==0:
                     td=[float(0)]  #debug #document: inset inits before the while!
                     self.updateStateButtons()
+                    print('in state 0')
                     while self.currentState==0:
                         self.generic_StateHeader() # gets data
                         if self.dataAvail==1:
@@ -683,6 +687,7 @@ class pyDiscrim_mainGUI:
                 elif self.currentState==2:
                     self.updateStateButtons()
                     self.task_switch=random.random()
+                    print('in s2')
                     while self.currentState==2:
                         self.generic_StateHeader() 
                         if self.dataAvail==1: # todo: in all states
@@ -694,6 +699,7 @@ class pyDiscrim_mainGUI:
 
                 #S3 -----> stim task #1 cue
                 elif self.currentState==3:
+                    print('in s3')
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
