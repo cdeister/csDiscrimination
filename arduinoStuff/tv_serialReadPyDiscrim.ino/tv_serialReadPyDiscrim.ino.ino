@@ -7,7 +7,8 @@
 // I assume switch is more efficient http://www.blackwasp.co.uk/SpeedTestIfElseSwitch.aspx
 // However, seems like it is negligible
 
-#define mpSerial Serial1
+#define mpSerial Serial3
+
 
 int loopDelta=1000;
 int cueDuration=2000;
@@ -34,9 +35,9 @@ unsigned long ofs1;
 unsigned long ofs2;
 unsigned long ofs3;
 
-long lastPos=0;
-int currentPosDelta=0;
-long absolutePosition=0;
+int currentPosDelta=128;
+long lastPosition=0;
+long absolutePosition;
 
 int lastState;
 int curState;
@@ -52,7 +53,7 @@ const int posPin=3;       // Engage Postive Reinforcment
 const int negPin=4;       // Engage Aversive Reinforcment
 const int waterPin=6;     // Engage Water
 const int cueLED=13;
-const int tonePin=23;
+const int tonePin=22;
 const int posSensPin_a=0;
 const int posSensPin_b=2;
 
@@ -64,9 +65,9 @@ void setup() {
   pinMode(tonePin, OUTPUT);
   pinMode(cueLED, OUTPUT);
 
-  mpSerial.begin(19200);
 
   Serial.begin(9600); // initialize Serial communication
+  mpSerial.begin(19200);
   while (!Serial);    // wait for the serial port to open
   Serial.println("Start");
   delay(500);
@@ -88,15 +89,16 @@ void loop() {
     }
     msCorrected=micros()-msOffset;  // total time
     msInTrial=micros()-s1Offset;    // trial time
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    curState=lookForSerialState();
     pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    curState=lookForSerialState();
   }
 
 
   // S1: Trial wait state.
   else if(curState==1){
+    curState=1;
     while(bef==1){
       s1Offset=micros();
       bef=0;
@@ -104,9 +106,9 @@ void loop() {
     }
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
     pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
 
@@ -118,9 +120,9 @@ void loop() {
     noTone(tonePin);
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
     pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
 
@@ -169,9 +171,9 @@ void loop() {
         inPulse=1;
       }
     }
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
     pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
   
@@ -220,9 +222,9 @@ void loop() {
         inPulse=1;
       }
     }
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     pollOpticalMouse();
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
   
@@ -239,9 +241,9 @@ void loop() {
     }
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     pollOpticalMouse();
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
 
@@ -259,10 +261,10 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
+    pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
-    pollOpticalMouse();
   }
 
   // S7: Sensory High
@@ -279,9 +281,9 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
     pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
 
@@ -299,9 +301,9 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
     pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
   else {
@@ -310,7 +312,7 @@ void loop() {
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
     pollOpticalMouse();
-    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
@@ -323,7 +325,7 @@ void loop() {
 int lookForSerialState(){
   int pyState;
   if(Serial.available()>0){
-    lastState=Serial.read();  
+    pyState=Serial.read();
     lastState=pyState;
     stateChange=1;
   }
@@ -334,17 +336,17 @@ int lookForSerialState(){
   return pyState;
 }
 
-void pollOpticalMouse() {
-  if(mpSerial.available()){
-    currentPosDelta=mpSerial.parseInt()-128;
-    absolutePosition=absolutePosition+currentPosDelta;
+int pollOpticalMouse() {
+//  currentPosDelta=128;
+  if(mpSerial.available()>0){
+    currentPosDelta=mpSerial.parseInt();
   }
   else if(mpSerial.available()<=0){
-    currentPosDelta=0;
-  }
+    currentPosDelta=128;
+  }  
 }
 
-int spitData(unsigned long d1,unsigned long d2,int d3, long d4, int d5, int d6, int d7){
+int spitData(unsigned long d1,unsigned long d2,int d3, int d4, int d5, int d6){
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
@@ -357,8 +359,6 @@ int spitData(unsigned long d1,unsigned long d2,int d3, long d4, int d5, int d6, 
   Serial.print(d5);
   Serial.print(',');
   Serial.print(d6);
-  Serial.print(',');
-  Serial.print(d7);
   Serial.println();
 }
 

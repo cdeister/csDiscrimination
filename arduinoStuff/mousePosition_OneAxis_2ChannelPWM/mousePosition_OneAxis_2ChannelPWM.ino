@@ -55,22 +55,22 @@ void setup() {
 
 void loop() {
   Usb.Task();
-  if(deltaX>=0){
-    int output_posXValue = map(deltaX, 0, 127, 0, 255);
-    int output_negXValue = 0;
-    analogWrite(posX_aOut,output_posXValue);
-    analogWrite(negX_aOut,output_negXValue);
-  }
-  else if(deltaX<0){
-    int output_negXValue = map(deltaX, -1, -128, 0, 255);
-    int output_posXValue = 0;
-    analogWrite(posX_aOut,output_posXValue);
-    analogWrite(negX_aOut,output_negXValue);
-  };
-  
+//  if(deltaX>=0){
+//    int output_posXValue = map(deltaX, 0, 127, 0, 255);
+//    int output_negXValue = 0;
+//    analogWrite(posX_aOut,output_posXValue);
+//    analogWrite(negX_aOut,output_negXValue);
+//  }
+//  else if(deltaX<0){
+//    int output_negXValue = map(deltaX, -1, -128, 0, 255);
+//    int output_posXValue = 0;
+//    analogWrite(posX_aOut,output_posXValue);
+//    analogWrite(negX_aOut,output_negXValue);
+//  };
+//  
   Serial.println(deltaX+128);
 
-  delay(10);
+  delayMicroseconds(500);
   deltaX=0;
 
   
