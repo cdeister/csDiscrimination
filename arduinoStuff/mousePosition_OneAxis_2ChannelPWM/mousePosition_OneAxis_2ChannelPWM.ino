@@ -68,7 +68,7 @@ void loop() {
     analogWrite(negX_aOut,output_negXValue);
   };
   
-  Serial.println(deltaX);
+  Serial.println(deltaX+128);
 
   delay(10);
   deltaX=0;

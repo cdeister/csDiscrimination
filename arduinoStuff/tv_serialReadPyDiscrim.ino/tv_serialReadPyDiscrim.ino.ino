@@ -7,6 +7,7 @@
 // I assume switch is more efficient http://www.blackwasp.co.uk/SpeedTestIfElseSwitch.aspx
 // However, seems like it is negligible
 
+#define mpSerial Serial1
 
 int loopDelta=1000;
 int cueDuration=2000;
@@ -33,8 +34,9 @@ unsigned long ofs1;
 unsigned long ofs2;
 unsigned long ofs3;
 
-int positionSensor_a;
-int positionSensor_b;
+long lastPos=0;
+int currentPosDelta=0;
+long absolutePosition=0;
 
 int lastState;
 int curState;
@@ -62,6 +64,8 @@ void setup() {
   pinMode(tonePin, OUTPUT);
   pinMode(cueLED, OUTPUT);
 
+  mpSerial.begin(19200);
+
   Serial.begin(9600); // initialize Serial communication
   while (!Serial);    // wait for the serial port to open
   Serial.println("Start");
@@ -84,10 +88,9 @@ void loop() {
     }
     msCorrected=micros()-msOffset;  // total time
     msInTrial=micros()-s1Offset;    // trial time
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     curState=lookForSerialState();
+    pollOpticalMouse();
     delayMicroseconds(loopDelta);
   }
 
@@ -101,10 +104,9 @@ void loop() {
     }
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);   
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
 
@@ -116,10 +118,9 @@ void loop() {
     noTone(tonePin);
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
 
@@ -168,10 +169,9 @@ void loop() {
         inPulse=1;
       }
     }
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
   
@@ -220,10 +220,9 @@ void loop() {
         inPulse=1;
       }
     }
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
   
@@ -240,10 +239,9 @@ void loop() {
     }
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
 
@@ -261,11 +259,10 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
+    pollOpticalMouse();
   }
 
   // S7: Sensory High
@@ -282,10 +279,9 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
 
@@ -303,10 +299,9 @@ void loop() {
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
+    pollOpticalMouse();
     curState=lookForSerialState();
   }
   else {
@@ -314,9 +309,8 @@ void loop() {
     noTone(tonePin);
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    positionSensor_a =  analogRead(posSensPin_a);
-    positionSensor_b = analogRead(posSensPin_b);
-    spitData(msCorrected,msInTrial,positionSensor_a,positionSensor_b,curState,lickValues_a,lickValues_b);
+    pollOpticalMouse();
+    spitData(msCorrected,msInTrial,absolutePosition,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
@@ -329,7 +323,7 @@ void loop() {
 int lookForSerialState(){
   int pyState;
   if(Serial.available()>0){
-    pyState=Serial.read();  
+    lastState=Serial.read();  
     lastState=pyState;
     stateChange=1;
   }
@@ -340,9 +334,17 @@ int lookForSerialState(){
   return pyState;
 }
 
+void pollOpticalMouse() {
+  if(mpSerial.available()){
+    currentPosDelta=mpSerial.parseInt()-128;
+    absolutePosition=absolutePosition+currentPosDelta;
+  }
+  else if(mpSerial.available()<=0){
+    currentPosDelta=0;
+  }
+}
 
-
-int spitData(unsigned long d1,unsigned long d2,int d3,int d4, int d5, int d6, int d7){
+int spitData(unsigned long d1,unsigned long d2,int d3, long d4, int d5, int d6, int d7){
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
