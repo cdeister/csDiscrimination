@@ -156,13 +156,13 @@ class pyDiscrim_mainGUI:
         self.lickMinMax=[-5,10]
 
         ## Globals
-        self.movThr=500       # in position units (The minimum ammount of movement allowed)
+        self.movThr=0.002       # in position units (The minimum ammount of movement allowed)
         self.movTimeThr=2    # in seconds (The time the mouse must be still)
         # initialization
         self.stillTime=float(0)
         self.stillLatch=0
         self.stillTimeStart=float(0)
-        self.distThr=1000;  
+        self.distThr=300;  
 
         # session variables (user won't change)
         self.currentTrial=1
@@ -410,6 +410,7 @@ class pyDiscrim_mainGUI:
         self.detectedLicks_a=[]
         self.detectedLicks_b=[]
         self.lastAbsPos=0
+        self.posDelta=[]
 
     def readData(self):
         self.sR=self.comObj.readline().strip().decode()
@@ -424,15 +425,6 @@ class pyDiscrim_mainGUI:
         self.readData()
 
     def parseData(self):
-        # self.streamNum_header=0          #todo: this is obvious jank
-        # self.streamNum_time=1
-        # self.streamNum_trialTime=2
-        # self.streamNum_posDelta_positive=3
-        # self.streamNum_posDelta_negative=4
-        # self.streamNum_state=5
-        # self.streamNum_lickSensor_left=6
-        # self.streamNum_lickSensor_right=7
-
         self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/self.timeBase))
         self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/self.timeBase))
         #print('parsed time vars') #debug
@@ -449,7 +441,12 @@ class pyDiscrim_mainGUI:
         self.lickValues_b.append(int(self.sR[self.streamNum_lickSensor_right]))
         #print('parsed lick vars') #debug
 
-        self.absolutePosition.append(0)
+        tDelta=round((0.0078125*self.posSensA_vals[-1])-(0.0078125*self.posSensB_vals[-1]))
+        # the negative value will be biased because of the ripple of the RC.
+        # rounding should take care of it. 
+
+        self.absolutePosition.append(round(self.lastAbsPos+tDelta))
+        self.posDelta.append(tDelta)
         self.lastAbsPos=self.absolutePosition[-1]
         #print('computed abs pos vars') #debug
         #self.lastAbsPos+(self.posSensA_vals[-1]-self.posSensB_vals[-1])
@@ -469,6 +466,7 @@ class pyDiscrim_mainGUI:
         self.detectedLicks_a=[]
         self.detectedLicks_b=[]
         self.lastAbsPos=0
+        self.posDelta=[]
 
     def updateLickThresholds(self):   #todo: I think the asignment conflicts now because of the graph
         if self.ux_adaptThresh.get()==1:
@@ -507,7 +505,7 @@ class pyDiscrim_mainGUI:
 
         plt.subplot(2,2,3)
         self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.lickValues_a[-self.segPlot:-1],'k-')
-        # self.lH=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'ro')
+        self.lH=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.lickValues_b[-self.segPlot:-1],'r-')
         plt.ylim(0,int(self.lickPlotMax.get()))
         if len(self.arduinoTrialTime)>self.segPlot+1:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
@@ -529,6 +527,7 @@ class pyDiscrim_mainGUI:
         self.lC.pop(0).remove()
         self.lD.pop(0).remove()
         self.lG.pop(0).remove()
+        self.lH.pop(0).remove()
 
     def handShake(self):
         print('should be good; will take you to wait state (S1)')
@@ -558,31 +557,37 @@ class pyDiscrim_mainGUI:
 
     def conditionBlock_s1(self):
         if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
-            self.dPos=abs(self.posSensA_vals[-1]-self.posSensA_vals[-2])
-            
-            if self.dPos>self.movThr and self.stillLatch==1:
+            motionTrack=np.mean(self.posDelta[len(self.posDelta)-500:len(self.posDelta)])
+            if motionTrack>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
 
-            if self.dPos<=self.movThr and self.stillLatch==0:
+            if motionTrack<=self.movThr and self.stillLatch==0:
                 self.stillTimeStart=self.arduinoTime[-1]
                 self.stillLatch=1
 
-            if self.dPos<self.movThr and self.stillLatch==1:
+            if motionTrack<self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
 
-            if self.stillLatch==1 and self.stillTime>1:
+            if self.stillLatch==1 and self.stillTime>2:
                 self.comObj.write(struct.pack('>B', 2))
                 print('Still! ==> Out of wait')
                 self.waitForStateToUpdateOnTarget(self.currentState)  #<--- has to be in every cond block
 
     def conditionBlock_s2(self):
-
-        self.dPos=self.posSensA_vals[-1]-self.posSensA_vals[-2]
         t1P=float(self.sTask1_prob.get())
-        if self.posSensA_vals[-1]>self.distThr and self.distSwitch==0:
+        motionTrack=np.mean(self.posDelta[len(self.posDelta)-500:len(self.posDelta)])
+        if motionTrack>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+        if motionTrack<=self.movThr and self.stillLatch==0:
+            self.stillTimeStart=self.arduinoTime[-1]
+            self.stillLatch=1
+        if motionTrack<self.movThr and self.stillLatch==1:
+            self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+        if self.absolutePosition[-1]>self.distThr and self.distSwitch==0:
             self.distSwitch=1
             print('moved enough')
-        if abs(self.posSensA_vals[-1])<=100 and self.distSwitch==1:
+        if self.distSwitch==1 and self.stillLatch==1 and self.stillTime>2:
+            print('Still! ==> Ready for cue')
             if self.task_switch<=t1P:
                 print('t1')
                 self.comObj.write(struct.pack('>B', 3))
@@ -597,14 +602,14 @@ class pyDiscrim_mainGUI:
 
     def conditionBlock_s3(self):  #todo; mov could be a func
         trP=float(self.sTask1_target_prob.get())
+        motionTrack=np.mean(self.posDelta[len(self.posDelta)-500:len(self.posDelta)])
         if self.arduinoTime[-1]-self.entryTime>4:
-            self.dPos=abs(self.posSensA_vals[-1]-self.posSensA_vals[-2])
-            if self.dPos>self.movThr and self.stillLatch==1:
+            if self.posDelta[-1]>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
+            if self.posDelta[-1]<=self.movThr and self.stillLatch==0:
                 self.stillTimeStart=self.arduinoTime[-1]
                 self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
+            if self.posDelta[-1]<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
                 print(self.outcomeSwitch<=trP)
@@ -622,13 +627,12 @@ class pyDiscrim_mainGUI:
     def conditionBlock_s4(self):  #todo; mov could be a func
         trP=float(self.sTask2_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
-            self.dPos=abs(self.posSensA_vals[-1]-self.posSensA_vals[-2])
-            if self.dPos>self.movThr and self.stillLatch==1:
+            if self.posDelta[-1]>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
+            if self.posDelta[-1]<=self.movThr and self.stillLatch==0:
                 self.stillTimeStart=self.arduinoTime[-1]
                 self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
+            if self.posDelta[-1]<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
                 print('result={}'.format(self.outcomeSwitch<=trP))
@@ -647,7 +651,7 @@ class pyDiscrim_mainGUI:
                     self.waitForStateToUpdateOnTarget(4)
     
     def conditionBlock_tones(self):
-        if self.arduinoTime[-1]-self.entryTime>6:
+        if self.arduinoTime[-1]-self.entryTime>4:
             print('Done With Tone.')
             self.comObj.write(struct.pack('>B', 13))
             print('off to save')
@@ -705,6 +709,7 @@ class pyDiscrim_mainGUI:
                     td=[float(0)]  #debug #document: inset inits before the while!
                     self.updateStateButtons()
                     print('in state 0')
+                    self.lastAbsPos=0
                     while self.currentState==0:
                         self.generic_StateHeader() # gets data
                         if self.dataAvail==1:
@@ -718,6 +723,7 @@ class pyDiscrim_mainGUI:
                 #S1 -----> trial wait state
                 elif self.currentState==1:
                     print('in s1')
+                    self.lastAbsPos=0
                     self.entryTime=self.arduinoTime[-1]
                     self.updateStateButtons()
                     while self.currentState==1:
@@ -734,6 +740,7 @@ class pyDiscrim_mainGUI:
                     self.updateStateButtons()
                     self.task_switch=random.random()
                     print('in s2')
+                    self.lastAbsPos=0
                     while self.currentState==2:
                         self.generic_StateHeader() 
                         if self.dataAvail==1: # todo: in all states
@@ -746,6 +753,7 @@ class pyDiscrim_mainGUI:
                 #S3 -----> stim task #1 cue
                 elif self.currentState==3:
                     print('in s3')
+                    self.lastAbsPos=0
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
@@ -759,6 +767,7 @@ class pyDiscrim_mainGUI:
 
                 #S4 -----> stim task #2 cue
                 elif self.currentState==4:
+                    self.lastAbsPos=0
                     self.updateStateButtons()
                     self.outcomeSwitch=random.random() # debug
                     self.entryTime=self.arduinoTime[-1]
@@ -772,6 +781,7 @@ class pyDiscrim_mainGUI:
 
                 #S5 -----> pos tone
                 elif self.currentState==5:
+                    self.lastAbsPos=0
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     while self.currentState==5:
@@ -784,6 +794,7 @@ class pyDiscrim_mainGUI:
 
                 #S6 -----> neg tone
                 elif self.currentState==6:
+                    self.lastAbsPos=0
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     while self.currentState==6:

@@ -15,7 +15,7 @@ int delayDur_1=200;
 int delayDur_2=20;
 int cueDelay=500;
 int toneDelay=1000;
-int toneTime=3000;
+int toneTime=2000;
 int toneTimer;
 int toneOffset;
 int lickValues_a=0;
