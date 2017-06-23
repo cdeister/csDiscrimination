@@ -35,7 +35,7 @@ positive1_Prob=0.5
 positive2_Prob=0.5
 
 # data streaming micro-controller location
-comPort='/dev/cu.usbmodem1411'
+comPort='/dev/cu.usbmodem1431'
 baudRate=9600
 
 # plotting variables
