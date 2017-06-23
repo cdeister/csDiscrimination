@@ -491,8 +491,7 @@ class pyDiscrim_mainGUI:
 
 
     def saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,\
-            self.absolutePosition,self.arStates,self.lickValues_a])
+        self.exportArray=np.array([self.arduinoTime,self.absolutePosition,self.arStates])
         np.savetxt('aa.csv', self.exportArray, delimiter=",",fmt="%g")
 
 
