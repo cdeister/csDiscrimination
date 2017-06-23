@@ -94,7 +94,7 @@ class pyDiscrim_mainGUI:
         self.sampsToPlot=StringVar(master)
         self.sampPlot_entry=Entry(master,width=6,textvariable=self.sampsToPlot)
         self.sampPlot_entry.grid(row=22, column=2)
-        self.sampsToPlot.set('10000')
+        self.sampsToPlot.set('1000')
 
         self.lickMax_label = Label(master, text="lick max")
         self.lickMax_label.grid(row=23, column=2)
@@ -507,31 +507,31 @@ class pyDiscrim_mainGUI:
 
     def updatePosPlot(self): 
         if len(self.arduinoTime)>2:
-            self.cTD=self.arduinoTime[-1]-self.arduinoTime[-2]
+            self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
             self.tTP=self.segPlot*self.cTD
         self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
         int(self.sampsToPlot.get())
         
         plt.subplot(2,2,1)
-        self.lA=plt.plot(self.arduinoTime[-self.segPlot:-1],\
+        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
             self.absolutePosition[-self.segPlot:-1],'k-')
         plt.ylim(-2000,6000)
         
-        if len(self.arduinoTime)>self.segPlot+1:
-            plt.xlim(self.arduinoTime[-self.segPlot],self.arduinoTime[-1])
-        elif len(self.arduinoTime)<=self.segPlot+1:
+        if len(self.arduinoTrialTime)>self.segPlot+1:
+            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        elif len(self.arduinoTrialTime)<=self.segPlot+1:
             plt.xlim(0,self.tTP)
         
         plt.ylabel('position')
         plt.xlabel('time since trial start (sec)')
 
         plt.subplot(2,2,3)
-        self.lG=plt.plot(self.arduinoTime[-self.segPlot:-1],self.lickValues_a[-self.segPlot:-1],'k-')
+        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.lickValues_a[-self.segPlot:-1],'k-')
         # self.lH=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'ro')
         plt.ylim(0,int(self.lickPlotMax.get()))
-        if len(self.arduinoTime)>self.segPlot+1:
-            plt.xlim(self.arduinoTime[-self.segPlot],self.arduinoTime[-1])
-        elif len(self.arduinoTime)<=self.segPlot+1:
+        if len(self.arduinoTrialTime)>self.segPlot+1:
+            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        elif len(self.arduinoTrialTime)<=self.segPlot+1:
             plt.xlim(0,self.tTP)
         plt.ylabel('licks (binary)')
         plt.xlabel('time since trial start (sec)')
@@ -744,7 +744,7 @@ class pyDiscrim_mainGUI:
 
     def runTask(self):
         self.makeContainers()
-        self.uiUpdateDelta=200
+        self.uiUpdateDelta=50
         # while the current trial is less than the total trials, python script decides what to do based on what the current state is
         while self.currentTrial<=int(self.totalTrials.get()):
             self.initTime=0  
