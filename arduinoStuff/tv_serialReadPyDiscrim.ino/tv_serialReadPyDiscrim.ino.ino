@@ -306,6 +306,21 @@ void loop() {
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
+  
+  // S21: Reward State
+  else if(curState==21){
+    cueFired=0;
+    cueInit=0;
+    bef=1;
+    noTone(tonePin);
+    msCorrected=micros()-msOffset;
+    msInTrial=micros()-s1Offset;
+    pollOpticalMouse();
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
+    curState=lookForSerialState();
+  }
+
   else {
     bef=0;
     noTone(tonePin);

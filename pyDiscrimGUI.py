@@ -462,33 +462,21 @@ class pyDiscrim_mainGUI:
 
         print(self.sR)
 
-
     def parseData(self):
-        print('pdb_1')
+
         self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/self.timeBase))
-        print('pdb_2')
         self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/self.timeBase))
 
-        print('pdb_3')
         self.posDelta.append(abs(int(self.sR[self.stID_pos])-128))
-        print('pdb_4')
         self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
-        print('pdb_5')
         self.lastPos=int(self.absolutePosition[-1])
 
-        print('pdb_6')
         self.currentState=int(self.sR[self.streamNum_state])
-        print('pdb_7')
         self.arStates.append(self.currentState)
-        print('pdb_8')
         self.lickValues_a.append(int(self.sR[self.streamNum_lickSensor_a]))
-        print('pdb_9')
         self.lickValues_b.append(int(self.sR[self.streamNum_lickSensor_b]))
-        print('pdb_10')
         self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/self.timeBase))
-        print('pdb_11')
         self.lickDetect()
-
 
     def saveData(self):
         self.exportArray=np.array([self.arduinoTime,self.absolutePosition,self.arStates])
@@ -586,22 +574,16 @@ class pyDiscrim_mainGUI:
     ######################################################  
 
     def generic_StateHeader(self):
-        print('db1')
         while self.stateIt==0:
-            print('db_si0')
             self.generic_InitState()
         self.readDataFlush()
-        print('db_flushed')
         if self.dataAvail==1:
-            print('db_startData')
             self.parseData()
-            print('db_parsedData')
 
     def generic_InitState(self):
         print('in state init {}'.format(self.currentState))
         self.cycleCount=1
         self.stateIt=1
-        print('init exited ok') #debug
 
 
     #############################################################
@@ -701,8 +683,13 @@ class pyDiscrim_mainGUI:
                     self.waitForStateToUpdateOnTarget(4)
     
     def conditionBlock_tones(self):
-        if self.arduinoTrialTime[-1]-self.entryTime>self.entryTime:
+        print('made it bro') #debug
+        print(self.arduinoTime[-1])
+        print(self.entryTime)
+        if self.arduinoTime[-1]-self.entryTime>10:
+            print('time cond met') #debug
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
+            print(self.dPos)
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
             if self.dPos<=self.movThr and self.stillLatch==0:
@@ -715,6 +702,15 @@ class pyDiscrim_mainGUI:
                 self.comObj.write(struct.pack('>B', 13))
                 print('off to save')
                 self.waitForStateToUpdateOnTarget(self.currentState)
+
+    def conditionBlock_rewardedChoice(self):
+        if self.arduinoTime[-1]-self.entryTime>self.entryTime:
+            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
+            print('Reward Choice')
+            self.comObj.write(struct.pack('>B', 21))
+            print('will tell arduino to reward')
+            self.waitForStateToUpdateOnTarget(self.currentState)
+
 
     #############################################################
     # ******* State Toggling UI Stuff ************#
@@ -869,6 +865,9 @@ class pyDiscrim_mainGUI:
 
                 # ----------------- (S13: save state)
                 elif self.currentState==13:
+                    print(self.arduinoTrialTime[-1])
+                    print(self.arduinoTrialTime[0])
+
                     print('in state 13; saving your bacon') # debug
                     self.saveData()                    # clean up plot data (memory managment)
                     self.cleanContainers()
