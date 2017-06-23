@@ -10,7 +10,7 @@
 #define mpSerial Serial3
 
 
-int loopDelta=1000;
+int loopDelta=1000;  //in microseconds
 int cueDuration=2000;
 int pulseDur=40;
 int delayDur_1=200;
@@ -306,11 +306,7 @@ void loop() {
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
-  
-  // S21: Reward State
   else if(curState==21){
-    cueFired=0;
-    cueInit=0;
     bef=1;
     noTone(tonePin);
     msCorrected=micros()-msOffset;
@@ -320,7 +316,6 @@ void loop() {
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
-
   else {
     bef=0;
     noTone(tonePin);

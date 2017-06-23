@@ -3,7 +3,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can easily be modified to suit different needs.
 #
-# Version 2.0
+# Version 2.1
 # 6/20/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -205,12 +205,10 @@ class pyDiscrim_mainGUI:
     ########################################
 
     def taskProb_frame(self):
-        #self.frame = Frame(self.master)
         tb_frame = Toplevel()
         tb_frame.title('Task Probs')
         self.tb_frame=tb_frame
 
-        #result.geometry('1600x150')
         self.makeProbEntries_t1()
         self.makeProbEntries_t2()
         self.closeTaskProbWindowButton = Button(tb_frame, \
@@ -467,7 +465,7 @@ class pyDiscrim_mainGUI:
         self.arduinoTime.append(float(int(self.sR[self.streamNum_time])/self.timeBase))
         self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/self.timeBase))
 
-        self.posDelta.append(abs(int(self.sR[self.stID_pos])-128))
+        self.posDelta.append(int(self.sR[self.stID_pos])-128)
         self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
         self.lastPos=int(self.absolutePosition[-1])
 
@@ -479,7 +477,7 @@ class pyDiscrim_mainGUI:
 
     def saveData(self):
         self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.absolutePosition,self.arStates])
-        np.savetxt('aa.csv', self.exportArray, delimiter=",",fmt="%g")
+        np.savetxt('{}_{}_trial_{}.csv'.format(self.animalIDStr.get(),self.dateStr,self.currentTrial), self.exportArray, delimiter=",",fmt="%g")
 
 
 
@@ -515,7 +513,7 @@ class pyDiscrim_mainGUI:
         plt.subplot(2,2,1)
         self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
             self.absolutePosition[-self.segPlot:-1],'k-')
-        plt.ylim(-2000,6000)
+        plt.ylim(-6000,6000)
         
         if len(self.arduinoTrialTime)>self.segPlot+1:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
@@ -711,7 +709,7 @@ class pyDiscrim_mainGUI:
         self.lastPos=0
         self.updateStateButtons()
         self.entryTime=self.arduinoTime[-1]
-        if self.arduinoTime[-1]-self.entryTime>self.entryTime:
+        if self.arduinoTime[-1]-self.entryTime>1:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             print('Reward Choice')
             self.comObj.write(struct.pack('>B', 21))
@@ -744,7 +742,7 @@ class pyDiscrim_mainGUI:
 
     def runTask(self):
         self.makeContainers()
-        self.uiUpdateDelta=50
+        self.uiUpdateDelta=300
         # while the current trial is less than the total trials, python script decides what to do based on what the current state is
         while self.currentTrial<=int(self.totalTrials.get()):
             self.initTime=0  
