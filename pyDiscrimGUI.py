@@ -475,11 +475,10 @@ class pyDiscrim_mainGUI:
         self.arStates.append(self.currentState)
         self.lickValues_a.append(int(self.sR[self.streamNum_lickSensor_a]))
         self.lickValues_b.append(int(self.sR[self.streamNum_lickSensor_b]))
-        self.arduinoTrialTime.append(float(int(self.sR[self.streamNum_trialTime])/self.timeBase))
         self.lickDetect()
 
     def saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.absolutePosition,self.arStates])
+        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.absolutePosition,self.arStates])
         np.savetxt('aa.csv', self.exportArray, delimiter=",",fmt="%g")
 
 
@@ -573,6 +572,12 @@ class pyDiscrim_mainGUI:
     # ******* State Building Blocks: Generic ************#
     ######################################################  
 
+    # def startState(self):
+    #     self.lastPos=0
+    #     self.lastAbsPos=0
+    #     self.updateStateButtons()
+    #     self.entryTime=self.arduinoTime[-1]
+
     def generic_StateHeader(self):
         while self.stateIt==0:
             self.generic_InitState()
@@ -655,7 +660,6 @@ class pyDiscrim_mainGUI:
                     self.waitForStateToUpdateOnTarget(3)
 
     def conditionBlock_s4(self):  #todo; mov could be a func
-        print('in cond block')
         trP=float(self.sTask2_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
@@ -683,16 +687,16 @@ class pyDiscrim_mainGUI:
                     self.waitForStateToUpdateOnTarget(4)
     
     def conditionBlock_tones(self):
-        print('made it bro') #debug
-        print(self.arduinoTime[-1])
-        print(self.entryTime)
-        if self.arduinoTime[-1]-self.entryTime>10:
+        print('in tone block')
+        if self.arduinoTime[-1]-self.entryTime>2:
             print('time cond met') #debug
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             print(self.dPos)
             if self.dPos>self.movThr and self.stillLatch==1:
+                print('moving')
                 self.stillLatch=0
             if self.dPos<=self.movThr and self.stillLatch==0:
+                print('still')
                 self.stillTimeStart=self.arduinoTime[-1]
                 self.stillLatch=1
             if self.dPos<=self.movThr and self.stillLatch==1:
@@ -704,6 +708,9 @@ class pyDiscrim_mainGUI:
                 self.waitForStateToUpdateOnTarget(self.currentState)
 
     def conditionBlock_rewardedChoice(self):
+        self.lastPos=0
+        self.updateStateButtons()
+        self.entryTime=self.arduinoTime[-1]
         if self.arduinoTime[-1]-self.entryTime>self.entryTime:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             print('Reward Choice')
@@ -737,7 +744,7 @@ class pyDiscrim_mainGUI:
 
     def runTask(self):
         self.makeContainers()
-        self.uiUpdateDelta=400
+        self.uiUpdateDelta=200
         # while the current trial is less than the total trials, python script decides what to do based on what the current state is
         while self.currentTrial<=int(self.totalTrials.get()):
             self.initTime=0  
@@ -788,9 +795,10 @@ class pyDiscrim_mainGUI:
 
                 #S1 -----> trial wait state
                 elif self.currentState==1:
-                    print('in s1')
-                    self.entryTime=self.arduinoTime[-1]
+                    self.lastPos=0
                     self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    print('in s1')
                     while self.currentState==1:
                         self.generic_StateHeader()
                         if self.dataAvail==1:
@@ -801,7 +809,9 @@ class pyDiscrim_mainGUI:
 
                 #S2 -----> trial initiation state
                 elif self.currentState==2:
+                    self.lastPos=0
                     self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
                     self.task_switch=random.random()
                     while self.currentState==2:
                         self.generic_StateHeader() 
@@ -814,6 +824,7 @@ class pyDiscrim_mainGUI:
 
                 #S3 -----> stim task #1 cue
                 elif self.currentState==3:
+                    self.lastPos=0
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
@@ -827,9 +838,10 @@ class pyDiscrim_mainGUI:
 
                 #S4 -----> stim task #2 cue
                 elif self.currentState==4:
+                    self.lastPos=0
                     self.updateStateButtons()
-                    self.outcomeSwitch=random.random() # debug
                     self.entryTime=self.arduinoTime[-1]
+                    self.outcomeSwitch=random.random() # debug
                     while self.currentState==4:
                         self.generic_StateHeader()
                         if self.dataAvail==1:
@@ -840,6 +852,7 @@ class pyDiscrim_mainGUI:
 
                 #S5 -----> pos tone
                 elif self.currentState==5:
+                    self.lastPos=0
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     while self.currentState==5:
@@ -852,6 +865,7 @@ class pyDiscrim_mainGUI:
 
                 #S6 -----> neg tone
                 elif self.currentState==6:
+                    self.lastPos=0
                     self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     while self.currentState==6:
