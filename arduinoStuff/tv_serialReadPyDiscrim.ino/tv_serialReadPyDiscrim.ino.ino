@@ -22,6 +22,8 @@ int toneTimer;
 int toneOffset;
 int lickValues_a=0;
 int lickValues_b=0;
+int rewardLatch=0;  // not bool so we can count if needed later
+int rewardTime=500; //in ms
 
 unsigned long msOffset;
 unsigned long s1Offset;
@@ -34,6 +36,8 @@ unsigned long delayTime;
 unsigned long ofs1;
 unsigned long ofs2;
 unsigned long ofs3;
+unsigned long rewardTimer;
+unsigned long rTO;
 
 int currentPosDelta=128;
 long lastPosition=0;
@@ -51,8 +55,8 @@ bool bef=0;
 
 const int posPin=3;       // Engage Postive Reinforcment
 const int negPin=4;       // Engage Aversive Reinforcment
-const int waterPin=6;     // Engage Water
-const int cueLED=13;
+const int waterPin=13;     // Engage Water
+const int cueLED=11;
 const int tonePin=22;
 const int posSensPin_a=0;
 const int posSensPin_b=2;
@@ -73,6 +77,7 @@ void setup() {
   delay(500);
   msOffset=micros();
   s1Offset=micros();
+  establishOrder();
 }
 
 void loop() {
@@ -99,6 +104,7 @@ void loop() {
   // S1: Trial wait state.
   else if(curState==1){
     curState=1;
+    establishOrder();
     while(bef==1){
       s1Offset=micros();
       bef=0;
@@ -114,6 +120,7 @@ void loop() {
 
   // S2: Trial initiation state.
   else if(curState==2){
+    establishOrder();
     cueFired=0;
     cueInit=0;
     bef=1;
@@ -128,6 +135,7 @@ void loop() {
 
   // S3: Sensory Task #1 Cue
   else if(curState==3){
+    establishOrder();
     bef=1;
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
@@ -179,6 +187,7 @@ void loop() {
   
   // S4: Sensory Task #2 Cue
   else if(curState==4){
+    establishOrder();
     bef=1;
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
@@ -230,6 +239,7 @@ void loop() {
   
   // S5: Sensory High
   else if(curState==5){
+    establishOrder();
     while(bef==1){
       tone(tonePin, 900);
       toneOffset=millis();
@@ -249,6 +259,7 @@ void loop() {
 
   // S6: Sensory Low
   else if(curState==6){
+    establishOrder();
     while(bef==1){
       tone(tonePin, 100);
       toneOffset=millis();
@@ -269,6 +280,7 @@ void loop() {
 
   // S7: Sensory High
   else if(curState==7){
+    establishOrder();
     while(bef==1){
       tone(tonePin, 900);
       toneOffset=millis();
@@ -289,6 +301,7 @@ void loop() {
 
   // S8: Sensory Low
   else if(curState==8){
+    establishOrder();
     while(bef==1){
       tone(tonePin, 100);
       toneOffset=millis();
@@ -306,18 +319,39 @@ void loop() {
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
+  
+  // S21
   else if(curState==21){
-    bef=1;
-    noTone(tonePin);
+    while(bef==1){    // local timers need bef
+      establishOrder();
+      rTO=millis();
+      bef=0;
+    };
+    rewardTimer=millis()-rTO;
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
+    
     pollOpticalMouse();
+    
     spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    
     delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
+    
+    if(rewardTimer<rewardTime){
+      digitalWrite(waterPin,HIGH);
+      curState=lookForSerialState();
+      rewardLatch=1;
+    }
+    else {
+      digitalWrite(waterPin,LOW);
+      rewardLatch=0;
+      curState=13;
+    }
   }
+  
   else {
-    bef=0;
+    bef=1;  // was zero may have been importatn
+    establishOrder();
     noTone(tonePin);
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
@@ -354,6 +388,11 @@ int pollOpticalMouse() {
   else if(mpSerial.available()<=0){
     currentPosDelta=128;
   }  
+}
+
+void establishOrder() {
+  noTone(tonePin);
+  digitalWrite(waterPin,LOW);
 }
 
 int spitData(unsigned long d1,unsigned long d2,int d3, int d4, int d5, int d6){

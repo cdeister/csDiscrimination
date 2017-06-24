@@ -3,10 +3,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can easily be modified to suit different needs.
 #
-# Version 2.1
+# Version 2.2
 # 6/20/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
+# ver changes: added manual rewards/state changes plus manual state change logging
 # todo: find alternative to isnumeric so signed variables are handeled ok and pass lists.
 
 
@@ -26,13 +27,15 @@ import struct
 class pyDiscrim_mainGUI:
 
     def __init__(self, master):
+        self.ranTask=0
         self.master = master
         self.frame = Frame(self.master)
         master.title("pyDiscrim")
         
         # the programs has some critical components needed to run so we should keep track
-        self.probsSet=0 # this gets set in a new window so we need to track if it is there
-
+        self.probsSet=0 
+        # this gets set in a new window so we need to track if it is there
+        self.updateStateMap=1
         # ------> serial stuff
         self.comPortEntry_label = Label(master, text="COM Port Location")
         self.comPortEntry_label.grid(row=0, column=0)
@@ -70,6 +73,7 @@ class pyDiscrim_mainGUI:
         self.totalTrials.set('100')
         self.totalTrials_entry.config(width=10)
 
+        self.rewardState=21
 
         # session variables
         self.quit_button = Button(master, text="Exit", command=self.simpleQuit, width=10)
@@ -255,8 +259,7 @@ class pyDiscrim_mainGUI:
         st_frame.title('States in Task')
         self.st_frame=st_frame
 
-        #result.geometry('1600x150')
-                # ------> state update stuff
+
         stateStartColumn=0
         stateStartRow=4
         self.stateStartColumn=stateStartColumn
@@ -318,9 +321,9 @@ class pyDiscrim_mainGUI:
         self.s13_button.grid(row=stateStartRow+1, column=stateStartColumn)
         self.s13_button.config(state=NORMAL)
 
-        # self.s13_button = Button(master, text="Save/Quit", bg='red', command=lambda: self.saveQuit())
-        # self.s13_button.grid(row=16, column=0)
-        # self.s13_button.config(state=NORMAL)
+        self.s21_button = Button(st_frame, text="CR: Correct Resp", command=lambda: self.switchState(self.rewardState))
+        self.s21_button.grid(row=stateStartRow+3, column=stateStartColumn)
+        self.s21_button.config(state=NORMAL)
 
         # update the GUI
         self.close_button.config(state=NORMAL)
@@ -332,10 +335,6 @@ class pyDiscrim_mainGUI:
         self.stW_Button.config(state=NORMAL)
         self.start_button.config(state=NORMAL)        #button 4
 
-    ####################################################
-    # ******* UI Controlled Functions Defs ************#
-    ####################################################
-
     def toggleStateButtons(self,tS=1,tempBut=[0]):
         if tS==1:
             for tMem in range(0,len(tempBut)):
@@ -346,8 +345,13 @@ class pyDiscrim_mainGUI:
 
     def switchState(self,selectedStateNumber):
         self.selectedStateNumber=selectedStateNumber
+        self.pyStatesRS.append(self.selectedStateNumber)
+        self.pyStatesRT.append(self.arduinoTime[-1])
+        print('state change to {}',format(self.selectedStateNumber))
         print(self.selectedStateNumber)
-        self.currentState=self.selectedStateNumber
+        self.currentState=self.selectedStateNumber   # debugging, adds an error?
+        print('will send state change')
+        print(struct.pack('>B', selectedStateNumber))
         self.comObj.write(struct.pack('>B', selectedStateNumber))
 
     def initComObj(self):
@@ -375,10 +379,22 @@ class pyDiscrim_mainGUI:
         self.stW_Button.invoke()
         
     def closeComObj(self):
-        self.saveData() 
-        self.comObj.write(struct.pack('>B', 0)) #todo: abstract init state
+        if self.ranTask==1:
+            self.saveData()
+        self.comObj.write(struct.pack('>B', 0))
         self.comObj.close()
-        exit()
+        #exit()
+
+        self.close_button.config(state=DISABLED)
+        self.comEntry.config(state=DISABLED)
+        self.baudPick.config(state=DISABLED)
+        self.createCom_button.config(state=NORMAL)      #button 1
+        self.nwButton.config(state=DISABLED)              #button 2
+        self.stW_Button.config(state=DISABLED)          #button 3
+        self.start_button.config(state=DISABLED)        #button 4
+
+        self.st_frame.destroy()
+        self.tb_frame.destroy()
 
     def simpleQuit(self):  #todo: delete this
         print('audi 5k')    #debug
@@ -406,9 +422,9 @@ class pyDiscrim_mainGUI:
         self.sTask2_distract_reward_prob.get()
         self.sTask2_distract_punish_prob.get()
 
-    ####################################################
+    #############################################
     # ******* Data Handling/Storage ************#
-    ####################################################
+    #############################################
 
     def makeContainers(self):
         self.arStates=[]          
@@ -420,7 +436,9 @@ class pyDiscrim_mainGUI:
         self.lickValues_b=[]
         self.detectedLicks_a=[]
         self.detectedLicks_b=[]
-        self.detectedTrialLicks = []
+        self.pyStatesRS = []
+        self.pyStatesRT = []
+        self.pyStatesCT = []
 
     def cleanContainers(self):
         self.arStates=[]          
@@ -433,6 +451,9 @@ class pyDiscrim_mainGUI:
         self.detectedLicks_a=[]
         self.detectedLicks_b=[]
         self.detectedTrialLicks = []
+        self.pyStatesRS = []
+        self.pyStatesRT = []
+        self.pyStatesCT = []
 
     def readData(self):
         # position is 8-bit, hence the 256
@@ -458,6 +479,7 @@ class pyDiscrim_mainGUI:
         str.isnumeric(self.sR[6])!=1 :
             self.dataAvail=0
 
+        print(self.sR[self.streamNum_state])
         print(self.sR)
 
     def parseData(self):
@@ -468,7 +490,6 @@ class pyDiscrim_mainGUI:
         self.posDelta.append(int(self.sR[self.stID_pos])-128)
         self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
         self.lastPos=int(self.absolutePosition[-1])
-
         self.currentState=int(self.sR[self.streamNum_state])
         self.arStates.append(self.currentState)
         self.lickValues_a.append(int(self.sR[self.streamNum_lickSensor_a]))
@@ -503,8 +524,8 @@ class pyDiscrim_mainGUI:
     # ******* Plotting Functions ************#
     ##########################################  
 
-    def updatePosPlot(self): 
-        if len(self.arduinoTime)>2:
+    def updatePosPlot(self):
+        if len(self.arduinoTime)>2: 
             self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
             self.tTP=self.segPlot*self.cTD
         self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
@@ -519,6 +540,7 @@ class pyDiscrim_mainGUI:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
         elif len(self.arduinoTrialTime)<=self.segPlot+1:
             plt.xlim(0,self.tTP)
+
         
         plt.ylabel('position')
         plt.xlabel('time since trial start (sec)')
@@ -533,21 +555,21 @@ class pyDiscrim_mainGUI:
             plt.xlim(0,self.tTP)
         plt.ylabel('licks (binary)')
         plt.xlabel('time since trial start (sec)')
-        # plt.title(int(1000000*np.mean(np.diff(np.array(self.arduinoTrialTime[-self.segPlot:-1])))))
 
         plt.subplot(2,2,2)
-        self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
-        self.lD=plt.plot(self.stateDiagX[self.currentState],self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
-        plt.ylim(0,10)
-        plt.xlim(0,10)
-        plt.title(self.currentTrial)
+        if self.updateStateMap==1:
+            self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
+            self.lD=plt.plot(self.stateDiagX[self.currentState],self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
+            plt.ylim(0,10)
+            plt.xlim(0,10)
+            plt.title(self.currentTrial)
 
         plt.pause(self.pltDelay)
         self.lA.pop(0).remove()
-        self.lC.pop(0).remove()
-        self.lD.pop(0).remove()
         self.lG.pop(0).remove()
-       # self.lH.pop(0).remove()
+        if self.updateStateMap==1:
+            self.lC.pop(0).remove()
+            self.lD.pop(0).remove()
 
     ##########################################
     # ******* Serial Com. Functions ************#
@@ -570,11 +592,6 @@ class pyDiscrim_mainGUI:
     # ******* State Building Blocks: Generic ************#
     ######################################################  
 
-    # def startState(self):
-    #     self.lastPos=0
-    #     self.lastAbsPos=0
-    #     self.updateStateButtons()
-    #     self.entryTime=self.arduinoTime[-1]
 
     def generic_StateHeader(self):
         while self.stateIt==0:
@@ -613,7 +630,7 @@ class pyDiscrim_mainGUI:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
 
             if self.stillLatch==1 and self.stillTime>1:
-                self.comObj.write(struct.pack('>B', 2))
+                self.comObj.write(struct.pack('<B', 2))
                 print('Still! ==> Out of wait')
                 self.waitForStateToUpdateOnTarget(self.currentState)  #<--- has to be in every cond block
 
@@ -705,16 +722,24 @@ class pyDiscrim_mainGUI:
                 print('off to save')
                 self.waitForStateToUpdateOnTarget(self.currentState)
 
-    def conditionBlock_rewardedChoice(self):
+    def conditionBlock_s21(self):
+        t1P=float(self.sTask1_prob.get())
+        if self.absolutePosition[-1]>self.distThr:
+            self.comObj.write(struct.pack('<B', 13))
+            print('rewarding')
+            self.waitForStateToUpdateOnTarget(self.rewardState)
+
+    def conditionBlock_punishedChoice(self):  #abstractly state 22
         self.lastPos=0
-        self.updateStateButtons()
+        # self.updateStateButtons()
         self.entryTime=self.arduinoTime[-1]
         if self.arduinoTime[-1]-self.entryTime>1:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
-            print('Reward Choice')
-            self.comObj.write(struct.pack('>B', 21))
+            print('Punished Choice')
+            self.comObj.write(struct.pack('>B', 13))
             print('will tell arduino to reward')
             self.waitForStateToUpdateOnTarget(self.currentState)
+
 
 
     #############################################################
@@ -723,7 +748,7 @@ class pyDiscrim_mainGUI:
 
     def getStateSetDiff(self):  
         aa={self.currentState}
-        bb={1,2,3,4,5,6,7,8,9,10,11,12,13}  #todo: this should not be hand-coded
+        bb={1,2,3,4,5,6,7,8,9,10,11,12,13,14}  #todo: this should not be hand-coded
         self.outStates=list(bb-aa)
 
     def updateStateButtons(self):
@@ -740,9 +765,14 @@ class pyDiscrim_mainGUI:
                 self.parseData()
                 self.currentState=int(self.sR[self.streamNum_state])
 
+    ##################################
+    # ******* Task Block ************#
+    #################################
+
     def runTask(self):
         self.makeContainers()
         self.uiUpdateDelta=300
+        self.ranTask=1
         # while the current trial is less than the total trials, python script decides what to do based on what the current state is
         while self.currentTrial<=int(self.totalTrials.get()):
             self.initTime=0  
@@ -750,11 +780,12 @@ class pyDiscrim_mainGUI:
                 #S0 -----> hand shake (initialization state)
                 # if the current trial is 0...
                 if self.currentState==0:
+                    self.updateStateMap=1
                     # the td list will be used to ensure that teensy-python communication is running smoothly
                     #as you will see, we observe the variance of 300 time samples and make sure that it is extremely
                     #small to ensure that our clocking is precise before we begin the trial
                     td=[float(0)]
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     print('in state 0')
                     #resetting the absolute position every time that we enter a new state 
                     self.lastPos=0 
@@ -793,8 +824,9 @@ class pyDiscrim_mainGUI:
 
                 #S1 -----> trial wait state
                 elif self.currentState==1:
+                    self.updateStateMap=1
                     self.lastPos=0
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     print('in s1')
                     while self.currentState==1:
@@ -808,7 +840,7 @@ class pyDiscrim_mainGUI:
                 #S2 -----> trial initiation state
                 elif self.currentState==2:
                     self.lastPos=0
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.task_switch=random.random()
                     while self.currentState==2:
@@ -823,7 +855,7 @@ class pyDiscrim_mainGUI:
                 #S3 -----> stim task #1 cue
                 elif self.currentState==3:
                     self.lastPos=0
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
                     while self.currentState==3:
@@ -837,7 +869,7 @@ class pyDiscrim_mainGUI:
                 #S4 -----> stim task #2 cue
                 elif self.currentState==4:
                     self.lastPos=0
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
                     while self.currentState==4:
@@ -851,7 +883,7 @@ class pyDiscrim_mainGUI:
                 #S5 -----> pos tone
                 elif self.currentState==5:
                     self.lastPos=0
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     while self.currentState==5:
                         self.generic_StateHeader()
@@ -864,7 +896,7 @@ class pyDiscrim_mainGUI:
                 #S6 -----> neg tone
                 elif self.currentState==6:
                     self.lastPos=0
-                    self.updateStateButtons()
+                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     while self.currentState==6:
                         self.generic_StateHeader()
@@ -873,6 +905,22 @@ class pyDiscrim_mainGUI:
                                 self.updatePlotCheck()
                             self.conditionBlock_tones()
                             self.cycleCount=self.cycleCount+1;
+
+                #S21 -----> correct choice
+                elif self.currentState==self.rewardState:
+                    self.updateStateMap=0
+                    self.lastPos=0
+                    self.entryTime=self.arduinoTime[-1]
+                    self.pyStatesCT.append(self.entryTime)
+                    while self.currentState==self.rewardState:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1: # todo: in all states
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()   # todo: in all states
+                            self.conditionBlock_s21()  # condition blocks are unique (always custom)
+                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+
+
 
 
                 # ----------------- (S13: save state)
