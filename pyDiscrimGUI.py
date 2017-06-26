@@ -167,7 +167,7 @@ class pyDiscrim_mainGUI:
         self.comPath.set('/dev/cu.usbmodem1411')
         self.comEntry = OptionMenu(self.master,self.comPath, \
             '/dev/cu.usbmodem1411','/dev/cu.usbmodem1421','/dev/cu.usbmodem1431',\
-            '/dev/cu.usbmodem2147951','COM5','COM4','COM8','COM9', 'COM11','Debug')
+            '/dev/cu.usbmodem2147951','COM5','COM4','COM8','COM9', 'COM10', 'COM11','Debug')
         self.comEntry.grid(row=1, column=0)
         self.comEntry.config(width=20)
         if self.comEntry == 'Debug':
