@@ -4,7 +4,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.31
+# Version 2.32
 # 6/22/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -53,7 +53,7 @@ class pyDiscrim_mainGUI:
     ##################################
 
     def runTask(self):
-        self.makeContainers()
+        self.data_makeContainers()
         self.uiUpdateDelta=300
         self.ranTask=1
         # while the current trial is less than the total trials, python script decides what to do based on what the current state is
@@ -223,8 +223,8 @@ class pyDiscrim_mainGUI:
                     print(self.arduinoTrialTime[0])
 
                     print('in state 13; saving your bacon') # debug
-                    self.saveData()                    # clean up plot data (memory managment)
-                    self.cleanContainers()
+                    self.data_saveData()                    # clean up plot data (memory managment)
+                    self.data_cleanContainers()
                     self.currentTrial=self.currentTrial+1
                     print('trial done')
                     self.comObj.write(struct.pack('>B', 1)) #todo: abstract wait
@@ -235,7 +235,7 @@ class pyDiscrim_mainGUI:
                 print('EXCEPTION: peace out bitches')
                 print('last trial = {} and the last state was {}. \
                     I will try to save last trial ...'.format(self.currentTrial,self.currentState))
-                self.saveData() 
+                self.data_saveData() 
                 self.comObj.write(struct.pack('>B', 0))
                 print('save was a success; now I will close com port and quit')
                 self.comObj.close()
@@ -320,7 +320,7 @@ class pyDiscrim_mainGUI:
             self.stateIt=0  # will go away todo
             self.serial_readDataFlush()
             if self.dataAvail==1:
-                self.parseData()
+                self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
 
     ###########################################################
@@ -462,13 +462,13 @@ class pyDiscrim_mainGUI:
             print('audi 5k')
             exit()
         elif self.ranTask==1:
-            self.saveData() 
+            self.data_saveData() 
             self.comObj.write(struct.pack('>B', 0))
             self.comObj.close()
             exit()
 
     def saveQuit(self):
-        self.saveData() 
+        self.data_saveData() 
         self.comObj.write(struct.pack('>B', 0))
         self.comObj.close()
         exit()
@@ -662,7 +662,7 @@ class pyDiscrim_mainGUI:
     def serial_closeComObj(self):
         if self.comObjectExists==1:
             if self.dataExists==1:
-                self.saveData()
+                self.data_saveData()
             self.comObj.write(struct.pack('>B', self.bootState))
             self.comObj.close()
             self.comObjectExists=0
@@ -707,7 +707,6 @@ class pyDiscrim_mainGUI:
         str.isnumeric(self.sR[6])!=1 :
             self.dataAvail=0
 
-        print(self.sR[self.stID_state])
         print(self.sR)
 
     #################################################
@@ -850,10 +849,10 @@ class pyDiscrim_mainGUI:
             self.generic_InitState()
         self.serial_readDataFlush()
         if self.dataAvail==1:
-            self.parseData()
+            self.data_parseData()
 
     def updatePlotCheck(self):
-        self.updateLickThresholds()
+        self.analysis_updateLickThresholds()
         self.updatePosPlot()
         self.cycleCount=0
 
@@ -861,7 +860,7 @@ class pyDiscrim_mainGUI:
     ## **** User Writes Custom Callbacks That Extend Their State's Functions **** ##
     ################################################################################
 
-    def callback_waitState(self):
+    def callback_waitState(self): #1
         if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             
@@ -880,24 +879,24 @@ class pyDiscrim_mainGUI:
                 print('Still! ==> Out of wait')
                 self.state_waitForStateToUpdateOnTarget(self.waitState)  #<--- has to be in every cond block
 
-    def callback_initiationState(self):
+    def callback_initiationState(self): #2
         # if stimSwitch is less than task1's probablity then send to task #1
-        t1P=float(self.sTask1_prob.get())
+        #t1P=float(self.sTask1_prob.get())
         if self.absolutePosition[-1]>self.distThr:
-            if self.task_switch<=t1P:
+            if self.task_switch<=0.5:
                 print('t1')
                 self.comObj.write(struct.pack('>B', 3))
                 print('moving spout; cueing stim task #1')
                 self.state_waitForStateToUpdateOnTarget(self.initiateState)
             # if stimSwitch is more than task1's probablity then send to task #2
-            elif self.task_switch>t1P:
+            elif self.task_switch>0.5:
                 print('t2')
                 self.comObj.write(struct.pack('>B', 4))
                 print('moving spout; cueing stim task #2')
                 self.state_waitForStateToUpdateOnTarget(self.initiateState)
 
-    def callback_cue1State(self):  #todo; mov could be a func
-        trP=float(self.sTask1_target_prob.get())
+    def callback_cue1State(self):  #todo; mov could be a func #3
+        #trP=float(self.sTask1_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             if self.dPos>self.movThr and self.stillLatch==1:
@@ -908,20 +907,20 @@ class pyDiscrim_mainGUI:
             if self.dPos<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-                print(self.outcomeSwitch<=trP)
+               # print(self.outcomeSwitch<=trP)
                 print('Still!')
-                if self.outcomeSwitch<=trP:
+                if self.outcomeSwitch<=0.5:
                     self.comObj.write(struct.pack('>B', 5))
                     print('will play dulcet tone')
                     self.state_waitForStateToUpdateOnTarget(3)
                 # if stimSwitch is more than task1's probablity then send to task #2
-                elif self.outcomeSwitch>trP:
+                elif self.outcomeSwitch>0.5:
                     self.comObj.write(struct.pack('>B', 6))
                     print('will play ominous tone')
                     self.state_waitForStateToUpdateOnTarget(3)
 
-    def callback_cue2State(self):  #todo; mov could be a func
-        trP=float(self.sTask2_target_prob.get())
+    def callback_cue2State(self):  #todo; mov could be a func #4
+        #trP=float(self.sTask2_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             if self.dPos>self.movThr and self.stillLatch==1:
@@ -932,16 +931,16 @@ class pyDiscrim_mainGUI:
             if self.dPos<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-                print('result={}'.format(self.outcomeSwitch<=trP))
+                #print('result={}'.format(self.outcomeSwitch<=trP))
                 print('Still!')
-                print(self.outcomeSwitch<=trP)
-                if self.outcomeSwitch<=trP:
+                #print(self.outcomeSwitch<=trP)
+                if self.outcomeSwitch<=0.5:
                     print('debug a')
                     self.comObj.write(struct.pack('>B', 6))
                     print('will play dulcet tone')
                     self.state_waitForStateToUpdateOnTarget(4)
                 # if stimSwitch is more than task1's probablity then send to task #2
-                elif self.outcomeSwitch>trP:
+                elif self.outcomeSwitch>0.5:
                     print('debug b')
                     self.comObj.write(struct.pack('>B', 5))
                     print('will play ominous tone')
@@ -969,15 +968,15 @@ class pyDiscrim_mainGUI:
                 self.state_waitForStateToUpdateOnTarget(self.currentState)
 
     def callback_rewardState(self):
-        t1P=float(self.sTask1_prob.get())
+        #t1P=float(self.sTask1_prob.get())
         if self.absolutePosition[-1]>self.distThr:
             self.comObj.write(struct.pack('<B', 13))
             print('rewarding')
             self.state_waitForStateToUpdateOnTarget(self.rewardState)
 
-   	def callback_punishState(self):
+    def callback_punishState(self):
         if self.arduinoTime[-1]-self.entryTime<self.timeOutDuration:  #todo: make this a variable
-            # print('timeout')
+            print('timeout')
         elif self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
             self.comObj.write(struct.pack('<B', self.saveState))
             self.state_waitForStateToUpdateOnTarget(self.punishState)
