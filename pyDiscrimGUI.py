@@ -4,7 +4,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.3
+# Version 2.31
 # 6/22/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -47,6 +47,205 @@ class pyDiscrim_mainGUI:
         self.initialize_TaskProbs()
         self.initialize_CallbackVariables()
         self.data_serialInputIDs()
+
+    ##################################
+    # ******* Task Block ************#
+    ##################################
+
+    def runTask(self):
+        self.makeContainers()
+        self.uiUpdateDelta=300
+        self.ranTask=1
+        # while the current trial is less than the total trials, python script decides what to do based on what the current state is
+        while self.currentTrial<=int(self.totalTrials.get()):
+            self.initTime=0  
+            try:
+                #S0 -----> hand shake (initialization state)
+                # if the current trial is 0...
+                if self.currentState==self.bootState:
+                    self.updateStateMap=1
+                    # the td list will be used to ensure that teensy-python communication is running smoothly
+                    #as you will see, we observe the variance of 300 time samples and make sure that it is extremely
+                    #small to ensure that our clocking is precise before we begin the trial
+                    td=[float(0)]
+                    # self.updateStateButtons()
+                    print('in state 0')
+                    #resetting the absolute position every time that we enter a new state 
+                    self.lastPos=0 
+                    while self.currentState==0:
+                        #this method examines data that is currently available in the serial buffer. If the data that is present is
+                        # valid (discussed in parse data), GSH sets dataAvailable = 1
+                        print('past 0')
+                        self.generic_StateHeader() #(GSH)
+                        print('past 1')
+                        if self.dataAvail==1:
+                            print('past 2')
+                            #his gets the total time in he state 
+
+                            td.append(float(self.arduinoTime[-1]-self.initTime))
+
+
+                            #self.initTime is the time that the script entered the current state
+                            # the syntax "arduinoTime[]" is used to access a value in a list
+                            #to get the most recent value, -1 is used
+                            # Therefore, the variable initTime is set to the most recent value added to the list arduinoTime
+                            self.initTime=self.arduinoTime[-1]
+                            print("doing state 0 stuff")
+                            print(len(td))
+                            # this uses the length of the list that is storing the time points of each iteration of the task loop where
+                            # data was available
+                            # if we have had data available for more than 300 loops
+                            if len(td)>300:
+                                #get the variance of all of the values in the time list
+                                print(np.var(td[-98:-1]))
+                                #make sure that the variance is less than .01 and if it is, do the serial_handShake to send the teensy into state 1
+                                if np.var(td[-98:-1])<0.01: 
+                                    print('cond fine')
+                                    #rather than running a condition block like the other states, state 0 is the initialization state that ensures
+                                    # that proper communication is established between the teensy and the python script
+                                    self.serial_handShake()  
+
+                #S1 -----> trial wait state
+                elif self.currentState==self.waitState:
+                    self.updateStateMap=1
+                    self.lastPos=0
+                    # self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    print('in s1')
+                    while self.currentState==1:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.callback_waitState()
+                            self.cycleCount=self.cycleCount+1;
+
+                #S2 -----> trial initiation state
+                elif self.currentState==self.initiateState:
+                    self.lastPos=0
+                    # self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    self.task_switch=random.random()
+                    while self.currentState==self.initiateState:
+                        self.generic_StateHeader() 
+                        if self.dataAvail==1: # todo: in all states
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0: 
+                            # todo: in all states
+                                self.updatePlotCheck()   # todo: in all states
+                            self.callback_initiationState()  # condition blocks are unique (always custom)
+                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+
+                #S3 -----> stim task #1 cue
+                elif self.currentState==self.cue1State:
+                    self.lastPos=0
+                    # self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    self.outcomeSwitch=random.random() # debug
+                    while self.currentState==self.cue1State:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.callback_cue1State()
+                            self.cycleCount=self.cycleCount+1;
+
+                #S4 -----> stim task #2 cue
+                elif self.currentState==self.cue2State:
+                    self.lastPos=0
+                    # self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    self.outcomeSwitch=random.random() # debug
+                    while self.currentState==4:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.callback_cue2State()
+                            self.cycleCount=self.cycleCount+1;
+
+                #S5 -----> pos tone
+                elif self.currentState==self.stim1State:
+                    self.lastPos=0
+                    # self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    while self.currentState==5:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.callback_toneStates()
+                            self.cycleCount=self.cycleCount+1;
+
+                #S6 -----> neg tone
+                elif self.currentState==self.stim2State:
+                    self.lastPos=0
+                    # self.updateStateButtons()
+                    self.entryTime=self.arduinoTime[-1]
+                    while self.currentState==6:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()
+                            self.callback_toneStates()
+                            self.cycleCount=self.cycleCount+1;
+
+                #S21 -----> reward state
+                elif self.currentState==self.rewardState:
+                    self.updateStateMap=0
+                    self.lastPos=0
+                    self.entryTime=self.arduinoTime[-1]
+                    self.pyStatesCT.append(self.entryTime)
+                    while self.currentState==self.rewardState:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1: # todo: in all states
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()   # todo: in all states
+                            self.callback_rewardState()  # condition blocks are unique (always custom)
+                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+
+                #S23 -----> punish state
+                elif self.currentState==self.punishState:
+                    self.updateStateMap=0
+                    self.lastPos=0 # resets positions baseline
+                    self.entryTime=self.arduinoTime[-1]
+                    self.pyStatesCT.append(self.entryTime)
+                    while self.currentState==self.punishState:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1: # todo: in all states
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck()   # todo: in all states
+                            self.callback_punishState()  # condition blocks are unique (always custom)
+                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+
+                #S13: save state
+                elif self.currentState==self.saveState:
+                    print(self.arduinoTrialTime[-1])
+                    print(self.arduinoTrialTime[0])
+
+                    print('in state 13; saving your bacon') # debug
+                    self.saveData()                    # clean up plot data (memory managment)
+                    self.cleanContainers()
+                    self.currentTrial=self.currentTrial+1
+                    print('trial done')
+                    self.comObj.write(struct.pack('>B', 1)) #todo: abstract wait
+                    self.state_waitForStateToUpdateOnTarget(13)         
+
+            except:
+                print(self.dPos)
+                print('EXCEPTION: peace out bitches')
+                print('last trial = {} and the last state was {}. \
+                    I will try to save last trial ...'.format(self.currentTrial,self.currentState))
+                self.saveData() 
+                self.comObj.write(struct.pack('>B', 0))
+                print('save was a success; now I will close com port and quit')
+                self.comObj.close()
+                exit()
+
+        print('NORMAL: peace out')
+        print('I completed {} trials.'.format(self.currentTrial-1))
+        self.comObj.write(struct.pack('>B', 0))  #todo: abstract reset state
+        self.comObj.close()
+        exit()
 
     #########################################################
     ## **** These Functions Set All Initial Variables **** ##
@@ -679,7 +878,7 @@ class pyDiscrim_mainGUI:
             if self.stillLatch==1 and self.stillTime>1:
                 self.comObj.write(struct.pack('<B', 2))
                 print('Still! ==> Out of wait')
-                self.state_waitForStateToUpdateOnTarget(self.currentState)  #<--- has to be in every cond block
+                self.state_waitForStateToUpdateOnTarget(self.waitState)  #<--- has to be in every cond block
 
     def callback_initiationState(self):
         # if stimSwitch is less than task1's probablity then send to task #1
@@ -689,13 +888,13 @@ class pyDiscrim_mainGUI:
                 print('t1')
                 self.comObj.write(struct.pack('>B', 3))
                 print('moving spout; cueing stim task #1')
-                self.state_waitForStateToUpdateOnTarget(2)
+                self.state_waitForStateToUpdateOnTarget(self.initiateState)
             # if stimSwitch is more than task1's probablity then send to task #2
             elif self.task_switch>t1P:
                 print('t2')
                 self.comObj.write(struct.pack('>B', 4))
                 print('moving spout; cueing stim task #2')
-                self.state_waitForStateToUpdateOnTarget(2)
+                self.state_waitForStateToUpdateOnTarget(self.initiateState)
 
     def callback_cue1State(self):  #todo; mov could be a func
         trP=float(self.sTask1_target_prob.get())
@@ -776,193 +975,12 @@ class pyDiscrim_mainGUI:
             print('rewarding')
             self.state_waitForStateToUpdateOnTarget(self.rewardState)
 
-
-    ##################################
-    # ******* Task Block ************#
-    ##################################
-
-    def runTask(self):
-        self.makeContainers()
-        self.uiUpdateDelta=300
-        self.ranTask=1
-        # while the current trial is less than the total trials, python script decides what to do based on what the current state is
-        while self.currentTrial<=int(self.totalTrials.get()):
-            self.initTime=0  
-            try:
-                #S0 -----> hand shake (initialization state)
-                # if the current trial is 0...
-                if self.currentState==0:
-                    self.updateStateMap=1
-                    # the td list will be used to ensure that teensy-python communication is running smoothly
-                    #as you will see, we observe the variance of 300 time samples and make sure that it is extremely
-                    #small to ensure that our clocking is precise before we begin the trial
-                    td=[float(0)]
-                    # self.updateStateButtons()
-                    print('in state 0')
-                    #resetting the absolute position every time that we enter a new state 
-                    self.lastPos=0 
-                    while self.currentState==0:
-                        #this method examines data that is currently available in the serial buffer. If the data that is present is
-                        # valid (discussed in parse data), GSH sets dataAvailable = 1
-                        print('past 0')
-                        self.generic_StateHeader() #(GSH)
-                        print('past 1')
-                        if self.dataAvail==1:
-                            print('past 2')
-                            #his gets the total time in he state 
-
-                            td.append(float(self.arduinoTime[-1]-self.initTime))
-
-
-                            #self.initTime is the time that the script entered the current state
-                            # the syntax "arduinoTime[]" is used to access a value in a list
-                            #to get the most recent value, -1 is used
-                            # Therefore, the variable initTime is set to the most recent value added to the list arduinoTime
-                            self.initTime=self.arduinoTime[-1]
-                            print("doing state 0 stuff")
-                            print(len(td))
-                            # this uses the length of the list that is storing the time points of each iteration of the task loop where
-                            # data was available
-                            # if we have had data available for more than 300 loops
-                            if len(td)>300:
-                                #get the variance of all of the values in the time list
-                                print(np.var(td[-98:-1]))
-                                #make sure that the variance is less than .01 and if it is, do the serial_handShake to send the teensy into state 1
-                                if np.var(td[-98:-1])<0.01: 
-                                    print('cond fine')
-                                    #rather than running a condition block like the other states, state 0 is the initialization state that ensures
-                                    # that proper communication is established between the teensy and the python script
-                                    self.serial_handShake()  
-
-                #S1 -----> trial wait state
-                elif self.currentState==1:
-                    self.updateStateMap=1
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    print('in s1')
-                    while self.currentState==1:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_waitState()
-                            self.cycleCount=self.cycleCount+1;
-
-                #S2 -----> trial initiation state
-                elif self.currentState==2:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    self.task_switch=random.random()
-                    while self.currentState==2:
-                        self.generic_StateHeader() 
-                        if self.dataAvail==1: # todo: in all states
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0: 
-                            # todo: in all states
-                                self.updatePlotCheck()   # todo: in all states
-                            self.callback_initiationState()  # condition blocks are unique (always custom)
-                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
-
-                #S3 -----> stim task #1 cue
-                elif self.currentState==3:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    self.outcomeSwitch=random.random() # debug
-                    while self.currentState==3:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_cue1State()
-                            self.cycleCount=self.cycleCount+1;
-
-                #S4 -----> stim task #2 cue
-                elif self.currentState==4:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    self.outcomeSwitch=random.random() # debug
-                    while self.currentState==4:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_cue2State()
-                            self.cycleCount=self.cycleCount+1;
-
-                #S5 -----> pos tone
-                elif self.currentState==5:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    while self.currentState==5:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_toneStates()
-                            self.cycleCount=self.cycleCount+1;
-
-                #S6 -----> neg tone
-                elif self.currentState==6:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    while self.currentState==6:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_toneStates()
-                            self.cycleCount=self.cycleCount+1;
-
-                #S21 -----> correct choice
-                elif self.currentState==self.rewardState:
-                    self.updateStateMap=0
-                    self.lastPos=0
-                    self.entryTime=self.arduinoTime[-1]
-                    self.pyStatesCT.append(self.entryTime)
-                    while self.currentState==self.rewardState:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1: # todo: in all states
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()   # todo: in all states
-                            self.callback_rewardState()  # condition blocks are unique (always custom)
-                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
-
-
-
-
-                # ----------------- (S13: save state)
-                elif self.currentState==13:
-                    print(self.arduinoTrialTime[-1])
-                    print(self.arduinoTrialTime[0])
-
-                    print('in state 13; saving your bacon') # debug
-                    self.saveData()                    # clean up plot data (memory managment)
-                    self.cleanContainers()
-                    self.currentTrial=self.currentTrial+1
-                    print('trial done')
-                    self.comObj.write(struct.pack('>B', 1)) #todo: abstract wait
-                    self.state_waitForStateToUpdateOnTarget(13)         
-            except:
-                print(self.dPos)
-                print('EXCEPTION: peace out bitches')
-                print('last trial = {} and the last state was {}. \
-                    I will try to save last trial ...'.format(self.currentTrial,self.currentState))
-                self.saveData() 
-                self.comObj.write(struct.pack('>B', 0))
-                print('save was a success; now I will close com port and quit')
-                self.comObj.close()
-                exit()
-
-        print('NORMAL: peace out')
-        print('I completed {} trials.'.format(self.currentTrial-1))
-        self.comObj.write(struct.pack('>B', 0))  #todo: abstract reset state
-        self.comObj.close()
-        exit()
+   	def callback_punishState(self):
+        if self.arduinoTime[-1]-self.entryTime<self.timeOutDuration:  #todo: make this a variable
+            # print('timeout')
+        elif self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
+            self.comObj.write(struct.pack('<B', self.saveState))
+            self.state_waitForStateToUpdateOnTarget(self.punishState)
 
 def main(): 
     root = Tk()
