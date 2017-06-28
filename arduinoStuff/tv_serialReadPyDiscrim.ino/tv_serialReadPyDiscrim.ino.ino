@@ -24,6 +24,7 @@ int lickValues_a=0;
 int lickValues_b=0;
 int rewardLatch=0;  // not bool so we can count if needed later
 int rewardTime=500; //in ms
+int punishTime=5000
 
 unsigned long msOffset;
 unsigned long s1Offset;
@@ -37,7 +38,9 @@ unsigned long ofs1;
 unsigned long ofs2;
 unsigned long ofs3;
 unsigned long rewardTimer;
-unsigned long rTO;
+unsigned long punishTimer
+unsigned long rewardOffset;
+unsigned long punishOffset
 
 int currentPosDelta=128;
 long lastPosition=0;
@@ -320,14 +323,14 @@ void loop() {
     curState=lookForSerialState();
   }
   
-  // S21
+  // S21: Reward State
   else if(curState==21){
     while(bef==1){    // local timers need bef
       establishOrder();
-      rTO=millis();
+      rewardOffset=millis();
       bef=0;
     };
-    rewardTimer=millis()-rTO;
+    rewardTimer=millis()-rewardOffset;
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
     
@@ -355,12 +358,34 @@ void loop() {
     noTone(tonePin);
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
-    pollOpticalMouse();
+    pollOpticalMouse(); 
     spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
   }
-
+  
+  // S23: Punish State
+  else if (currState==23) {
+    while (bef ==1) {
+      establishOrder();
+      punishOffset=millis();
+      bef=0;
+    };
+    punishTimer = millis()-punishOffset
+    msCorrected=micros()-msOffset;
+    msInTrial=micros()-s1Offset;
+    
+    pollOpticalMouse();
+    
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    
+    if(punishTimer<punishTime){
+      
+    }
+    else {
+      curState=13;
+    }
+  }
 }
 
 // ---------- Helper Functions

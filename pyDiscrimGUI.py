@@ -4,7 +4,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.5
+# Version 2.51
 # 6/28/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -153,7 +153,7 @@ class pyDiscrim_mainGUI:
                     # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
-                    while self.currentState==4:
+                    while self.currentState==cue2State
                         self.generic_StateHeader()
                         if self.dataAvail==1:
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
@@ -186,6 +186,20 @@ class pyDiscrim_mainGUI:
                                 self.updatePlotCheck()
                             self.callback_toneStates()
                             self.cycleCount=self.cycleCount+1;
+
+                #S20 -----> decision state
+                elif self.currentState==self.decisionState
+                    self.updateStateMap=0
+                    self.lastPos = 0
+                    self.entryTime=self.arduinoTime[-1]
+                    while self.currentState==20:
+                        self.generic_StateHeader()
+                        if self.dataAvail==1:
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                self.updatePlotCheck
+                            self.callback_decisionState()
+                            self.cycleCount=self.cycleCount+1;
+
 
                 #S21 -----> reward state
                 elif self.currentState==self.rewardState:
@@ -294,6 +308,7 @@ class pyDiscrim_mainGUI:
 
         self.saveState=13
 
+        self.decisionState=20
         self.rewardState=21
         self.neutralState=22
         self.punishState=23
@@ -381,6 +396,9 @@ class pyDiscrim_mainGUI:
             self.comPath.set(self.mainPort)
         elif sys.platform == 'win':
             self.mainPort='COM11';
+            self.comPath.set(self.mainPort)
+        else:
+            self.mainPort = 'COM10'
             self.comPath.set(self.mainPort)
         self.comEntry = OptionMenu(self.master,self.comPath,self.mainPort)
         self.comEntry.grid(row=1, column=0)
@@ -996,18 +1014,21 @@ class pyDiscrim_mainGUI:
                 print('off to save')
                 self.state_waitForStateToUpdateOnTarget(self.currentState)
 
-    def callback_rewardState(self):
+    def callback_decisionState(self): #20 reward or punish
+
+
+    def callback_rewardState(self): #21
         #t1P=float(self.sTask1_prob.get())
         if self.absolutePosition[-1]>self.distThr:
             self.comObj.write(struct.pack('<B', 13))
             print('rewarding')
             self.state_waitForStateToUpdateOnTarget(self.rewardState)
 
-    def callback_punishState(self):
+    def callback_punishState(self): #23
         if self.arduinoTime[-1]-self.entryTime<self.timeOutDuration:  #todo: make this a variable
             print('timeout')
         elif self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
-            self.comObj.write(struct.pack('<B', self.saveState))
+            self.comObj.write(struct.pack('<B', self.punishState))
             self.state_waitForStateToUpdateOnTarget(self.punishState)
 
     def debugState(self):
