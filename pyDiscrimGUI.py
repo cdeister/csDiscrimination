@@ -4,11 +4,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.35
-# 6/22/2017
+# Version 2.5
+# 6/28/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: serial fixes
+# ver changes: most debug prints out, MUCH more reliable serial
 
 
 from tkinter import *
@@ -92,7 +92,6 @@ class pyDiscrim_mainGUI:
                             # Therefore, the variable initTime is set to the most recent value added to the list arduinoTime
                             self.initTime=self.arduinoTime[-1]
                             print("doing state 0 stuff")
-                            print(len(td))
                             # this uses the length of the list that is storing the time points of each iteration of the task loop where
                             # data was available
                             # if we have had data available for more than 300 loops
@@ -129,8 +128,6 @@ class pyDiscrim_mainGUI:
                     while self.currentState==self.initiateState:
                         self.generic_StateHeader() 
                         if self.dataAvail==1:
-                            print(int(self.cycleCount))
-                            print(int(self.uiUpdateDelta))
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
                                 self.updatePlotCheck()
                             self.callback_initiationState()
@@ -326,11 +323,8 @@ class pyDiscrim_mainGUI:
         if self.dataExists==1:
             self.pyStatesRS.append(self.selectedStateNumber)
             self.pyStatesRT.append(self.arduinoTime[-1])
-        print('state change to {}',format(self.selectedStateNumber))
-        print(self.selectedStateNumber)
-        self.currentState=self.selectedStateNumber   # debugging, adds an error?
-        print('will send state change')
-        print(struct.pack('>B', selectedStateNumber))
+        print('state change to {}'.format(self.selectedStateNumber))
+        self.currentState=self.selectedStateNumber
         self.comObj.write(struct.pack('>B', selectedStateNumber))
 
     def state_waitForStateToUpdateOnTarget(self,maintState): 
@@ -691,21 +685,19 @@ class pyDiscrim_mainGUI:
             self.createCom_button.config(state=DISABLED)
             self.start_button.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
-
-            self.taskProbs_Button.invoke()
-            self.stateToggles_Button.invoke()
+            self.debugState()
+            # self.taskProbs_Button.invoke()
+            # self.stateToggles_Button.invoke()
         
     def serial_closeComObj(self):
         if self.comObjectExists==1:
             if self.dataExists==1:
                 self.data_saveData()
             self.comObj.write(struct.pack('>B', self.bootState))
-            self.comObj.write(struct.pack('>B', self.bootState))
-            self.comObj.write(struct.pack('>B', self.bootState))
-            self.comObj.write(struct.pack('>B', self.bootState))
             self.comObj.close()
             self.comObjectExists=0
             self.createCom_button.config(state=NORMAL)
+            self.closeComObj_button.config(state=DISABLED)
             self.start_button.config(state=DISABLED)
 
     def serial_handShake(self):
@@ -723,7 +715,7 @@ class pyDiscrim_mainGUI:
         # position is 8-bit, hence the 256
         self.sR=self.comObj.readline().strip().decode()
         self.sR=self.sR.split(',')
-        if self.sR[self.stID_header]=='data' and \
+        if len(self.sR)==7 and self.sR[self.stID_header]=='data' and \
         str.isnumeric(self.sR[1])==1 and \
         str.isnumeric(self.sR[2])==1 and \
         str.isnumeric(self.sR[self.stID_pos])==1 and \
@@ -733,7 +725,7 @@ class pyDiscrim_mainGUI:
         str.isnumeric(self.sR[6])==1 :
             self.dataAvail=1
 
-        elif self.sR[self.stID_header]!='data' or \
+        elif len(self.sR)!=7 or self.sR[self.stID_header]!='data' or \
         str.isnumeric(self.sR[1])!=1 or \
         str.isnumeric(self.sR[2])!=1 or \
         str.isnumeric(self.sR[self.stID_pos])!=1 or \
@@ -743,7 +735,7 @@ class pyDiscrim_mainGUI:
         str.isnumeric(self.sR[6])!=1 :
             self.dataAvail=0
 
-        print(self.sR)
+        #print(self.sR)
 
     #################################################
     ## **** These Are Data Handling Functions **** ##
@@ -919,17 +911,16 @@ class pyDiscrim_mainGUI:
     def callback_initiationState(self): #2
         # if stimSwitch is less than task1's probablity then send to task #1
         t1P=0.5
-        print('Down with t1p?')
         # print(float(self.sTask1_prob))
         if self.absolutePosition[-1]>self.distThr:
             if self.task_switch<=t1P:
-                print('t1')
+                print('cue 1')
                 self.comObj.write(struct.pack('>B', self.cue1State))
                 print('moving spout; cueing stim task #1')
                 self.state_waitForStateToUpdateOnTarget(self.initiateState)
             # if stimSwitch is more than task1's probablity then send to task #2
             elif self.task_switch>t1P:
-                print('t2')
+                print('cue 2')
                 self.comObj.write(struct.pack('>B', self.cue2State))
                 print('moving spout; cueing stim task #2')
                 self.state_waitForStateToUpdateOnTarget(self.initiateState)
@@ -986,7 +977,6 @@ class pyDiscrim_mainGUI:
                     self.state_waitForStateToUpdateOnTarget(4)
     
     def callback_toneStates(self):
-        print('in tone block')
         if self.arduinoTime[-1]-self.entryTime>2:
             print('time cond met') #debug
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
@@ -1027,9 +1017,7 @@ class pyDiscrim_mainGUI:
             self.serial_readDataFlush()
             print('should be good')
             return
-        while self.currentState!=self.bootState:
-            print('debugging')
-            print(self.currentState)      
+        while self.currentState!=self.bootState:   
             self.serial_readDataFlush()
             if self.dataAvail==1:
                 self.data_parseData()
