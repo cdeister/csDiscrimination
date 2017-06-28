@@ -4,11 +4,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.34
+# Version 2.35
 # 6/22/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: more bugfixes; end state
+# ver changes: serial fixes
 
 
 from tkinter import *
@@ -50,6 +50,8 @@ class pyDiscrim_mainGUI:
     ##################################
 
     def runTask(self):
+        print('started at state:')
+        print(self.currentState)
         self.shouldRun=1
         self.data_makeContainers()
         self.uiUpdateDelta=300
@@ -58,6 +60,7 @@ class pyDiscrim_mainGUI:
         while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
             self.initTime=0  
             try:
+
                 #S0 -----> hand shake (initialization state)
                 # if the current trial is 0...
                 if self.currentState==self.bootState:
@@ -123,22 +126,14 @@ class pyDiscrim_mainGUI:
                     self.lastPos=0
                     self.entryTime=self.arduinoTime[-1]
                     self.task_switch=random.random()
-                    print('one time')
                     while self.currentState==self.initiateState:
-                        print('two time')
                         self.generic_StateHeader() 
-                        print('three time')
                         if self.dataAvail==1:
-                            print('four time')
                             print(int(self.cycleCount))
                             print(int(self.uiUpdateDelta))
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                print('bout to plot time') 
                                 self.updatePlotCheck()
-                                print('plot time')
-                            print('bout to callback')
                             self.callback_initiationState()
-                            print('six time')
                             self.cycleCount=self.cycleCount+1;
 
                 #S3 -----> stim task #1 cue
@@ -244,8 +239,7 @@ class pyDiscrim_mainGUI:
                     if self.dataExists==1:
                         self.data_saveData()
                         print('save was a success; now I will close com port')
-                    self.shouldRun=0
-                    self.serial_closeComObj()
+                    return
 
 
 
@@ -306,7 +300,8 @@ class pyDiscrim_mainGUI:
         self.rewardState=21
         self.neutralState=22
         self.punishState=23
-        self.endState=25;
+        self.endState=25
+        self.defaultState=29
 
     def initialize_CallbackVariables(self):
         ## Globals
@@ -645,6 +640,11 @@ class pyDiscrim_mainGUI:
         self.sBtn_save.grid(row=stateStartRow-2, column=stateStartColumn)
         self.sBtn_save.config(state=NORMAL)
 
+        self.sBtn_save = Button(st_frame, text="Debug", \
+            command=lambda: self.debugState())
+        self.sBtn_save.grid(row=stateStartRow-2, column=stateStartColumn+1)
+        self.sBtn_save.config(state=NORMAL)
+
     def toggleStateButtons(self,tS=1,tempBut=[0]):
         if tS==1:
             for tMem in range(0,len(tempBut)):
@@ -690,9 +690,10 @@ class pyDiscrim_mainGUI:
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
             self.start_button.config(state=NORMAL)
+            self.closeComObj_button.config(state=NORMAL)
 
-            # self.taskProbs_Button.invoke()
-            # self.stateToggles_Button.invoke()
+            self.taskProbs_Button.invoke()
+            self.stateToggles_Button.invoke()
         
     def serial_closeComObj(self):
         if self.comObjectExists==1:
@@ -1018,6 +1019,23 @@ class pyDiscrim_mainGUI:
         elif self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
             self.comObj.write(struct.pack('<B', self.saveState))
             self.state_waitForStateToUpdateOnTarget(self.punishState)
+
+    def debugState(self):
+        self.shouldRun=1
+        self.currentTrial=1
+        if self.currentState==self.bootState:
+            self.serial_readDataFlush()
+            print('should be good')
+            return
+        while self.currentState!=self.bootState:
+            print('debugging')
+            print(self.currentState)      
+            self.serial_readDataFlush()
+            if self.dataAvail==1:
+                self.data_parseData()
+                self.currentState=int(self.sR[self.stID_state])
+                self.comObj.write(struct.pack('>B', 0))
+        print('should be good')
 
 def main(): 
     root = Tk()
