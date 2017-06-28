@@ -8,11 +8,7 @@
 # 6/22/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: 
-# more reliance on functions
-
-# todo: find alternative to isnumeric so signed variables 
-# are handeled ok and pass lists.
+# ver changes: more bugfixes
 
 
 from tkinter import *
@@ -26,6 +22,7 @@ import datetime
 import random
 import math
 import struct
+import sys
 
 class pyDiscrim_mainGUI:
 
@@ -123,17 +120,25 @@ class pyDiscrim_mainGUI:
                 #S2 -----> trial initiation state
                 elif self.currentState==self.initiateState:
                     self.lastPos=0
-                    # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.task_switch=random.random()
+                    print('one time')
                     while self.currentState==self.initiateState:
+                        print('two time')
                         self.generic_StateHeader() 
-                        if self.dataAvail==1: # todo: in all states
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0: 
-                            # todo: in all states
-                                self.updatePlotCheck()   # todo: in all states
-                            self.callback_initiationState()  # condition blocks are unique (always custom)
-                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+                        print('three time')
+                        if self.dataAvail==1:
+                            print('four time')
+                            print(int(self.cycleCount))
+                            print(int(self.uiUpdateDelta))
+                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                                print('bout to plot time') 
+                                self.updatePlotCheck()
+                                print('plot time')
+                            print('bout to callback')
+                            self.callback_initiationState()
+                            print('six time')
+                            self.cycleCount=self.cycleCount+1;
 
                 #S3 -----> stim task #1 cue
                 elif self.currentState==self.cue1State:
@@ -222,30 +227,42 @@ class pyDiscrim_mainGUI:
                     print(self.arduinoTrialTime[-1])
                     print(self.arduinoTrialTime[0])
 
-                    print('in state 13; saving your bacon') # debug
+                    print('in save state; saving your bacon') # debug
                     self.data_saveData()                    # clean up plot data (memory managment)
                     self.data_cleanContainers()
                     self.currentTrial=self.currentTrial+1
                     print('trial done')
-                    self.comObj.write(struct.pack('>B', 1)) #todo: abstract wait
-                    self.state_waitForStateToUpdateOnTarget(13)         
+                    self.comObj.write(struct.pack('>B', self.waitState)) #todo: abstract wait
+                    self.state_waitForStateToUpdateOnTarget(self.saveState)
+                
+                #S25: end session state
+                elif self.currentState==self.endState:
+                    print('About to end the session ...')
+                    print('last trial = {} and the last state was {}'\
+                        .format(self.currentTrial,self.currentState))
+                    if self.dataExists==1:
+                        self.data_saveData()
+                    self.comObj.write(struct.pack('>B', self.bootState))
+                    print('save was a success; now I will close com port')
+                    if self.comObjectExists==1:
+                        self.serial_closeComObj()
 
             except:
                 print(self.dPos)
                 print('EXCEPTION: peace out bitches')
                 print('last trial = {} and the last state was {}. \
-                    I will try to save last trial ...'.format(self.currentTrial,self.currentState))
+                    I will try to save last trial ...'\
+                    .format(self.currentTrial,self.currentState))
                 self.data_saveData() 
-                self.comObj.write(struct.pack('>B', 0))
+                self.comObj.write(struct.pack('>B', self.bootState))
                 print('save was a success; now I will close com port and quit')
                 self.comObj.close()
                 exit()
 
         print('NORMAL: peace out')
         print('I completed {} trials.'.format(self.currentTrial-1))
-        self.comObj.write(struct.pack('>B', 0))  #todo: abstract reset state
-        self.comObj.close()
-        exit()
+        self.comObj.write(struct.pack('>B', self.endState))
+
 
     #########################################################
     ## **** These Functions Set All Initial Variables **** ##
@@ -284,6 +301,7 @@ class pyDiscrim_mainGUI:
         self.rewardState=21
         self.neutralState=22
         self.punishState=23
+        self.endState=25;
 
     def initialize_CallbackVariables(self):
         ## Globals
@@ -305,8 +323,9 @@ class pyDiscrim_mainGUI:
     
     def state_switchState(self,selectedStateNumber):
         self.selectedStateNumber=selectedStateNumber
-        self.pyStatesRS.append(self.selectedStateNumber)
-        self.pyStatesRT.append(self.arduinoTime[-1])
+        if self.dataExists==1:
+            self.pyStatesRS.append(self.selectedStateNumber)
+            self.pyStatesRT.append(self.arduinoTime[-1])
         print('state change to {}',format(self.selectedStateNumber))
         print(self.selectedStateNumber)
         self.currentState=self.selectedStateNumber   # debugging, adds an error?
@@ -363,10 +382,13 @@ class pyDiscrim_mainGUI:
         self.comPortEntry_label.grid(row=0, column=0)
 
         self.comPath=StringVar(self.master)
-        self.comPath.set('/dev/cu.usbmodem1411')
-        self.comEntry = OptionMenu(self.master,self.comPath, \
-            '/dev/cu.usbmodem1411','/dev/cu.usbmodem1421','/dev/cu.usbmodem1431',\
-            '/dev/cu.usbmodem2147951','COM5','COM4','COM8','COM9', 'COM10', 'COM11','Debug')
+        if sys.platform == 'darwin':
+            self.mainPort='/dev/cu.usbmodem2762721';
+            self.comPath.set(self.mainPort)
+        elif sys.platform == 'win':
+            self.mainPort='COM11';
+            self.comPath.set(self.mainPort)
+        self.comEntry = OptionMenu(self.master,self.comPath,self.mainPort)
         self.comEntry.grid(row=1, column=0)
         self.comEntry.config(width=20)
         if self.comEntry == 'Debug':
@@ -400,8 +422,8 @@ class pyDiscrim_mainGUI:
         self.totalTrials_entry.grid(row=5, column=0)
         self.totalTrials.set('100')
         self.totalTrials_entry.config(width=10)
-        self.dateStr = \
-        datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
+        self.dateStr = datetime.datetime.\
+        fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
     def metadata_lickDetection(self):
         self.ux_adaptThresh=StringVar(self.master)
@@ -613,6 +635,10 @@ class pyDiscrim_mainGUI:
         self.sBtn_save.grid(row=stateStartRow+1, column=stateStartColumn)
         self.sBtn_save.config(state=NORMAL)
 
+        self.sBtn_save = Button(st_frame, text="End Session", \
+            command=lambda: self.state_switchState(self.endState))
+        self.sBtn_save.grid(row=stateStartRow-2, column=stateStartColumn)
+        self.sBtn_save.config(state=NORMAL)
 
     def toggleStateButtons(self,tS=1,tempBut=[0]):
         if tS==1:
@@ -770,7 +796,8 @@ class pyDiscrim_mainGUI:
 
     def data_saveData(self):
         self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.absolutePosition,self.arStates])
-        np.savetxt('{}_{}_trial_{}.csv'.format(self.animalIDStr.get(),self.dateStr,self.currentTrial), self.exportArray, delimiter=",",fmt="%g")
+        np.savetxt('{}_{}_trial_{}.csv'.\
+            format(self.animalIDStr.get(),self.dateStr,self.currentTrial), self.exportArray, delimiter=",",fmt="%g")
         self.dataExists=0
 
     #################################################
@@ -881,17 +908,20 @@ class pyDiscrim_mainGUI:
 
     def callback_initiationState(self): #2
         # if stimSwitch is less than task1's probablity then send to task #1
-        #t1P=float(self.sTask1_prob.get())
+        print('Down with t1p?')
+        print(self.sTask1_prob)
+        t1P=float(self.sTask1_prob.get())
+        print(t1P)
         if self.absolutePosition[-1]>self.distThr:
-            if self.task_switch<=0.5:
+            if self.task_switch<=t1P:
                 print('t1')
-                self.comObj.write(struct.pack('>B', 3))
+                self.comObj.write(struct.pack('>B', self.cue1State))
                 print('moving spout; cueing stim task #1')
                 self.state_waitForStateToUpdateOnTarget(self.initiateState)
             # if stimSwitch is more than task1's probablity then send to task #2
-            elif self.task_switch>0.5:
+            elif self.task_switch>t1P:
                 print('t2')
-                self.comObj.write(struct.pack('>B', 4))
+                self.comObj.write(struct.pack('>B', self.cue2State))
                 print('moving spout; cueing stim task #2')
                 self.state_waitForStateToUpdateOnTarget(self.initiateState)
 
