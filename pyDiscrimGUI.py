@@ -4,11 +4,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.32
+# Version 2.34
 # 6/22/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: more bugfixes
+# ver changes: more bugfixes; end state
 
 
 from tkinter import *
@@ -50,11 +50,12 @@ class pyDiscrim_mainGUI:
     ##################################
 
     def runTask(self):
+        self.shouldRun=1
         self.data_makeContainers()
         self.uiUpdateDelta=300
         self.ranTask=1
         # while the current trial is less than the total trials, python script decides what to do based on what the current state is
-        while self.currentTrial<=int(self.totalTrials.get()):
+        while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
             self.initTime=0  
             try:
                 #S0 -----> hand shake (initialization state)
@@ -242,10 +243,11 @@ class pyDiscrim_mainGUI:
                         .format(self.currentTrial,self.currentState))
                     if self.dataExists==1:
                         self.data_saveData()
-                    self.comObj.write(struct.pack('>B', self.bootState))
-                    print('save was a success; now I will close com port')
-                    if self.comObjectExists==1:
-                        self.serial_closeComObj()
+                        print('save was a success; now I will close com port')
+                    self.shouldRun=0
+                    self.serial_closeComObj()
+
+
 
             except:
                 print(self.dPos)
@@ -258,10 +260,13 @@ class pyDiscrim_mainGUI:
                 print('save was a success; now I will close com port and quit')
                 self.comObj.close()
                 exit()
-
-        print('NORMAL: peace out')
-        print('I completed {} trials.'.format(self.currentTrial-1))
-        self.comObj.write(struct.pack('>B', self.endState))
+        if self.shouldRun==1:
+            print('NORMAL: peace out')
+            print('I completed {} trials.'.format(self.currentTrial-1))
+            self.serial_closeComObj()
+        
+        elif self.shouldRun==0:     
+            print('I completed {} trials.'.format(self.currentTrial-1))
 
 
     #########################################################
@@ -480,10 +485,10 @@ class pyDiscrim_mainGUI:
         self.timeBase=1000000
 
     def simpleQuit(self):
-        if self.ranTask==0:  
+        if self.ranTask==0 or self.comObjectExists==0:  
             print('audi 5k')
             exit()
-        elif self.ranTask==1:
+        elif self.ranTask==1 and self.comObjectExists==1:
             self.data_saveData() 
             self.comObj.write(struct.pack('>B', 0))
             self.comObj.close()
@@ -671,10 +676,14 @@ class pyDiscrim_mainGUI:
             # just in case we left it in a weird state 
             # lets flip back to the init state 0
             self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B', self.bootState))
             print('connected, will read a line')
             self.serial_readData()
             print(self.sR)
             self.comObjectExists=1
+            self.shouldRun=1
 
             # update the GUI
             self.comEntry.config(state=DISABLED)
@@ -690,11 +699,11 @@ class pyDiscrim_mainGUI:
             if self.dataExists==1:
                 self.data_saveData()
             self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B', self.bootState))
             self.comObj.close()
             self.comObjectExists=0
-
-            self.comEntry.config(state=NORMAL)
-            self.baudPick.config(state=NORMAL)
             self.createCom_button.config(state=NORMAL)
             self.start_button.config(state=DISABLED)
 
@@ -908,10 +917,9 @@ class pyDiscrim_mainGUI:
 
     def callback_initiationState(self): #2
         # if stimSwitch is less than task1's probablity then send to task #1
+        t1P=0.5
         print('Down with t1p?')
-        print(self.sTask1_prob)
-        t1P=float(self.sTask1_prob.get())
-        print(t1P)
+        # print(float(self.sTask1_prob))
         if self.absolutePosition[-1]>self.distThr:
             if self.task_switch<=t1P:
                 print('t1')
