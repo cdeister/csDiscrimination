@@ -4,7 +4,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.51
+# Version 2.52
 # 6/28/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -187,19 +187,6 @@ class pyDiscrim_mainGUI:
                             self.callback_toneStates()
                             self.cycleCount=self.cycleCount+1;
 
-                #S20 -----> decision state
-                elif self.currentState==self.decisionState
-                    self.updateStateMap=0
-                    self.lastPos = 0
-                    self.entryTime=self.arduinoTime[-1]
-                    while self.currentState==20:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck
-                            self.callback_decisionState()
-                            self.cycleCount=self.cycleCount+1;
-
 
                 #S21 -----> reward state
                 elif self.currentState==self.rewardState:
@@ -308,7 +295,6 @@ class pyDiscrim_mainGUI:
 
         self.saveState=13
 
-        self.decisionState=20
         self.rewardState=21
         self.neutralState=22
         self.punishState=23
@@ -1013,8 +999,6 @@ class pyDiscrim_mainGUI:
                 self.comObj.write(struct.pack('>B', 13))
                 print('off to save')
                 self.state_waitForStateToUpdateOnTarget(self.currentState)
-
-    def callback_decisionState(self): #20 reward or punish
 
 
     def callback_rewardState(self): #21
