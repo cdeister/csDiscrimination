@@ -4,7 +4,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.52
+# Version 2.53
 # 6/28/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -133,7 +133,7 @@ class pyDiscrim_mainGUI:
                             self.callback_initiationState()
                             self.cycleCount=self.cycleCount+1;
 
-                #S3 -----> stim task #1 cue
+                #S3 -----> cue #1
                 elif self.currentState==self.cue1State:
                     self.lastPos=0
                     # self.updateStateButtons()
@@ -147,13 +147,13 @@ class pyDiscrim_mainGUI:
                             self.callback_cue1State()
                             self.cycleCount=self.cycleCount+1;
 
-                #S4 -----> stim task #2 cue
+                #S4 -----> cue #2
                 elif self.currentState==self.cue2State:
                     self.lastPos=0
                     # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
-                    while self.currentState==cue2State
+                    while self.currentState==cue2State:
                         self.generic_StateHeader()
                         if self.dataAvail==1:
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
@@ -161,7 +161,7 @@ class pyDiscrim_mainGUI:
                             self.callback_cue2State()
                             self.cycleCount=self.cycleCount+1;
 
-                #S5 -----> pos tone
+                #S5 -----> stim tone #1
                 elif self.currentState==self.stim1State:
                     self.lastPos=0
                     # self.updateStateButtons()
@@ -171,10 +171,10 @@ class pyDiscrim_mainGUI:
                         if self.dataAvail==1:
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
                                 self.updatePlotCheck()
-                            self.callback_toneStates()
+                            self.callback_toneStates1()
                             self.cycleCount=self.cycleCount+1;
 
-                #S6 -----> neg tone
+                #S6 -----> stim tone #2
                 elif self.currentState==self.stim2State:
                     self.lastPos=0
                     # self.updateStateButtons()
@@ -184,7 +184,7 @@ class pyDiscrim_mainGUI:
                         if self.dataAvail==1:
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
                                 self.updatePlotCheck()
-                            self.callback_toneStates()
+                            self.callback_toneStates2()
                             self.cycleCount=self.cycleCount+1;
 
 
@@ -214,6 +214,7 @@ class pyDiscrim_mainGUI:
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
                                 self.updatePlotCheck()   # todo: in all states
                             self.callback_punishState()  # condition blocks are unique (always custom)
+                            print
                             self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
 
                 #S13: save state
@@ -311,7 +312,8 @@ class pyDiscrim_mainGUI:
         self.stillTime=float(0)
         self.stillLatch=0
         self.stillTimeStart=float(0)
-        self.distThr=1000;  
+        self.distThr=1000  
+        self.timeOutDuration=5;
         # This is the distance the mouse needs 
         #to move to initiate a stimulus trial.
 
@@ -384,7 +386,7 @@ class pyDiscrim_mainGUI:
             self.mainPort='COM11';
             self.comPath.set(self.mainPort)
         else:
-            self.mainPort = 'COM10'
+            self.mainPort = 'COM9'
             self.comPath.set(self.mainPort)
         self.comEntry = OptionMenu(self.master,self.comPath,self.mainPort)
         self.comEntry.grid(row=1, column=0)
@@ -980,7 +982,27 @@ class pyDiscrim_mainGUI:
                     print('will play ominous tone')
                     self.state_waitForStateToUpdateOnTarget(4)
     
-    def callback_toneStates(self):
+    def callback_toneStates1(self):
+        if self.arduinoTime[-1]-self.entryTime>2:
+            print('time cond met') #debug
+            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
+            print(self.dPos)
+            if self.dPos>self.movThr and self.stillLatch==1:
+                print('moving')
+                self.stillLatch=0
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                print('still')
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+            if self.dPos<=self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+            if self.stillLatch==1 and self.stillTime>1:
+                print('Still!')
+                self.comObj.write(struct.pack('>B', 13))
+                print('off to save')
+                self.state_waitForStateToUpdateOnTarget(self.currentState)
+
+    def callback_toneStates2(self):
         if self.arduinoTime[-1]-self.entryTime>2:
             print('time cond met') #debug
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
@@ -1010,9 +1032,9 @@ class pyDiscrim_mainGUI:
 
     def callback_punishState(self): #23
         if self.arduinoTime[-1]-self.entryTime<self.timeOutDuration:  #todo: make this a variable
-            print('timeout')
+            print('TIMEOUT')
         elif self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
-            self.comObj.write(struct.pack('<B', self.punishState))
+            self.comObj.write(struct.pack('<B', self.saveState))
             self.state_waitForStateToUpdateOnTarget(self.punishState)
 
     def debugState(self):
