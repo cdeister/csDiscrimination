@@ -4,7 +4,7 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.53
+# Version 2.54
 # 6/28/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -153,7 +153,7 @@ class pyDiscrim_mainGUI:
                     # self.updateStateButtons()
                     self.entryTime=self.arduinoTime[-1]
                     self.outcomeSwitch=random.random() # debug
-                    while self.currentState==cue2State:
+                    while self.currentState==self.cue2State:    
                         self.generic_StateHeader()
                         if self.dataAvail==1:
                             if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
@@ -386,7 +386,7 @@ class pyDiscrim_mainGUI:
             self.mainPort='COM11';
             self.comPath.set(self.mainPort)
         else:
-            self.mainPort = 'COM9'
+            self.mainPort = 'COM12'
             self.comPath.set(self.mainPort)
         self.comEntry = OptionMenu(self.master,self.comPath,self.mainPort)
         self.comEntry.grid(row=1, column=0)

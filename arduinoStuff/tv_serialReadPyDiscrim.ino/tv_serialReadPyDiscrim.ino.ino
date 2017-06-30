@@ -24,7 +24,7 @@ int lickValues_a=0;
 int lickValues_b=0;
 int rewardLatch=0;  // not bool so we can count if needed later
 int rewardTime=500; //in ms
-int punishTime=5000
+int punishTime=5000;
 
 unsigned long msOffset;
 unsigned long s1Offset;
@@ -38,9 +38,9 @@ unsigned long ofs1;
 unsigned long ofs2;
 unsigned long ofs3;
 unsigned long rewardTimer;
-unsigned long punishTimer
+unsigned long punishTimer;
 unsigned long rewardOffset;
-unsigned long punishOffset
+unsigned long punishOffset;
 
 int currentPosDelta=128;
 long lastPosition=0;
@@ -352,26 +352,15 @@ void loop() {
     }
   }
   
-  else {
-    bef=1;  // was zero may have been importatn
-    establishOrder();
-    noTone(tonePin);
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    pollOpticalMouse(); 
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
   
   // S23: Punish State
-  else if (currState==23) {
+  else if (curState==23){
     while (bef ==1) {
       establishOrder();
       punishOffset=millis();
       bef=0;
     };
-    punishTimer = millis()-punishOffset
+    punishTimer = millis()-punishOffset;
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
     
@@ -385,6 +374,17 @@ void loop() {
     else {
       curState=13;
     }
+  }
+  else {
+    bef=1;  // was zero may have been importatn
+    establishOrder();
+    noTone(tonePin);
+    msCorrected=micros()-msOffset;
+    msInTrial=micros()-s1Offset;
+    pollOpticalMouse(); 
+    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+    delayMicroseconds(loopDelta);
+    curState=lookForSerialState();
   }
 }
 
