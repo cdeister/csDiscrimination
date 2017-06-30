@@ -138,7 +138,6 @@ void loop() {
 
   // S3: Sensory Task #1 Cue
   else if(curState==3){
-    establishOrder();
     bef=1;
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
@@ -190,7 +189,6 @@ void loop() {
   
   // S4: Sensory Task #2 Cue
   else if(curState==4){
-    establishOrder();
     bef=1;
     // timestamp, dump data, check state
     msCorrected=micros()-msOffset;
@@ -242,7 +240,6 @@ void loop() {
   
   // S5: Sensory High
   else if(curState==5){
-    establishOrder();
     while(bef==1){
       tone(tonePin, 900);
       toneOffset=millis();
@@ -262,7 +259,6 @@ void loop() {
 
   // S6: Sensory Low
   else if(curState==6){
-    establishOrder();
     while(bef==1){
       tone(tonePin, 100);
       toneOffset=millis();
