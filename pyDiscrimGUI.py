@@ -4,11 +4,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.7
+# Version 2.76
 # 6/30/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: GUI tweaks
+# ver changes: State Var
 
 
 from tkinter import *
@@ -41,6 +41,7 @@ class pyDiscrim_mainGUI:
         self.metadata_lickDetection()
         self.metadata_plotting()
         self.initialize_TaskProbs()
+        self.initialize_StateVars()
         self.initialize_CallbackVariables()
         self.data_serialInputIDs()
 
@@ -260,7 +261,6 @@ class pyDiscrim_mainGUI:
         elif self.shouldRun==0:     
             print('I completed {} trials.'.format(self.currentTrial-1))
 
-
     #########################################################
     ## **** These Functions Set All Initial Variables **** ##
     ######################################################### 
@@ -269,7 +269,9 @@ class pyDiscrim_mainGUI:
         self.ranTask=0
         self.dataExists=0
         self.comObjectExists=0
-        self.probsRefreshed=0 
+        self.probsRefreshed=0
+        self.stateVarsRefreshed=0 
+        self.stateCarRefreshed=0 
         self.fakeComObj=0
         self.updateStateMap=1
 
@@ -347,7 +349,7 @@ class pyDiscrim_mainGUI:
 
         self.quit_button = Button(self.master, text="Exit", \
             command=self.simpleQuit, width=10)
-        self.quit_button.grid(row=10, column=2)
+        self.quit_button.grid(row=12, column=2)
 
     def populate_MainWindow_SerialBits(self):
         # Entries and Selections Left
@@ -438,6 +440,11 @@ class pyDiscrim_mainGUI:
          width = 10, command = self.make_stateToggleFrame)
         self.stateToggles_Button.grid(row=9, column=2)
         self.stateToggles_Button.config(state=NORMAL)
+        
+        self.stateVars_Button = Button(self.master, text = 'State Vars',\
+         width = 10, command = self.make_stateVarFrame)
+        self.stateVars_Button.grid(row=10, column=2)
+        self.stateVars_Button.config(state=NORMAL)
 
     def metadata_lickDetection(self):
         sRow=11
@@ -475,12 +482,16 @@ class pyDiscrim_mainGUI:
         self.lickPlotMax.set('2000')
 
     def metadata_plotting(self):
+        sRow=17
+        self.guiPad = Label(self.master, text="")
+        self.guiPad.grid(row=sRow, column=0)
+
         # TODO: organize by plot types
         self.sampPlot_label = Label(self.master, text="samples to plot")
-        self.sampPlot_label.grid(row=21, column=2)
+        self.sampPlot_label.grid(row=sRow+1, column=0,sticky=W)
         self.sampsToPlot=StringVar(self.master)
         self.sampPlot_entry=Entry(self.master,width=6,textvariable=self.sampsToPlot)
-        self.sampPlot_entry.grid(row=22, column=2)
+        self.sampPlot_entry.grid(row=sRow+1, column=0,sticky=E)
         self.sampsToPlot.set('1000')
         self.lickMinMax=[-5,10]
         self.initPltRng=2.5
@@ -581,6 +592,42 @@ class pyDiscrim_mainGUI:
             exec('self.{}.set(str(self.t2_probEntriesValues[x]))'.format(self.t2_probEntries[x]))
 
         self.probsRefreshed=1
+
+    def make_stateVarFrame(self):
+        frame_sv = Toplevel()
+        frame_sv.title('Task Probs')
+        self.frame_sv=frame_sv
+
+        self.populate_stateVarFrame()
+        self.setStateVars = Button(frame_sv, \
+            text = 'Set Variables.', width = 10, \
+            command = self.refresh_stateVars)
+        self.setStateVars.grid(row=8, column=1)
+
+    def initialize_StateVars(self):
+        self.t1_stateVarsEntries='self.movThr','self.movTimeThr'
+        print(self.t1_stateVarsEntries)
+        if self.stateVarsRefreshed==0:
+            self.t1_stateVarsValues=[40,2]
+
+    def populate_stateVarFrame(self):
+        for x in range(0,len(self.t1_stateVarsEntries)):
+            exec('self.{}=StringVar(self.self.frame_sv)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}_label = Label(self.self.frame_sv, text="{}")'.\
+                format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
+            exec('self.{}_entry=Entry(self.self.frame_sv,width=6,textvariable=self.{})'.\
+                format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
+            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}.set({})'.format(self.t1_stateVarsEntries[x],self.t1_stateVarsValues[x]))
+
+    def refresh_stateVars(self):
+        
+        for x in range(0,len(self.t1_stateVarsEntries)):
+            exec('self.t1_stateVarsValues[x]=(float(self.{}.get()))'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}.set(str(self.t1_stateVarsValues[x]))'.format(self.t1_stateVarsEntries[x]))
+        
+        self.stateVarsRefreshed=1
 
     ###########################################################
     ## **** Creates And Populates A State Toggle Window **** ##
