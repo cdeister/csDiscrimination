@@ -26,7 +26,6 @@ class pyDiscrim_mainGUI:
         # Tkinter requires a parent named master.
         self.master = master
         self.frame = Frame(self.master)
-
         self.populate_MainWindow_Primary()
         self.initialize_SessionVariables()
         self.initialize_StateVariables()
@@ -40,16 +39,10 @@ class pyDiscrim_mainGUI:
         self.data_serialInputIDs()
 
     def runTask(self):
-        print('started at state:')
-        print(self.currentState)
-        self.shouldRun=1
-        self.data_makeContainers()
-        self.uiUpdateDelta=300
-        self.ranTask=1
+        self.taskHeader()
         while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
             self.initTime=0  
             try:
-
                 #S0 -----> hand shake (initialization state)
                 # if the current trial is 0...
                 if self.currentState==self.bootState:
@@ -230,28 +223,22 @@ class pyDiscrim_mainGUI:
                     if self.dataExists==1:
                         self.data_saveData()
                         print('save was a success')
+                    self.mw_button_endSession.config(state=DISABLED)
+                    self.mw_button_startSession.config(state=NORMAL)
+                    print('session finished; ok to start a new one')
                     return
 
-
-
             except:
-                print(self.dPos)
-                print('EXCEPTION: peace out bitches')
-                print('last trial = {} and the last state was {}. \
-                    I will try to save last trial ...'\
-                    .format(self.currentTrial,self.currentState))
-                self.data_saveData() 
-                self.comObj.write(struct.pack('>B', self.bootState))
-                print('save was a success; now I will close com port and quit')
-                self.comObj.close()
-                exit()
+                self.exceptionCallback()
+
         if self.shouldRun==1:
             print('NORMAL: peace out')
             print('I completed {} trials.'.format(self.currentTrial-1))
-            return
+            self.mw_button_endSession.config(state=DISABLED)
         
         elif self.shouldRun==0:     
             print('I completed {} trials.'.format(self.currentTrial-1))
+            self.mw_button_endSession.config(state=DISABLED)
 
     #########################################################
     ## **** These Functions Set All Initial Variables **** ##
@@ -277,23 +264,15 @@ class pyDiscrim_mainGUI:
         self.stateIt=0;
 
     def initialize_StateVariables(self):
-        self.bootState=0
-        self.waitState=1
-        self.initiateState=2
-        self.cue1State=3
-        self.cue2State=4
 
-        self.stim1State=5
-        self.stim2State=6
-        self.catchState=7
+        self.stateNames='bootState','waitState','initiateState','cue1State','cue2State','stim1State',\
+        'stim2State','catchState','saveState','rewardState','neutralState','punishState',\
+        'endState','defaultState'
 
-        self.saveState=13
 
-        self.rewardState=21
-        self.neutralState=22
-        self.punishState=23
-        self.endState=25
-        self.defaultState=29
+        self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,25,29]
+        for x in range(0,len(self.stateIDs)):
+            exec('self.{}={}'.format(self.stateNames[x],self.stateIDs[x]))
 
     def initialize_CallbackVariables(self):
         ## Globals
@@ -305,9 +284,15 @@ class pyDiscrim_mainGUI:
         self.distThr=1000  
         self.timeOutDuration=2;
 
-    #############################################################
-    ## **** These Are Key Common State Handling Functions **** ##
-    #############################################################
+    def taskHeader(self):
+        self.mw_button_endSession.config(state=NORMAL)
+        self.mw_button_startSession.config(state=DISABLED)
+        print('started at state:')
+        print(self.currentState)
+        self.shouldRun=1
+        self.data_makeContainers()
+        self.uiUpdateDelta=300
+        self.ranTask=1
     
     def state_switchState(self,selectedStateNumber):
         self.selectedStateNumber=selectedStateNumber
@@ -326,10 +311,6 @@ class pyDiscrim_mainGUI:
             if self.dataAvail==1:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
-
-    ###########################################################
-    ## **** These Functions Augment The Main GUI Window **** ##
-    ###########################################################
         
     def populate_MainWindow_Primary(self):
         self.master.title("pyDiscrim")  
@@ -408,15 +389,15 @@ class pyDiscrim_mainGUI:
         self.dateStr = datetime.datetime.\
         fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
-        self.start_button = Button(self.master, text="Start Task",\
+        self.mw_button_startSession = Button(self.master, text="Start Task",\
             width = 7, command=self.runTask)
-        self.start_button.grid(row=10, column=0,sticky=W,padx=6)
-        self.start_button.config(state=DISABLED)
+        self.mw_button_startSession.grid(row=10, column=0,sticky=W,padx=6)
+        self.mw_button_startSession.config(state=DISABLED)
 
-        self.end_button = Button(self.master, text="End Task",\
-            width = 7, command=print('cool'))
-        self.end_button.grid(row=10, column=0,sticky=E,padx=6)
-        self.end_button.config(state=DISABLED)
+        self.mw_button_endSession = Button(self.master, text="End Task",\
+            width = 7, command=lambda: self.state_switchState(self.endState))
+        self.mw_button_endSession.grid(row=10, column=0,sticky=E,padx=6)
+        self.mw_button_endSession.config(state=DISABLED)
 
         self.taskProbs_Button = Button(self.master, text = 'Task Probs',\
          width = 10, command = self.make_taskProbFrame)
@@ -506,12 +487,12 @@ class pyDiscrim_mainGUI:
             self.data_saveData() 
             self.utilState_syncSerial()
             self.comObj.close()
-            print('*** bye: closed com port, resynced its state, and saved some data ***')
+            print('*** bye: closed com port, resyncd its state, and saved some data ***')
             exit()
 
-    ##############################################################
-    ## **** Creates And Populates A Task Probablity Window **** ##
-    ##############################################################
+    ################################
+    ## **** Auxilary Windows **** ##
+    ################################
 
     def make_taskProbFrame(self):
         tb_frame = Toplevel()
@@ -527,94 +508,6 @@ class pyDiscrim_mainGUI:
             command = self.refresh_TaskProbs)
         self.setTaskProbs.grid(row=8, column=1)    
 
-    def initialize_TaskProbs(self):
-        self.t1_probEntries='sTask1_prob','sTask1_target_prob',\
-        'sTask1_distract_prob','sTask1_target_reward_prob',\
-        'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
-        'sTask1_distract_punish_prob'
-        if self.probsRefreshed==0:
-            self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-
-        self.t2_probEntries='sTask2_prob','sTask2_target_prob',\
-        'sTask2_distract_prob','sTask2_target_reward_prob',\
-        'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
-        'sTask2_distract_punish_prob'
-        if self.probsRefreshed==0:
-            self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
-    
-    def populate_taskProbFrame(self):
-        for x in range(0,len(self.t1_probEntries)):
-            exec('self.{}=StringVar(self.tb_frame)'.format(self.t1_probEntries[x]))
-            exec('self.{}_label = Label(self.tb_frame, text="{}")'.\
-                format(self.t1_probEntries[x],self.t1_probEntries[x]))
-            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.\
-                format(self.t1_probEntries[x],self.t1_probEntries[x]))
-            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
-            exec('self.{}.set({})'.format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
-
-        for x in range(0,len(self.t2_probEntries)):
-            exec('self.{}=StringVar(self.tb_frame)'.format(self.t2_probEntries[x]))
-            exec('self.{}_label = Label(self.tb_frame, text="{}")'.\
-                format(self.t2_probEntries[x],self.t2_probEntries[x]))
-            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.\
-                format(self.t2_probEntries[x],self.t2_probEntries[x]))
-            exec('self.{}_label.grid(row=x, column=3)'.format(self.t2_probEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
-            exec('self.{}.set({})'.format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
-
-    def refresh_TaskProbs(self):
-        
-        for x in range(0,len(self.t1_probEntries)):
-            exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'.format(self.t1_probEntries[x]))
-            exec('self.{}.set(str(self.t1_probEntriesValues[x]))'.format(self.t1_probEntries[x]))
-        
-        for x in range(0,len(self.t2_probEntries)):
-            exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'.format(self.t2_probEntries[x]))
-            exec('self.{}.set(str(self.t2_probEntriesValues[x]))'.format(self.t2_probEntries[x]))
-
-        self.probsRefreshed=1
-
-    def make_stateVarFrame(self):
-        frame_sv = Toplevel()
-        frame_sv.title('Task Probs')
-        self.frame_sv=frame_sv
-
-        self.populate_stateVarFrame()
-        self.setStateVars = Button(frame_sv, \
-            text = 'Set Variables.', width = 10, \
-            command = self.refresh_stateVars)
-        self.setStateVars.grid(row=8, column=1)
-
-    def initialize_StateVars(self):
-        self.t1_stateVarsEntries='self.movThr','self.movTimeThr'
-        print(self.t1_stateVarsEntries)
-        if self.stateVarsRefreshed==0:
-            self.t1_stateVarsValues=[40,2]
-
-    def populate_stateVarFrame(self):
-        for x in range(0,len(self.t1_stateVarsEntries)):
-            exec('self.{}=StringVar(self.self.frame_sv)'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}_label = Label(self.self.frame_sv, text="{}")'.\
-                format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
-            exec('self.{}_entry=Entry(self.self.frame_sv,width=6,textvariable=self.{})'.\
-                format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
-            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}.set({})'.format(self.t1_stateVarsEntries[x],self.t1_stateVarsValues[x]))
-
-    def refresh_stateVars(self):
-        
-        for x in range(0,len(self.t1_stateVarsEntries)):
-            exec('self.t1_stateVarsValues[x]=(float(self.{}.get()))'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}.set(str(self.t1_stateVarsValues[x]))'.format(self.t1_stateVarsEntries[x]))
-        
-        self.stateVarsRefreshed=1
-
-    ###########################################################
-    ## **** Creates And Populates A State Toggle Window **** ##
-    ###########################################################
-    
     def make_stateToggleFrame(self):
         st_frame = Toplevel()
         st_frame.title('States in Task')
@@ -685,33 +578,94 @@ class pyDiscrim_mainGUI:
         self.sBtn_save.grid(row=stateStartRow+1, column=stateStartColumn)
         self.sBtn_save.config(state=NORMAL)
 
-        self.sBtn_save = Button(st_frame, text="End Session", \
+        self.sBtn_endSession = Button(st_frame, text="End Session", \
             command=lambda: self.state_switchState(self.endState))
-        self.sBtn_save.grid(row=stateStartRow-2, column=stateStartColumn)
-        self.sBtn_save.config(state=NORMAL)
+        self.sBtn_endSession.grid(row=stateStartRow-2, column=stateStartColumn)
+        self.sBtn_endSession.config(state=NORMAL)
+    
+    def make_stateVarFrame(self):
+        frame_sv = Toplevel()
+        frame_sv.title('Task Probs')
+        self.frame_sv=frame_sv
 
-        self.sBtn_save = Button(st_frame, text="Debug", \
-            command=lambda: self.utilState_syncSerial())
-        self.sBtn_save.grid(row=stateStartRow-2, column=stateStartColumn+1)
-        self.sBtn_save.config(state=NORMAL)
+        self.populate_stateVarFrame()
+        self.setStateVars = Button(frame_sv, \
+            text = 'Set Variables.', width = 10, \
+            command = self.refresh_stateVars)
+        self.setStateVars.grid(row=8, column=1)
+    
+    def initialize_TaskProbs(self):
+        self.t1_probEntries='sTask1_prob','sTask1_target_prob',\
+        'sTask1_distract_prob','sTask1_target_reward_prob',\
+        'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
+        'sTask1_distract_punish_prob'
+        if self.probsRefreshed==0:
+            self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
 
-    def toggleStateButtons(self,tS=1,tempBut=[0]):
-        if tS==1:
-            for tMem in range(0,len(tempBut)):
-                eval('self.s{}_button.config(state=NORMAL)'.format(tempBut[tMem]))
-        elif tS==0:
-            for tMem in range(0,len(tempBut)):
-                eval('self.s{}_button.config(state=DISABLED)'.format(tempBut[tMem]))
+        self.t2_probEntries='sTask2_prob','sTask2_target_prob',\
+        'sTask2_distract_prob','sTask2_target_reward_prob',\
+        'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
+        'sTask2_distract_punish_prob'
+        if self.probsRefreshed==0:
+            self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
+    
+    def populate_taskProbFrame(self):
+        for x in range(0,len(self.t1_probEntries)):
+            exec('self.{}=StringVar(self.tb_frame)'.format(self.t1_probEntries[x]))
+            exec('self.{}_label = Label(self.tb_frame, text="{}")'.\
+                format(self.t1_probEntries[x],self.t1_probEntries[x]))
+            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.\
+                format(self.t1_probEntries[x],self.t1_probEntries[x]))
+            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
+            exec('self.{}.set({})'.format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
 
-    def getStateSetDiff(self):  
-        aa={self.currentState}
-        bb={1,2,3,4,5,6,7,8,9,10,11,12,13,14}  #todo: this should not be hand-coded
-        self.outStates=list(bb-aa)
+        for x in range(0,len(self.t2_probEntries)):
+            exec('self.{}=StringVar(self.tb_frame)'.format(self.t2_probEntries[x]))
+            exec('self.{}_label = Label(self.tb_frame, text="{}")'.\
+                format(self.t2_probEntries[x],self.t2_probEntries[x]))
+            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.\
+                format(self.t2_probEntries[x],self.t2_probEntries[x]))
+            exec('self.{}_label.grid(row=x, column=3)'.format(self.t2_probEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
+            exec('self.{}.set({})'.format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
 
-    def updateStateButtons(self):
-        self.getStateSetDiff()
-        self.toggleStateButtons(tS=1,tempBut=[self.currentState])
-        self.toggleStateButtons(tS=0,tempBut=self.outStates)
+    def refresh_TaskProbs(self):
+        
+        for x in range(0,len(self.t1_probEntries)):
+            exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'.format(self.t1_probEntries[x]))
+            exec('self.{}.set(str(self.t1_probEntriesValues[x]))'.format(self.t1_probEntries[x]))
+        
+        for x in range(0,len(self.t2_probEntries)):
+            exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'.format(self.t2_probEntries[x]))
+            exec('self.{}.set(str(self.t2_probEntriesValues[x]))'.format(self.t2_probEntries[x]))
+
+        self.probsRefreshed=1
+
+    def initialize_StateVars(self):
+        self.t1_stateVarsEntries='self.movThr','self.movTimeThr'
+        if self.stateVarsRefreshed==0:
+            self.t1_stateVarsValues=[40,2]
+
+    def populate_stateVarFrame(self):
+        for x in range(0,len(self.t1_stateVarsEntries)):
+            exec('self.{}=StringVar(self.self.frame_sv)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}_label = Label(self.self.frame_sv, text="{}")'.\
+                format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
+            exec('self.{}_entry=Entry(self.self.frame_sv,width=6,textvariable=self.{})'.\
+                format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
+            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}.set({})'.format(self.t1_stateVarsEntries[x],self.t1_stateVarsValues[x]))
+
+    def refresh_stateVars(self):
+        
+        for x in range(0,len(self.t1_stateVarsEntries)):
+            exec('self.t1_stateVarsValues[x]=(float(self.{}.get()))'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}.set(str(self.t1_stateVarsValues[x]))'.format(self.t1_stateVarsEntries[x]))
+        
+        self.stateVarsRefreshed=1
+
 
     ##############################################################################
     ## **** These Functions Handle Creation and Deletion Of Serial Objects **** ##
@@ -740,7 +694,7 @@ class pyDiscrim_mainGUI:
             self.comPortString_entry.config(state=DISABLED)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
-            self.start_button.config(state=NORMAL)
+            self.mw_button_startSession.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
             self.utilState_syncSerial()
@@ -760,7 +714,7 @@ class pyDiscrim_mainGUI:
             self.comPortString_entry.config(state=NORMAL)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
-            self.start_button.config(state=NORMAL)
+            self.mw_button_startSession.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
             # self.taskProbs_Button.invoke()
@@ -868,6 +822,19 @@ class pyDiscrim_mainGUI:
             format(self.animalIDStr.get(),self.dateStr,self.currentTrial), self.exportArray, delimiter=",",fmt="%g")
         self.dataExists=0
 
+    def exceptionCallback(self):
+        print('EXCEPTION thrown: I am going down')
+        print('last trial = {} and the last state was {}. \
+            I will try to save last trial ...'\
+            .format(self.currentTrial,self.currentState))
+        self.data_saveData()
+        print('save was a success; now I will close com port and quit')
+        print('I will try to reset the mc state before closing the port ...')
+        self.comObj.close()
+        #todo: add a timeout for the resync
+        print('closed the com port cleanly')
+        exit()
+
     #################################################
     ## **** These Are Data Handling Functions **** ##
     #################################################
@@ -926,7 +893,7 @@ class pyDiscrim_mainGUI:
                 self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
             plt.ylim(0,10)
             plt.xlim(0,10)
-            plt.title(self.currentTrial)
+            plt.title('trial = {} ; state = {}'.format(self.currentTrial,self.currentState))
 
         plt.pause(self.pltDelay)
         self.lA.pop(0).remove()
@@ -1098,20 +1065,26 @@ class pyDiscrim_mainGUI:
     def utilState_syncSerial(self):
         self.shouldRun=1
         self.currentTrial=1
+        gaveFeedback=0
         if self.currentState==self.bootState:
             self.serial_readDataFlush()
-            print('mc state looks right to me')
-            print('should be ready for a task')
+            if gaveFeedback==0:
+                print('mc state looks right to me')
+                print('should be ready for a task')
+                gaveFeedback=1
             return
         while self.currentState!=self.bootState:
-            print('mc state is not right ...')
-            print('will force boot state, might take a second or so ...') 
+            if gaveFeedback==0:
+                print('mc state is not right ...')
+                print('will force boot state, might take a second or so ...')
+                print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
+                gaveFeedback=1 
             self.serial_readDataFlush()
             if self.dataAvail==1:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
-                self.comObj.write(struct.pack('>B', 0))
-        print('should be good now')
+                self.comObj.write(struct.pack('>B', self.bootState))
+        print('$$$ --> mc is reset to boot state; should be good now $$$')
 
 def main(): 
     root = Tk()
