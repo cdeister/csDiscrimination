@@ -59,7 +59,7 @@ bool bef=0;
 const int posPin=3;       // Engage Postive Reinforcment
 const int negPin=4;       // Engage Aversive Reinforcment
 const int waterPin=13;     // Engage Water
-const int cueLED=11;
+const int cueLED=13;
 const int tonePin=22;
 const int posSensPin_a=0;
 const int posSensPin_b=2;
@@ -349,32 +349,29 @@ void loop() {
   }
   
   
-  // S23: Punish State
-  else if (curState==23){
-    while (bef ==1) {
-      establishOrder();
-      punishOffset=millis();
-      bef=0;
-    };
-    punishTimer = millis()-punishOffset;
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
+//  // S23: Punish State
+//  else if (curState==23){
+//    while (bef ==1) {
+//      establishOrder();
+//      punishOffset=millis();
+//      bef=0;
+//    };
+//    punishTimer = millis()-punishOffset;
+//    msCorrected=micros()-msOffset;
+//    msInTrial=micros()-s1Offset;
+//    
+//    pollOpticalMouse();
+//    
+//    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+//    
+//    if(punishTimer<punishTime){
+//      
+//    }
     
-    pollOpticalMouse();
-    
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    
-    if(punishTimer<punishTime){
-      
-    }
-    else {
-      curState=13;
-    }
-  }
+  
   else {
     bef=1;  // was zero may have been importatn
     establishOrder();
-    noTone(tonePin);
     msCorrected=micros()-msOffset;
     msInTrial=micros()-s1Offset;
     pollOpticalMouse(); 

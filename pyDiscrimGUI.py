@@ -4,11 +4,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.54
-# 6/28/2017
+# Version 2.56
+# 6/30/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: most debug prints out, MUCH more reliable serial
+# ver changes: random
 
 
 from tkinter import *
@@ -313,7 +313,7 @@ class pyDiscrim_mainGUI:
         self.stillLatch=0
         self.stillTimeStart=float(0)
         self.distThr=1000  
-        self.timeOutDuration=5;
+        self.timeOutDuration=2;
         # This is the distance the mouse needs 
         #to move to initiate a stimulus trial.
 
@@ -380,7 +380,7 @@ class pyDiscrim_mainGUI:
 
         self.comPath=StringVar(self.master)
         if sys.platform == 'darwin':
-            self.mainPort='/dev/cu.usbmodem2762721';
+            self.mainPort='/dev/cu.usbmodem2147951';
             self.comPath.set(self.mainPort)
         elif sys.platform == 'win':
             self.mainPort='COM11';
@@ -1031,9 +1031,7 @@ class pyDiscrim_mainGUI:
             self.state_waitForStateToUpdateOnTarget(self.rewardState)
 
     def callback_punishState(self): #23
-        if self.arduinoTime[-1]-self.entryTime<self.timeOutDuration:  #todo: make this a variable
-            print('TIMEOUT')
-        elif self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
+        if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
             self.comObj.write(struct.pack('<B', self.saveState))
             self.state_waitForStateToUpdateOnTarget(self.punishState)
 
