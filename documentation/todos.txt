@@ -1,7 +1,7 @@
 Python High:
-_ graph should say 'current trial = 1'
+_saveState button increments trial by 2!
 
-_ fix end stuff lots of return schemes
+_ Revist all state0 handshake stuff, I think serialSync replaces it
 
 _ user config windowState
 
@@ -9,7 +9,7 @@ _ user config variables
 
 	_ log time of variable changes
 
-_ Revist all state0 handshake stuff, I think serialSync replaces it
+
 
 _ make variables dynamic: varCalibrationState
 

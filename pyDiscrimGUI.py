@@ -1,9 +1,10 @@
 # pyDiscrim:
-# A Python3 program that interacts with a microcontroller to perform state-based behavioral tasks.
+# A Python3 program that interacts with a microcontroller -
+# to perform state-based behavioral tasks.
 #
-# Version 2.78
-# 6/30/2017
+# Version 2.8 -- State Scheme Streamlined Significantly; 7/2/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
+
 
 from tkinter import *
 import serial
@@ -27,193 +28,123 @@ class pyDiscrim_mainGUI:
         self.master = master
         self.frame = Frame(self.master)
         self.populate_MainWindow_Primary()
-        self.initialize_SessionVariables()
-        self.initialize_StateVariables()
+        self.initVars_session()
+        self.initVars_stateNames()
         self.populate_MainWindow_SerialBits()
         self.metadata_sessionFlow()
         self.metadata_lickDetection()
         self.metadata_plotting()
         self.initialize_TaskProbs()
         self.initialize_StateVars()
-        self.initialize_CallbackVariables()
+        self.initVars_stateCallbacks()
         self.data_serialInputIDs()
 
     def runTask(self):
-        self.taskHeader()
-        while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
+        self.runTask_header()
+        while self.currentTrial<=int(self.totalTrials.get()):
             self.initTime=0  
             try:
                 #S0 -----> hand shake (initialization state)
-                # if the current trial is 0...
                 if self.currentState==self.bootState:
                     self.updateStateMap=1
-                    # the td list will be used to ensure that teensy-python communication is running smoothly
-                    #as you will see, we observe the variance of 300 time samples and make sure that it is extremely
-                    #small to ensure that our clocking is precise before we begin the trial
                     td=[float(0)]
                     # self.updateStateButtons()
                     print('in state 0')
                     #resetting the absolute position every time that we enter a new state 
                     self.lastPos=0 
                     while self.currentState==0:
-                        #this method examines data that is currently available in the serial buffer. 
-                        # If the data that is present is
-                        # valid (discussed in parse data), GSH sets dataAvailable = 1
                         print('past 0')
-                        self.generic_StateHeader() #(GSH)
+                        self.serial_readDataFlush()
+                        if self.dataAvail==1:
+                            self.data_parseData()
                         print('past 1')
                         if self.dataAvail==1:
                             print('past 2')
-                            #his gets the total time in he state 
-
                             td.append(float(self.arduinoTime[-1]-self.initTime))
-
-
-                            #self.initTime is the time that the script entered the current state
-                            # the syntax "arduinoTime[]" is used to access a value in a list
-                            #to get the most recent value, -1 is used
-                            # Therefore, the variable initTime is set to the most recent value added to the list arduinoTime
                             self.initTime=self.arduinoTime[-1]
                             print("doing state 0 stuff")
-                            # this uses the length of the list that is storing the time points of each 
-                            # iteration of the task loop where data was available
-                            # if we have had data available for more than 300 loops
                             if len(td)>300:
-                                #get the variance of all of the values in the time list
                                 print(np.var(td[-98:-1]))
-                                #make sure that the variance is less than .01 and if it is, 
-                                # do the serial_handShake to send the teensy into state 1
                                 if np.var(td[-98:-1])<0.01: 
                                     print('cond fine')
-                                    #rather than running a condition block like the other states, 
-                                    # state 0 is the initialization state that ensures
-                                    # that proper communication is established between the teensy and the python script
                                     self.serial_handShake()  
 
                 #S1 -----> trial wait state
                 elif self.currentState==self.waitState:
-                    self.updateStateMap=1
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    print('in s1')
-                    while self.currentState==1:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
+                    self.state_flow_stateHeader(1)
+                    while self.currentState==self.waitState:
+                        self.state_flow_coreState()
+                        if self.fireCallback:
                             self.callback_waitState()
-                            self.cycleCount=self.cycleCount+1;
 
                 #S2 -----> trial initiation state
-                elif self.currentState==self.initiateState:
-                    self.lastPos=0
-                    self.entryTime=self.arduinoTime[-1]
+                elif self.currentState==self.initiationState:
                     self.task_switch=random.random()
-                    while self.currentState==self.initiateState:
-                        self.generic_StateHeader() 
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
+                    self.state_flow_stateHeader(1)
+                    while self.currentState==self.initiationState:
+                        self.state_flow_coreState()
+                        if self.fireCallback:
                             self.callback_initiationState()
-                            self.cycleCount=self.cycleCount+1;
 
                 #S3 -----> cue #1
                 elif self.currentState==self.cue1State:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    self.outcomeSwitch=random.random() # debug
+                    self.state_flow_stateHeader(1)
+                    self.outcomeSwitch=random.random()
                     while self.currentState==self.cue1State:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
+                        self.state_flow_coreState()
+                        if self.fireCallback:
                             self.callback_cue1State()
-                            self.cycleCount=self.cycleCount+1;
 
                 #S4 -----> cue #2
                 elif self.currentState==self.cue2State:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
+                    self.state_flow_stateHeader(1)
                     self.outcomeSwitch=random.random() # debug
                     while self.currentState==self.cue2State:    
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
+                        self.state_flow_coreState()
+                        if self.fireCallback:
                             self.callback_cue2State()
-                            self.cycleCount=self.cycleCount+1;
 
                 #S5 -----> stim tone #1
                 elif self.currentState==self.stim1State:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    while self.currentState==5:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_toneStates1()
-                            self.cycleCount=self.cycleCount+1;
+                    self.state_flow_stateHeader(1)
+                    while self.currentState==self.stim1State:
+                        self.state_flow_coreState()
+                        if self.fireCallback:
+                            self.callback_stim1State()
 
                 #S6 -----> stim tone #2
                 elif self.currentState==self.stim2State:
-                    self.lastPos=0
-                    # self.updateStateButtons()
-                    self.entryTime=self.arduinoTime[-1]
-                    while self.currentState==6:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1:
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()
-                            self.callback_toneStates2()
-                            self.cycleCount=self.cycleCount+1;
-
+                    self.state_flow_stateHeader(1)
+                    while self.currentState==self.stim2State:
+                        self.state_flow_coreState()
+                        if self.fireCallback:
+                            self.callback_stim2State()
 
                 #S21 -----> reward state
                 elif self.currentState==self.rewardState:
-                    self.updateStateMap=0
-                    self.lastPos=0
-                    self.entryTime=self.arduinoTime[-1]
-                    self.pyStatesCT.append(self.entryTime)
+                    self.state_flow_stateHeader(0)
                     while self.currentState==self.rewardState:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1: # todo: in all states
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()   # todo: in all states
-                            self.callback_rewardState()  # condition blocks are unique (always custom)
-                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+                        self.state_flow_coreState()
+                        if self.fireCallback:
+                            self.callback_rewardState()
 
                 #S23 -----> punish state
                 elif self.currentState==self.punishState:
-                    self.updateStateMap=0
-                    self.lastPos=0 # resets positions baseline
-                    self.entryTime=self.arduinoTime[-1]
-                    self.pyStatesCT.append(self.entryTime)
+                    self.state_flow_stateHeader(0)
                     while self.currentState==self.punishState:
-                        self.generic_StateHeader()
-                        if self.dataAvail==1: # todo: in all states
-                            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
-                                self.updatePlotCheck()   # todo: in all states
-                            self.callback_punishState()  # condition blocks are unique (always custom)
-                            print
-                            self.cycleCount=self.cycleCount+1; # todo: in all states (just for ui)
+                        self.state_flow_coreState()
+                        if self.fireCallback:
+                            self.callback_punishState()
 
                 #S13: save state
                 elif self.currentState==self.saveState:
-                    print(self.arduinoTrialTime[-1])
-                    print(self.arduinoTrialTime[0])
-
-                    print('in save state; saving your bacon') # debug
-                    self.data_saveData()                    # clean up plot data (memory managment)
+                    print('in save state; saving your bacon')
+                    self.data_saveData()
                     self.data_cleanContainers()
                     self.currentTrial=self.currentTrial+1
                     print('trial done')
-                    self.comObj.write(struct.pack('>B', self.waitState)) #todo: abstract wait
-                    self.state_waitForStateToUpdateOnTarget(self.saveState)
+                    self.comObj.write(struct.pack('>B', self.waitState))
+                    self.state_flow_exitCurState(self.saveState)
                 
                 #S25: end session state
                 elif self.currentState==self.endState:
@@ -231,50 +162,66 @@ class pyDiscrim_mainGUI:
             except:
                 self.exceptionCallback()
 
-        if self.shouldRun==1:
-            print('NORMAL: peace out')
-            print('I completed {} trials.'.format(self.currentTrial-1))
-            self.mw_button_endSession.config(state=DISABLED)
-        
-        elif self.shouldRun==0:     
-            print('I completed {} trials.'.format(self.currentTrial-1))
-            self.mw_button_endSession.config(state=DISABLED)
+        print('NORMAL: peace out')
+        self.mw_button_endSession.config(state=DISABLED)
+        self.mw_button_startSession.config(state=NORMAL)
+        print('I completed {} trials.'.format(self.currentTrial-1))
+        print('!!!!!!! --> Session Finished <-- !!!!!!!')
+        self.utilState_syncSerial()
+
+    def runTask_header(self):
+        self.mw_button_endSession.config(state=NORMAL)
+        self.mw_button_startSession.config(state=DISABLED)
+        print('started at state:')
+        print(self.currentState)
+        self.data_makeContainers()
+        self.uiUpdateDelta=300
+        self.ranTask=self.ranTask+1
 
     #########################################################
     ## **** These Functions Set All Initial Variables **** ##
     ######################################################### 
 
-    def initialize_SessionVariables(self):
-        self.ranTask=0
-        self.dataExists=0
+    def initVars_session(self):
+        self.ranTask=0  # This increments every time you run a task
+        self.dataSaves=0 # This increments every time you save data to disk
+        
+        self.dataExists=0 
+        # Boolean that keeps track of whether program needs to worry about writing data.
+        # Mostly for crash handling, pausing, and/or ending early.
+        
         self.comObjectExists=0
+        # Boolean that keeps track of whether program needs to worry about closing a com obj.
+
         self.probsRefreshed=0
         self.stateVarsRefreshed=0 
-        self.stateCarRefreshed=0 
-        self.fakeComObj=0
+
         self.updateStateMap=1
 
         self.dPos=float(0)
-        self.currentTrial=1
-        self.currentState=0
+        # this is the initial position the animal is in
 
         self.currentTrial=1
         self.currentState=0
-        self.lowDelta=0
-        self.stateIt=0;
 
-    def initialize_StateVariables(self):
+        self.lowDelta=0 # handshaking
 
-        self.stateNames='bootState','waitState','initiateState','cue1State','cue2State','stim1State',\
+        self.ran_stateHeader=0 # boolean for determining if a state header should fire or not.
+
+    def initVars_stateNames(self):
+        # All state have a name (string) and a numerical ID (int).
+        # The stateName is up to you. The stateIDs should line up with your microcontroller however. 
+        self.stateNames='bootState','waitState','initiationState','cue1State','cue2State','stim1State',\
         'stim2State','catchState','saveState','rewardState','neutralState','punishState',\
         'endState','defaultState'
 
-
         self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,25,29]
+        
+        # This links the names and IDs together.
         for x in range(0,len(self.stateIDs)):
             exec('self.{}={}'.format(self.stateNames[x],self.stateIDs[x]))
 
-    def initialize_CallbackVariables(self):
+    def initVars_stateCallbacks(self):
         ## Globals
         self.movThr=40       
         self.movTimeThr=2    
@@ -284,33 +231,54 @@ class pyDiscrim_mainGUI:
         self.distThr=1000  
         self.timeOutDuration=2;
 
-    def taskHeader(self):
-        self.mw_button_endSession.config(state=NORMAL)
-        self.mw_button_startSession.config(state=DISABLED)
-        print('started at state:')
-        print(self.currentState)
-        self.shouldRun=1
-        self.data_makeContainers()
-        self.uiUpdateDelta=300
-        self.ranTask=1
+    #########################################
+    ## **** State Switching Functions **** ##
+    ######################################### 
     
-    def state_switchState(self,selectedStateNumber):
-        self.selectedStateNumber=selectedStateNumber
+    def state_util_switchToNewState(self,targetState):
+        self.targetState=targetState
         if self.dataExists==1:
-            self.pyStatesRS.append(self.selectedStateNumber)
+            self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.arduinoTime[-1])
-        print('state change to {}'.format(self.selectedStateNumber))
-        self.currentState=self.selectedStateNumber
-        self.comObj.write(struct.pack('>B', selectedStateNumber))
+        print('state change to {}'.format(self.targetState))
+        self.currentState=self.targetState
+        self.comObj.write(struct.pack('>B', targetState))
 
-    def state_waitForStateToUpdateOnTarget(self,maintState): 
-        self.maintState=maintState
-        while self.currentState==self.maintState:      
-            self.stateIt=0  # will go away todo
+    def state_flow_exitCurState(self,curState): 
+        self.curState=curState
+        while self.currentState==self.curState:      
             self.serial_readDataFlush()
             if self.dataAvail==1:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
+
+    def state_flow_stateHeader(self,upSt):
+        self.upSt=upSt
+        ranHeader=0 # set the latch, the header runs once per entry.
+        self.updateStateMap=upSt
+        while ranHeader==0:
+            print('ran state # {} header'.format(self.currentState))
+            self.cycleCount=1
+            self.ran_stateHeader=1
+            self.lastPos=0 # reset where we think the animal is
+            self.entryTime=self.arduinoTime[-1] # log state entry time
+            print('in state # {}'.format(self.currentState))
+            #self.pyStatesCT.append(self.entryTime)
+            ranHeader=1 # fire the latch
+        
+    def state_flow_coreState(self):
+        self.fireCallback=0
+        self.serial_readDataFlush()
+        if self.dataAvail==1:
+            self.data_parseData()
+            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+                self.updatePlotCheck()
+            self.fireCallback=1
+            self.cycleCount=self.cycleCount+1;
+
+    #########################################################
+    ## **** ?? **** ##
+    ######################################################### 
         
     def populate_MainWindow_Primary(self):
         self.master.title("pyDiscrim")  
@@ -395,7 +363,7 @@ class pyDiscrim_mainGUI:
         self.mw_button_startSession.config(state=DISABLED)
 
         self.mw_button_endSession = Button(self.master, text="End Task",\
-            width = 7, command=lambda: self.state_switchState(self.endState))
+            width = 7, command=lambda: self.state_util_switchToNewState(self.endState))
         self.mw_button_endSession.grid(row=10, column=0,sticky=E,padx=6)
         self.mw_button_endSession.config(state=DISABLED)
 
@@ -483,7 +451,7 @@ class pyDiscrim_mainGUI:
         if self.ranTask==0 or self.comObjectExists==0:  
             print('*** bye: closed without saving ***')
             exit()
-        elif self.ranTask==1 and self.comObjectExists==1:
+        elif self.ranTask>=1 and self.comObjectExists==1:
             self.data_saveData() 
             self.utilState_syncSerial()
             self.comObj.close()
@@ -519,67 +487,67 @@ class pyDiscrim_mainGUI:
         self.stateStartRow=stateStartRow
 
         self.sBtn_boot = Button(st_frame, text="S0: Boot", \
-            command=lambda: self.state_switchState(self.bootState))
+            command=lambda: self.state_util_switchToNewState(self.bootState))
         self.sBtn_boot.grid(row=stateStartRow-1, column=stateStartColumn)
         self.sBtn_boot.config(state=NORMAL)
 
         self.sBtn_wait = Button(st_frame, text="S1: Wait", \
-            command=lambda: self.state_switchState(self.waitState))
+            command=lambda: self.state_util_switchToNewState(self.waitState))
         self.sBtn_wait.grid(row=stateStartRow, column=stateStartColumn)
         self.sBtn_wait.config(state=NORMAL)
 
         self.sBtn_initiate = Button(st_frame, text="S2: Initiate", \
-            command=lambda: self.state_switchState(self.initiateState))
+            command=lambda: self.state_util_switchToNewState(self.initiationState))
         self.sBtn_initiate.grid(row=stateStartRow, column=stateStartColumn+1)
         self.sBtn_initiate.config(state=NORMAL)
 
         self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", \
-            command=lambda: self.state_switchState(self.cue1State))
+            command=lambda: self.state_util_switchToNewState(self.cue1State))
         self.sBtn_cue1.grid(row=stateStartRow-1, column=stateStartColumn+2)
         self.sBtn_cue1.config(state=NORMAL)
 
         self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", \
-            command=lambda: self.state_switchState(self.cue2State))
+            command=lambda: self.state_util_switchToNewState(self.cue2State))
         self.sBtn_cue2.grid(row=stateStartRow+1, column=stateStartColumn+2)
         self.sBtn_cue2.config(state=NORMAL)
 
         self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", \
-            command=lambda: self.state_switchState(self.stim1State))
+            command=lambda: self.state_util_switchToNewState(self.stim1State))
         self.sBtn_stim1.grid(row=stateStartRow-2, column=stateStartColumn+3)
         self.sBtn_stim1.config(state=NORMAL)
 
         self.sBtn_stim2 = Button(st_frame, text="SS2: Stim 2",\
-            command=lambda: self.state_switchState(self.stim2State))
+            command=lambda: self.state_util_switchToNewState(self.stim2State))
         self.sBtn_stim2.grid(row=stateStartRow-1, column=stateStartColumn+3)
         self.sBtn_stim2.config(state=NORMAL)
 
         self.sBtn_catch = Button(st_frame, text="SC: Catch", \
-            command=lambda: self.state_switchState(self.catchState))
+            command=lambda: self.state_util_switchToNewState(self.catchState))
         self.sBtn_catch.grid(row=stateStartRow, column=stateStartColumn+3)
         self.sBtn_catch.config(state=NORMAL)
 
         self.sBtn_reward = Button(st_frame, text="Reward State", \
-            command=lambda: self.state_switchState(self.rewardState))
+            command=lambda: self.state_util_switchToNewState(self.rewardState))
         self.sBtn_reward.grid(row=stateStartRow-1, column=stateStartColumn+4)
         self.sBtn_reward.config(state=NORMAL)
 
         self.sBtn_neutral = Button(st_frame, text="SN: Neutral", \
-            command=lambda: self.state_switchState(self.neutralState))
+            command=lambda: self.state_util_switchToNewState(self.neutralState))
         self.sBtn_neutral.grid(row=stateStartRow, column=stateStartColumn+4)
         self.sBtn_neutral.config(state=NORMAL)
 
         self.sBtn_punish = Button(st_frame, text="SP: Punish", \
-            command=lambda: self.state_switchState(self.punishState))
+            command=lambda: self.state_util_switchToNewState(self.punishState))
         self.sBtn_punish.grid(row=stateStartRow+1, column=stateStartColumn+4)
         self.sBtn_punish.config(state=NORMAL)
 
         self.sBtn_save = Button(st_frame, text="Save State", \
-            command=lambda: self.state_switchState(self.saveState))
+            command=lambda: self.state_util_switchToNewState(self.saveState))
         self.sBtn_save.grid(row=stateStartRow+1, column=stateStartColumn)
         self.sBtn_save.config(state=NORMAL)
 
         self.sBtn_endSession = Button(st_frame, text="End Session", \
-            command=lambda: self.state_switchState(self.endState))
+            command=lambda: self.state_util_switchToNewState(self.endState))
         self.sBtn_endSession.grid(row=stateStartRow-2, column=stateStartColumn)
         self.sBtn_endSession.config(state=NORMAL)
     
@@ -666,7 +634,6 @@ class pyDiscrim_mainGUI:
         
         self.stateVarsRefreshed=1
 
-
     ##############################################################################
     ## **** These Functions Handle Creation and Deletion Of Serial Objects **** ##
     ##############################################################################
@@ -688,7 +655,6 @@ class pyDiscrim_mainGUI:
             self.serial_readData()
             print(self.sR)
             self.comObjectExists=1
-            self.shouldRun=1
 
             # update the GUI
             self.comPortString_entry.config(state=DISABLED)
@@ -712,11 +678,11 @@ class pyDiscrim_mainGUI:
             
             # update the GUI
             self.comPortString_entry.config(state=NORMAL)
-            self.baudPick.config(state=DISABLED)
-            self.createCom_button.config(state=DISABLED)
-            self.mw_button_startSession.config(state=NORMAL)
-            self.closeComObj_button.config(state=NORMAL)
-            self.syncComObj_button.config(state=NORMAL)
+            self.baudPick.config(state=NORMAL)
+            self.createCom_button.config(state=NORMAL)
+            self.mw_button_startSession.config(state=DISABLED)
+            self.closeComObj_button.config(state=DISABLED)
+            self.syncComObj_button.config(state=DISABLED)
             # self.taskProbs_Button.invoke()
             # self.stateToggles_Button.invoke()
 
@@ -724,7 +690,7 @@ class pyDiscrim_mainGUI:
         print('should be good; will take you to wait state (S1)')
         self.comObj.write(struct.pack('>B', 1))
         print('hands')
-        self.state_waitForStateToUpdateOnTarget(self.currentState) #todo self.currentState right?
+        self.state_flow_exitCurState(self.currentState) #todo self.currentState right?
         print('did maint call')
 
     def serial_readDataFlush(self):
@@ -821,6 +787,7 @@ class pyDiscrim_mainGUI:
         np.savetxt('{}_{}_trial_{}.csv'.\
             format(self.animalIDStr.get(),self.dateStr,self.currentTrial), self.exportArray, delimiter=",",fmt="%g")
         self.dataExists=0
+        self.dataSaves=self.dataSaves+1
 
     def exceptionCallback(self):
         print('EXCEPTION thrown: I am going down')
@@ -853,6 +820,10 @@ class pyDiscrim_mainGUI:
             self.detectedLicks_a.append(int(self.lickPlotMax.get())/2)
         elif self.lickValues_a[-1]<=int(self.lickThr_a.get()):
             self.detectedLicks_a.append(0)
+
+    #################################################
+    ## **** These Are Plotting  Functions **** ##
+    #################################################
 
     def updatePosPlot(self):
         if len(self.arduinoTime)>2: 
@@ -901,29 +872,17 @@ class pyDiscrim_mainGUI:
         if self.updateStateMap==1:
             self.lC.pop(0).remove()
             self.lD.pop(0).remove()
-    
-    def generic_InitState(self):
-        print('in state init {}'.format(self.currentState))
-        self.cycleCount=1
-        self.stateIt=1
-
-    def generic_StateHeader(self):
-        while self.stateIt==0:
-            self.generic_InitState()
-        self.serial_readDataFlush()
-        if self.dataAvail==1:
-            self.data_parseData()
 
     def updatePlotCheck(self):
         self.analysis_updateLickThresholds()
         self.updatePosPlot()
         self.cycleCount=0
 
-    ################################################################################
-    ## **** User Writes Custom Callbacks That Extend Their State's Functions **** ##
-    ################################################################################
+    #######################################
+    ## **** Custom State Callbacks **** ##
+    ######################################
 
-    def callback_waitState(self): #1
+    def callback_waitState(self):
         if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             
@@ -940,24 +899,23 @@ class pyDiscrim_mainGUI:
             if self.stillLatch==1 and self.stillTime>1:
                 self.comObj.write(struct.pack('<B', 2))
                 print('Still! ==> Out of wait')
-                self.state_waitForStateToUpdateOnTarget(self.waitState)  #<--- has to be in every cond block
+                print('### S0 --> S1')
+                self.state_flow_exitCurState(self.waitState)
 
-    def callback_initiationState(self): #2
-        # if stimSwitch is less than task1's probablity then send to task #1
+    def callback_initiationState(self):
         t1P=0.5
-        # print(float(self.sTask1_prob))
         if self.absolutePosition[-1]>self.distThr:
             if self.task_switch<=t1P:
                 print('cue 1')
                 self.comObj.write(struct.pack('>B', self.cue1State))
                 print('moving spout; cueing stim task #1')
-                self.state_waitForStateToUpdateOnTarget(self.initiateState)
+                self.state_flow_exitCurState(self.initiationState)
             # if stimSwitch is more than task1's probablity then send to task #2
             elif self.task_switch>t1P:
                 print('cue 2')
                 self.comObj.write(struct.pack('>B', self.cue2State))
                 print('moving spout; cueing stim task #2')
-                self.state_waitForStateToUpdateOnTarget(self.initiateState)
+                self.state_flow_exitCurState(self.initiationState)
 
     def callback_cue1State(self):  #todo; mov could be a func #3
         #trP=float(self.sTask1_target_prob.get())
@@ -976,12 +934,12 @@ class pyDiscrim_mainGUI:
                 if self.outcomeSwitch<=0.5:
                     self.comObj.write(struct.pack('>B', 5))
                     print('will play dulcet tone')
-                    self.state_waitForStateToUpdateOnTarget(3)
+                    self.state_flow_exitCurState(3)
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif self.outcomeSwitch>0.5:
                     self.comObj.write(struct.pack('>B', 6))
                     print('will play ominous tone')
-                    self.state_waitForStateToUpdateOnTarget(3)
+                    self.state_flow_exitCurState(3)
 
     def callback_cue2State(self):  #todo; mov could be a func #4
         #trP=float(self.sTask2_target_prob.get())
@@ -1002,15 +960,15 @@ class pyDiscrim_mainGUI:
                     print('debug a')
                     self.comObj.write(struct.pack('>B', 6))
                     print('will play dulcet tone')
-                    self.state_waitForStateToUpdateOnTarget(4)
+                    self.state_flow_exitCurState(4)
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif self.outcomeSwitch>0.5:
                     print('debug b')
                     self.comObj.write(struct.pack('>B', 5))
                     print('will play ominous tone')
-                    self.state_waitForStateToUpdateOnTarget(4)
+                    self.state_flow_exitCurState(4)
     
-    def callback_toneStates1(self):
+    def callback_stim1State(self):
         if self.arduinoTime[-1]-self.entryTime>2:
             print('time cond met') #debug
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
@@ -1028,9 +986,9 @@ class pyDiscrim_mainGUI:
                 print('Still!')
                 self.comObj.write(struct.pack('>B', 13))
                 print('off to save')
-                self.state_waitForStateToUpdateOnTarget(self.currentState)
+                self.state_flow_exitCurState(self.currentState)
 
-    def callback_toneStates2(self):
+    def callback_stim2State(self):
         if self.arduinoTime[-1]-self.entryTime>2:
             print('time cond met') #debug
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
@@ -1048,22 +1006,25 @@ class pyDiscrim_mainGUI:
                 print('Still!')
                 self.comObj.write(struct.pack('>B', 13))
                 print('off to save')
-                self.state_waitForStateToUpdateOnTarget(self.currentState)
+                self.state_flow_exitCurState(self.currentState)
 
     def callback_rewardState(self): #21
         #t1P=float(self.sTask1_prob.get())
         if self.absolutePosition[-1]>self.distThr:
             self.comObj.write(struct.pack('<B', 13))
             print('rewarding')
-            self.state_waitForStateToUpdateOnTarget(self.rewardState)
+            self.state_flow_exitCurState(self.rewardState)
 
     def callback_punishState(self): #23
         if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
             self.comObj.write(struct.pack('<B', self.saveState))
-            self.state_waitForStateToUpdateOnTarget(self.punishState)
+            self.state_flow_exitCurState(self.punishState)
+
+    #########################################
+    ## **** Custom Utility Functions **** ##
+    ########################################
 
     def utilState_syncSerial(self):
-        self.shouldRun=1
         self.currentTrial=1
         gaveFeedback=0
         if self.currentState==self.bootState:
