@@ -1,15 +1,9 @@
 # pyDiscrim:
-# This is a python program that executes a defined sensory discrimination task
-# in a state-based manner.
-# It works with microcontrolors or dac boards (conceptually). 
-# It can be modified for different tasks.
+# A Python3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 2.76
+# Version 2.78
 # 6/30/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
-
-# ver changes: State Var
-
 
 from tkinter import *
 import serial
@@ -45,10 +39,6 @@ class pyDiscrim_mainGUI:
         self.initialize_CallbackVariables()
         self.data_serialInputIDs()
 
-    ##################################
-    # ******* Task Block ************#
-    ##################################
-
     def runTask(self):
         print('started at state:')
         print(self.currentState)
@@ -56,7 +46,6 @@ class pyDiscrim_mainGUI:
         self.data_makeContainers()
         self.uiUpdateDelta=300
         self.ranTask=1
-        # while the current trial is less than the total trials, python script decides what to do based on what the current state is
         while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
             self.initTime=0  
             try:
@@ -74,7 +63,8 @@ class pyDiscrim_mainGUI:
                     #resetting the absolute position every time that we enter a new state 
                     self.lastPos=0 
                     while self.currentState==0:
-                        #this method examines data that is currently available in the serial buffer. If the data that is present is
+                        #this method examines data that is currently available in the serial buffer. 
+                        # If the data that is present is
                         # valid (discussed in parse data), GSH sets dataAvailable = 1
                         print('past 0')
                         self.generic_StateHeader() #(GSH)
@@ -92,16 +82,18 @@ class pyDiscrim_mainGUI:
                             # Therefore, the variable initTime is set to the most recent value added to the list arduinoTime
                             self.initTime=self.arduinoTime[-1]
                             print("doing state 0 stuff")
-                            # this uses the length of the list that is storing the time points of each iteration of the task loop where
-                            # data was available
+                            # this uses the length of the list that is storing the time points of each 
+                            # iteration of the task loop where data was available
                             # if we have had data available for more than 300 loops
                             if len(td)>300:
                                 #get the variance of all of the values in the time list
                                 print(np.var(td[-98:-1]))
-                                #make sure that the variance is less than .01 and if it is, do the serial_handShake to send the teensy into state 1
+                                #make sure that the variance is less than .01 and if it is, 
+                                # do the serial_handShake to send the teensy into state 1
                                 if np.var(td[-98:-1])<0.01: 
                                     print('cond fine')
-                                    #rather than running a condition block like the other states, state 0 is the initialization state that ensures
+                                    #rather than running a condition block like the other states, 
+                                    # state 0 is the initialization state that ensures
                                     # that proper communication is established between the teensy and the python script
                                     self.serial_handShake()  
 
@@ -237,7 +229,7 @@ class pyDiscrim_mainGUI:
                         .format(self.currentTrial,self.currentState))
                     if self.dataExists==1:
                         self.data_saveData()
-                        print('save was a success; now I will close com port')
+                        print('save was a success')
                     return
 
 
@@ -256,7 +248,7 @@ class pyDiscrim_mainGUI:
         if self.shouldRun==1:
             print('NORMAL: peace out')
             print('I completed {} trials.'.format(self.currentTrial-1))
-            self.serial_closeComObj()
+            return
         
         elif self.shouldRun==0:     
             print('I completed {} trials.'.format(self.currentTrial-1))
@@ -306,17 +298,12 @@ class pyDiscrim_mainGUI:
     def initialize_CallbackVariables(self):
         ## Globals
         self.movThr=40       
-        # in position units (The minimum ammount of movement allowed)
         self.movTimeThr=2    
-        # in seconds (The time the mouse must be still)
-        # initialization
         self.stillTime=float(0)
         self.stillLatch=0
         self.stillTimeStart=float(0)
         self.distThr=1000  
         self.timeOutDuration=2;
-        # This is the distance the mouse needs 
-        #to move to initiate a stimulus trial.
 
     #############################################################
     ## **** These Are Key Common State Handling Functions **** ##
@@ -348,7 +335,7 @@ class pyDiscrim_mainGUI:
         self.master.title("pyDiscrim")  
 
         self.quit_button = Button(self.master, text="Exit", \
-            command=self.simpleQuit, width=10)
+            command=self.buttonCallback_exit, width=10)
         self.quit_button.grid(row=12, column=2)
 
     def populate_MainWindow_SerialBits(self):
@@ -386,7 +373,7 @@ class pyDiscrim_mainGUI:
         self.createCom_button.config(state=NORMAL) 
         
         self.syncComObj_button = Button(self.master, text="Sync Serial",\
-            width = 10, command=self.debugState)
+            width = 10, command=self.utilState_syncSerial)
         self.syncComObj_button.grid(row=fRow+1, column=2)
         self.syncComObj_button.config(state=DISABLED)  
 
@@ -511,21 +498,16 @@ class pyDiscrim_mainGUI:
         self.lickMax=1000
         self.timeBase=1000000
 
-    def simpleQuit(self):
+    def buttonCallback_exit(self):
         if self.ranTask==0 or self.comObjectExists==0:  
-            print('audi 5k')
+            print('*** bye: closed without saving ***')
             exit()
         elif self.ranTask==1 and self.comObjectExists==1:
             self.data_saveData() 
-            self.comObj.write(struct.pack('>B', 0))
+            self.utilState_syncSerial()
             self.comObj.close()
+            print('*** bye: closed com port, resynced its state, and saved some data ***')
             exit()
-
-    def saveQuit(self):
-        self.data_saveData() 
-        self.comObj.write(struct.pack('>B', 0))
-        self.comObj.close()
-        exit()
 
     ##############################################################
     ## **** Creates And Populates A Task Probablity Window **** ##
@@ -709,7 +691,7 @@ class pyDiscrim_mainGUI:
         self.sBtn_save.config(state=NORMAL)
 
         self.sBtn_save = Button(st_frame, text="Debug", \
-            command=lambda: self.debugState())
+            command=lambda: self.utilState_syncSerial())
         self.sBtn_save.grid(row=stateStartRow-2, column=stateStartColumn+1)
         self.sBtn_save.config(state=NORMAL)
 
@@ -761,7 +743,7 @@ class pyDiscrim_mainGUI:
             self.start_button.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
-            self.debugState()
+            self.utilState_syncSerial()
             # self.taskProbs_Button.invoke()
             # self.stateToggles_Button.invoke()
         
@@ -769,9 +751,10 @@ class pyDiscrim_mainGUI:
         if self.comObjectExists==1:
             if self.dataExists==1:
                 self.data_saveData()
-            self.comObj.write(struct.pack('>B', self.bootState))
+            self.utilState_syncSerial()
             self.comObj.close()
             self.comObjectExists=0
+            print('> i closed the COM object')
             
             # update the GUI
             self.comPortString_entry.config(state=NORMAL)
@@ -780,7 +763,6 @@ class pyDiscrim_mainGUI:
             self.start_button.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
-            self.debugState()
             # self.taskProbs_Button.invoke()
             # self.stateToggles_Button.invoke()
 
@@ -940,7 +922,8 @@ class pyDiscrim_mainGUI:
         plt.subplot(2,2,2)
         if self.updateStateMap==1:
             self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
-            self.lD=plt.plot(self.stateDiagX[self.currentState],self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
+            self.lD=plt.plot(self.stateDiagX[self.currentState],\
+                self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
             plt.ylim(0,10)
             plt.xlim(0,10)
             plt.title(self.currentTrial)
@@ -1112,20 +1095,23 @@ class pyDiscrim_mainGUI:
             self.comObj.write(struct.pack('<B', self.saveState))
             self.state_waitForStateToUpdateOnTarget(self.punishState)
 
-    def debugState(self):
+    def utilState_syncSerial(self):
         self.shouldRun=1
         self.currentTrial=1
         if self.currentState==self.bootState:
             self.serial_readDataFlush()
-            print('should be good')
+            print('mc state looks right to me')
+            print('should be ready for a task')
             return
-        while self.currentState!=self.bootState:   
+        while self.currentState!=self.bootState:
+            print('mc state is not right ...')
+            print('will force boot state, might take a second or so ...') 
             self.serial_readDataFlush()
             if self.dataAvail==1:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
                 self.comObj.write(struct.pack('>B', 0))
-        print('should be good')
+        print('should be good now')
 
 def main(): 
     root = Tk()
