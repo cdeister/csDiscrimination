@@ -1,8 +1,6 @@
 Python High:
 _saveState button increments trial by 2!
 
-_ Revist all state0 handshake stuff, I think serialSync replaces it
-
 _ user config windowState
 
 _ user config variables

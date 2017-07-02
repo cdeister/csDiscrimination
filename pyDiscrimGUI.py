@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.8 -- State Scheme Streamlined Significantly; 7/2/2017
+# Version 2.9 -- State updates MUCH faster; 7/2/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -47,27 +47,14 @@ class pyDiscrim_mainGUI:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==self.bootState:
                     self.updateStateMap=1
-                    td=[float(0)]
-                    # self.updateStateButtons()
-                    print('in state 0')
-                    #resetting the absolute position every time that we enter a new state 
+                    print('in state 0: boot state')
                     self.lastPos=0 
-                    while self.currentState==0:
-                        print('past 0')
+                    while self.currentState==self.bootState:
                         self.serial_readDataFlush()
                         if self.dataAvail==1:
                             self.data_parseData()
-                        print('past 1')
-                        if self.dataAvail==1:
-                            print('past 2')
-                            td.append(float(self.arduinoTime[-1]-self.initTime))
-                            self.initTime=self.arduinoTime[-1]
-                            print("doing state 0 stuff")
-                            if len(td)>300:
-                                print(np.var(td[-98:-1]))
-                                if np.var(td[-98:-1])<0.01: 
-                                    print('cond fine')
-                                    self.serial_handShake()  
+                            self.comObj.write(struct.pack('>B', self.initiationState))
+                            self.state_flow_exitCurState(self.bootState)
 
                 #S1 -----> trial wait state
                 elif self.currentState==self.waitState:
@@ -232,6 +219,34 @@ class pyDiscrim_mainGUI:
         self.timeOutDuration=2;
 
     #########################################
+    ## ****  Utility Functions **** ##
+    ########################################
+
+    def utilState_syncSerial(self):
+        self.currentTrial=1
+        gaveFeedback=0
+        if self.currentState==self.bootState:
+            self.serial_readDataFlush()
+            if gaveFeedback==0:
+                print('mc state looks right to me')
+                print('should be ready for a task')
+                gaveFeedback=1
+            return
+        while self.currentState!=self.bootState:
+            if gaveFeedback==0:
+                print('mc state is not right ...')
+                print('will force boot state, might take a second or so ...')
+                print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
+                gaveFeedback=1 
+            self.serial_readDataFlush()
+            if self.dataAvail==1:
+                self.data_parseData()
+                self.currentState=int(self.sR[self.stID_state])
+                self.comObj.write(struct.pack('>B', self.bootState))
+        self.currentState=self.bootState
+        print('$$$ --> mc is reset to boot state; should be good now $$$')
+
+    #########################################
     ## **** State Switching Functions **** ##
     ######################################### 
     
@@ -241,8 +256,9 @@ class pyDiscrim_mainGUI:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.arduinoTime[-1])
         print('state change to {}'.format(self.targetState))
-        self.currentState=self.targetState
+        # self.currentState=self.targetState
         self.comObj.write(struct.pack('>B', targetState))
+        self.state_flow_exitCurState(self.currentState)
 
     def state_flow_exitCurState(self,curState): 
         self.curState=curState
@@ -644,13 +660,7 @@ class pyDiscrim_mainGUI:
             print(self.comPortString.get())
             # Start serial communication
             self.comObj = serial.Serial(self.comPortString.get(),self.baudSelected.get()) 
-            # Creating our serial object named arduinoData
-            # just in case we left it in a weird state 
-            # lets flip back to the init state 0
-            self.comObj.write(struct.pack('>B', self.bootState))
-            self.comObj.write(struct.pack('>B', self.bootState))
-            self.comObj.write(struct.pack('>B', self.bootState))
-            self.comObj.write(struct.pack('>B', self.bootState))
+            self.utilState_syncSerial()
             print('connected, will read a line')
             self.serial_readData()
             print(self.sR)
@@ -685,13 +695,6 @@ class pyDiscrim_mainGUI:
             self.syncComObj_button.config(state=DISABLED)
             # self.taskProbs_Button.invoke()
             # self.stateToggles_Button.invoke()
-
-    def serial_handShake(self):
-        print('should be good; will take you to wait state (S1)')
-        self.comObj.write(struct.pack('>B', 1))
-        print('hands')
-        self.state_flow_exitCurState(self.currentState) #todo self.currentState right?
-        print('did maint call')
 
     def serial_readDataFlush(self):
         self.comObj.flush()
@@ -1020,32 +1023,6 @@ class pyDiscrim_mainGUI:
             self.comObj.write(struct.pack('<B', self.saveState))
             self.state_flow_exitCurState(self.punishState)
 
-    #########################################
-    ## **** Custom Utility Functions **** ##
-    ########################################
-
-    def utilState_syncSerial(self):
-        self.currentTrial=1
-        gaveFeedback=0
-        if self.currentState==self.bootState:
-            self.serial_readDataFlush()
-            if gaveFeedback==0:
-                print('mc state looks right to me')
-                print('should be ready for a task')
-                gaveFeedback=1
-            return
-        while self.currentState!=self.bootState:
-            if gaveFeedback==0:
-                print('mc state is not right ...')
-                print('will force boot state, might take a second or so ...')
-                print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
-                gaveFeedback=1 
-            self.serial_readDataFlush()
-            if self.dataAvail==1:
-                self.data_parseData()
-                self.currentState=int(self.sR[self.stID_state])
-                self.comObj.write(struct.pack('>B', self.bootState))
-        print('$$$ --> mc is reset to boot state; should be good now $$$')
 
 def main(): 
     root = Tk()
