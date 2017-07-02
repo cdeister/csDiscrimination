@@ -4,11 +4,11 @@
 # It works with microcontrolors or dac boards (conceptually). 
 # It can be modified for different tasks.
 #
-# Version 2.56
+# Version 2.7
 # 6/30/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# ver changes: random
+# ver changes: GUI tweaks
 
 
 from tkinter import *
@@ -37,7 +37,6 @@ class pyDiscrim_mainGUI:
         self.initialize_SessionVariables()
         self.initialize_StateVariables()
         self.populate_MainWindow_SerialBits()
-        self.metadata_animalID()
         self.metadata_sessionFlow()
         self.metadata_lickDetection()
         self.metadata_plotting()
@@ -264,7 +263,7 @@ class pyDiscrim_mainGUI:
 
     #########################################################
     ## **** These Functions Set All Initial Variables **** ##
-    #########################################################    
+    ######################################################### 
 
     def initialize_SessionVariables(self):
         self.ranTask=0
@@ -344,115 +343,137 @@ class pyDiscrim_mainGUI:
     ###########################################################
         
     def populate_MainWindow_Primary(self):
-        self.master.title("pyDiscrim")
-
-        self.createCom_button = Button(self.master, text="Start Serial",\
-         width = 10, command=self.serial_initComObj)
-        self.createCom_button.grid(row=0, column=2)
-
-        self.closeComObj_button = Button(self.master, text="Close Serial",\
-            width = 10, command=self.serial_closeComObj)
-        self.closeComObj_button.grid(row=4, column=2)
-        self.closeComObj_button.config(state=DISABLED)   
-
-        self.taskProbs_Button = Button(self.master, text = 'Task Probs',\
-         width = 10, command = self.make_taskProbFrame)
-        self.taskProbs_Button.grid(row=1, column=2)
-        self.taskProbs_Button.config(state=NORMAL)
-
-        self.stateToggles_Button = Button(self.master, text = 'State Toggles',\
-         width = 10, command = self.make_stateToggleFrame)
-        self.stateToggles_Button.grid(row=2, column=2)
-        self.stateToggles_Button.config(state=NORMAL)
-
-        self.start_button = Button(self.master, text="Start Task",\
-            width = 10, command=self.runTask)
-        self.start_button.grid(row=3, column=2)
-        self.start_button.config(state=DISABLED)
+        self.master.title("pyDiscrim")  
 
         self.quit_button = Button(self.master, text="Exit", \
             command=self.simpleQuit, width=10)
-        self.quit_button.grid(row=20, column=2)
+        self.quit_button.grid(row=10, column=2)
 
     def populate_MainWindow_SerialBits(self):
-        self.comPortEntry_label = Label(self.master, text="COM Port Location")
-        self.comPortEntry_label.grid(row=0, column=0)
+        # Entries and Selections Left
+        fRow=0
+        fCol=0
+        txtPad=7
+        self.comPortEntry_label = Label(self.master, text="COM Port Location:")
+        self.comPortEntry_label.grid(row=fRow, column=fCol,sticky=W,padx=txtPad)
 
-        self.comPath=StringVar(self.master)
+        self.comPortString=StringVar(self.master)
+        self.comPortString_entry=Entry(self.master,\
+            textvariable=self.comPortString)
+        self.comPortString_entry.grid(row=fRow+1, column=fCol)
         if sys.platform == 'darwin':
-            self.mainPort='/dev/cu.usbmodem2147951';
-            self.comPath.set(self.mainPort)
+            self.comPortString.set('/dev/cu.usbmodem2762721')
         elif sys.platform == 'win':
-            self.mainPort='COM11';
-            self.comPath.set(self.mainPort)
-        else:
-            self.mainPort = 'COM12'
-            self.comPath.set(self.mainPort)
-        self.comEntry = OptionMenu(self.master,self.comPath,self.mainPort)
-        self.comEntry.grid(row=1, column=0)
-        self.comEntry.config(width=20)
-        if self.comEntry == 'Debug':
-            self.fakeComObj=1
+            self.comPortString.set('COM11')
+        self.comPortString_entry.config(width=20)
 
-
-        self.baudEntry_label = Label(self.master,text="BAUD Rate")
-        self.baudEntry_label.grid(row=2, column=0)
+        self.baudEntry_label = Label(self.master,text="BAUD Rate:")
+        self.baudEntry_label.grid(row=fRow+2, column=fCol,sticky=W,padx=txtPad)
 
         self.baudSelected=IntVar(self.master)
         self.baudSelected.set(9600)
         self.baudPick = OptionMenu(self.master,self.baudSelected,9600,19200)
-        self.baudPick.grid(row=3, column=0)
+        self.baudPick.grid(row=fRow+3, column=fCol)
         self.baudPick.config(width=20)
+
+        # Buttons Right
+        fRow=1
+        self.createCom_button = Button(self.master, text="Start Serial",\
+         width = 10, command=self.serial_initComObj)
+        self.createCom_button.grid(row=fRow, column=2)
+        self.createCom_button.config(state=NORMAL) 
+        
+        self.syncComObj_button = Button(self.master, text="Sync Serial",\
+            width = 10, command=self.debugState)
+        self.syncComObj_button.grid(row=fRow+1, column=2)
+        self.syncComObj_button.config(state=DISABLED)  
+
+        self.closeComObj_button = Button(self.master, text="Close Serial",\
+            width = 10, command=self.serial_closeComObj)
+        self.closeComObj_button.grid(row=fRow+2, column=2)
+        self.closeComObj_button.config(state=DISABLED) 
     
-    def metadata_animalID(self):
+    def metadata_sessionFlow(self):
+        self.guiPad = Label(self.master, text="")
+        self.guiPad.grid(row=6, column=0)
+
+        self.sessionStuffLabel = Label(self.master, text="Session Stuff:")
+        self.sessionStuffLabel.grid(row=7, column=0,sticky=W,padx=5)
+
         self.animalIDStr_label = \
-        Label(self.master, text="animal id").grid(row=4,sticky=W)
+        Label(self.master, text="animal id:").grid(row=8,column=0,sticky=W)
         self.animalIDStr=StringVar(self.master)
         self.animalIDStr_entry=Entry(self.master,\
             textvariable=self.animalIDStr)
-        self.animalIDStr_entry.grid(row=4, column=0)
+        self.animalIDStr_entry.grid(row=8,column=0,sticky=E)
         self.animalIDStr.set('cj_dX')
-        self.animalIDStr_entry.config(width=10)
+        self.animalIDStr_entry.config(width=12)
 
-    def metadata_sessionFlow(self):
         self.totalTrials_label = \
-        Label(self.master, text="total trials").grid(row=5,sticky=W)
+        Label(self.master, text="total trials").grid(row=9,column=0,sticky=W)
         self.totalTrials=StringVar(self.master)
         self.totalTrials_entry=Entry(self.master,textvariable=self.totalTrials)
-        self.totalTrials_entry.grid(row=5, column=0)
+        self.totalTrials_entry.grid(row=9, column=0,sticky=E)
         self.totalTrials.set('100')
-        self.totalTrials_entry.config(width=10)
+        self.totalTrials_entry.config(width=12)
         self.dateStr = datetime.datetime.\
         fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
+        self.start_button = Button(self.master, text="Start Task",\
+            width = 7, command=self.runTask)
+        self.start_button.grid(row=10, column=0,sticky=W,padx=6)
+        self.start_button.config(state=DISABLED)
+
+        self.end_button = Button(self.master, text="End Task",\
+            width = 7, command=print('cool'))
+        self.end_button.grid(row=10, column=0,sticky=E,padx=6)
+        self.end_button.config(state=DISABLED)
+
+        self.taskProbs_Button = Button(self.master, text = 'Task Probs',\
+         width = 10, command = self.make_taskProbFrame)
+        self.taskProbs_Button.grid(row=8, column=2)
+        self.taskProbs_Button.config(state=NORMAL)
+
+        self.stateToggles_Button = Button(self.master, text = 'State Toggles',\
+         width = 10, command = self.make_stateToggleFrame)
+        self.stateToggles_Button.grid(row=9, column=2)
+        self.stateToggles_Button.config(state=NORMAL)
+
     def metadata_lickDetection(self):
+        sRow=11
+        self.guiPad = Label(self.master, text="")
+        self.guiPad.grid(row=sRow, column=0)
+
+        self.guiPad = Label(self.master, text="Lick Detection:")
+        self.guiPad.grid(row=sRow+2, column=0,sticky=W,padx=7)
+
         self.ux_adaptThresh=StringVar(self.master)
         self.ux_adaptThreshToggle=Checkbutton(self.master, \
             text="Ad Thr?",variable=self.ux_adaptThresh)
-        self.ux_adaptThreshToggle.grid(row=20, column=0)
+        self.ux_adaptThreshToggle.grid(row=sRow+3, column=0,sticky=W,padx=20)
         self.ux_adaptThreshToggle.select()
 
         self.lickValuesOrDeltas=StringVar(self.master)
         self.ux_lickValuesToggle=Checkbutton(self.master, \
             text="Lk Val?",variable=self.lickValuesOrDeltas)
-        self.ux_lickValuesToggle.grid(row=21, column=0)
+        self.ux_lickValuesToggle.grid(row=sRow+3, column=0,sticky=E,padx=20)
         self.ux_lickValuesToggle.select()
 
-        # plot stuff
-        self.lickMax_label = Label(self.master, text="lick max")
-        self.lickMax_label.grid(row=23, column=2)
-        self.lickPlotMax=StringVar(self.master)
-        self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickPlotMax)
-        self.lickMax_entry.grid(row=24, column=2)
-        self.lickPlotMax.set('2000')
-
-        self.lickThreshold_label = Label(self.master, text="lick threshold")
-        self.lickThreshold_label.grid(row=23, sticky=W)
+        self.lickThreshold_label = Label(self.master, text="lick threshold:")
+        self.lickThreshold_label.grid(row=sRow+4,column=0,sticky=W,padx=12)
         self.lickThr_a=StringVar(self.master)
         self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickThr_a)
-        self.lickMax_entry.grid(row=23, column=0)
+        self.lickMax_entry.grid(row=sRow+4, column=0,sticky=E,padx=12)
         self.lickThr_a.set(12)
-    
+
+        # plot stuff
+        self.lickMax_label = Label(self.master, text="        lick max:")
+        self.lickMax_label.grid(row=sRow+5, column=0,sticky=W,padx=12)
+        self.lickPlotMax=StringVar(self.master)
+        self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickPlotMax)
+        self.lickMax_entry.grid(row=sRow+5, column=0,sticky=E,padx=12)
+        self.lickPlotMax.set('2000')
+
     def metadata_plotting(self):
         # TODO: organize by plot types
         self.sampPlot_label = Label(self.master, text="samples to plot")
@@ -670,8 +691,9 @@ class pyDiscrim_mainGUI:
     def serial_initComObj(self):
         if self.comObjectExists==0:
             print('Opening serial port')
+            print(self.comPortString.get())
             # Start serial communication
-            self.comObj = serial.Serial(self.comPath.get(),self.baudSelected.get()) 
+            self.comObj = serial.Serial(self.comPortString.get(),self.baudSelected.get()) 
             # Creating our serial object named arduinoData
             # just in case we left it in a weird state 
             # lets flip back to the init state 0
@@ -686,11 +708,12 @@ class pyDiscrim_mainGUI:
             self.shouldRun=1
 
             # update the GUI
-            self.comEntry.config(state=DISABLED)
+            self.comPortString_entry.config(state=DISABLED)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
             self.start_button.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
+            self.syncComObj_button.config(state=NORMAL)
             self.debugState()
             # self.taskProbs_Button.invoke()
             # self.stateToggles_Button.invoke()
@@ -702,9 +725,17 @@ class pyDiscrim_mainGUI:
             self.comObj.write(struct.pack('>B', self.bootState))
             self.comObj.close()
             self.comObjectExists=0
-            self.createCom_button.config(state=NORMAL)
-            self.closeComObj_button.config(state=DISABLED)
-            self.start_button.config(state=DISABLED)
+            
+            # update the GUI
+            self.comPortString_entry.config(state=NORMAL)
+            self.baudPick.config(state=DISABLED)
+            self.createCom_button.config(state=DISABLED)
+            self.start_button.config(state=NORMAL)
+            self.closeComObj_button.config(state=NORMAL)
+            self.syncComObj_button.config(state=NORMAL)
+            self.debugState()
+            # self.taskProbs_Button.invoke()
+            # self.stateToggles_Button.invoke()
 
     def serial_handShake(self):
         print('should be good; will take you to wait state (S1)')
@@ -1021,7 +1052,6 @@ class pyDiscrim_mainGUI:
                 self.comObj.write(struct.pack('>B', 13))
                 print('off to save')
                 self.state_waitForStateToUpdateOnTarget(self.currentState)
-
 
     def callback_rewardState(self): #21
         #t1P=float(self.sTask1_prob.get())
