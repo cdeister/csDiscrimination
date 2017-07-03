@@ -2,7 +2,8 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.95 -- State updates even MUCH faster; 7/2/2017
+# Version 2.96 -- Initial Data Path Support; 7/2/2017
+# todo: animal id = own folder; export and import default path and all user vars etc.
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -18,6 +19,7 @@ import random
 import math
 import struct
 import sys
+import os as dirStuff
 
 class pyDiscrim_mainGUI:
 
@@ -136,29 +138,24 @@ class pyDiscrim_mainGUI:
                 #S25: end session state
                 elif self.currentState==self.endState:
                     print('About to end the session ...')
-                    print('last trial = {} and the last state was {}'\
-                        .format(self.currentTrial,self.currentState))
                     if self.dataExists==1:
                         self.data_saveData()
-                        print('save was a success')
-                    print('will tidy up serial object ...')
+                        print('saved data')
                     self.shouldRun=0
 
             except:
                 self.exceptionCallback()
 
-        print('NORMAL: peace out')
         self.mw_button_endSession.config(state=DISABLED)
         self.mw_button_startSession.config(state=NORMAL)
         print('I completed {} trials.'.format(self.currentTrial-1))
-        print('!!!!!!! --> Session Finished <-- !!!!!!!')
+        print('!!!!!!! --> Session #:{} Finished'.format(self.ranTask))
         self.utilState_syncSerial()
 
     def runTask_header(self):
         self.mw_button_endSession.config(state=NORMAL)
         self.mw_button_startSession.config(state=DISABLED)
-        print('started at state:')
-        print(self.currentState)
+        print('started at state #: {}'.format(self.currentState))
         self.data_makeContainers()
         self.uiUpdateDelta=300
         self.ranTask=self.ranTask+1
@@ -223,7 +220,6 @@ class pyDiscrim_mainGUI:
     def utilState_syncSerial(self):
         ranHeader=0
         while ranHeader==0:
-            print('clean com ...')
             gaveFeedback=0
             ranHeader=1
             loopCount=0
@@ -239,12 +235,11 @@ class pyDiscrim_mainGUI:
                         print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
                         gaveFeedback=1
                     loopCount=loopCount+1
-                    if loopCount % 500 ==0:
-                        print('still working: state = {}; loop number = {}'.format(self.currentState,loopCount))
+                    if loopCount % 1000 ==0:
+                        print('still syncing: state #: {}; loop #: {}'.format(self.currentState,loopCount))
 
                 elif self.currentState==self.bootState:
-                    print('mc thinks it is in state #: {}'.format(self.currentState))
-                    print('looks right to me should be ready for a task')
+                    print('ready: mc is in state #: {}'.format(self.currentState))
                     return
 
     #########################################
@@ -256,7 +251,7 @@ class pyDiscrim_mainGUI:
         if self.dataExists==1:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.arduinoTime[-1])
-        print('state change to {}'.format(self.targetState))
+        print('pushing: s{} -> s{}'.format(self.currentState,targetState))
         self.comObj.write(struct.pack('>B', targetState))
         self.state_flow_exitCurState(self.currentState)
 
@@ -275,13 +270,11 @@ class pyDiscrim_mainGUI:
         ranHeader=0 # set the latch, the header runs once per entry.
         self.updateStateMap=upSt
         while ranHeader==0:
-            print('ran state # {} header'.format(self.currentState))
             self.cycleCount=1
             self.ran_stateHeader=1
             self.lastPos=0 # reset where we think the animal is
             self.entryTime=self.arduinoTime[-1] # log state entry time
             print('in state # {}'.format(self.currentState))
-            #self.pyStatesCT.append(self.entryTime)
             ranHeader=1 # fire the latch
         
     def state_flow_coreState(self):
@@ -294,16 +287,16 @@ class pyDiscrim_mainGUI:
             self.fireCallback=1
             self.cycleCount=self.cycleCount+1;
 
-    #########################################################
-    ## **** ?? **** ##
-    ######################################################### 
+    ################################
+    ## **** main window etc. **** ##
+    ################################
         
     def populate_MainWindow_Primary(self):
         self.master.title("pyDiscrim")  
 
         self.quit_button = Button(self.master, text="Exit", \
             command=self.buttonCallback_exit, width=10)
-        self.quit_button.grid(row=12, column=2)
+        self.quit_button.grid(row=13, column=2)
 
     def populate_MainWindow_SerialBits(self):
         # Entries and Selections Left
@@ -385,6 +378,15 @@ class pyDiscrim_mainGUI:
         self.mw_button_endSession.grid(row=10, column=0,sticky=E,padx=6)
         self.mw_button_endSession.config(state=DISABLED)
 
+        self.dataPath_label = \
+        Label(self.master, text="data path:").grid(row=11,column=0,sticky=W,padx=3)
+        self.dataPath=StringVar(self.master)
+        self.dataPath_entry=Entry(self.master,textvariable=self.dataPath)
+        self.dataPath_entry.grid(row=11,columnspan=3,sticky=E)
+        self.dataPath.set(dirStuff.getcwd())
+        self.dataPath_entry.config(width=25)
+
+
         self.taskProbs_Button = Button(self.master, text = 'Task Probs',\
          width = 10, command = self.make_taskProbFrame)
         self.taskProbs_Button.grid(row=8, column=2)
@@ -401,7 +403,7 @@ class pyDiscrim_mainGUI:
         self.stateVars_Button.config(state=NORMAL)
 
     def metadata_lickDetection(self):
-        sRow=11
+        sRow=12
         self.guiPad = Label(self.master, text="")
         self.guiPad.grid(row=sRow, column=0)
 
@@ -652,20 +654,17 @@ class pyDiscrim_mainGUI:
         
         self.stateVarsRefreshed=1
 
-    ##############################################################################
-    ## **** These Functions Handle Creation and Deletion Of Serial Objects **** ##
-    ##############################################################################
+    ########################################
+    ## **** Serial Related Functions **** ##
+    ########################################
 
     def serial_initComObj(self):
         if self.comObjectExists==0:
-            print('Opening serial port')
-            print(self.comPortString.get())
-            # Start serial communication
-            self.comObj = serial.Serial(self.comPortString.get(),self.baudSelected.get()) 
+            print('Opening serial port: {}'.\
+                format(self.comPortString.get()))
+            self.comObj = serial.Serial(self.comPortString.get(),\
+                self.baudSelected.get()) 
             self.utilState_syncSerial()
-            print('connected, will read a line')
-            self.serial_readData()
-            print(self.sR)
             self.comObjectExists=1
 
             # update the GUI
@@ -675,7 +674,6 @@ class pyDiscrim_mainGUI:
             self.mw_button_startSession.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
-            self.utilState_syncSerial()
             # self.taskProbs_Button.invoke()
             # self.stateToggles_Button.invoke()
         
@@ -788,6 +786,17 @@ class pyDiscrim_mainGUI:
         self.dataExists=1
 
     def data_saveData(self):
+
+        sdir=dirStuff.path.isdir(self.dataPath.get())
+        if sdir==False:
+            dirStuff.mkdir(self.dataPath.get())
+        sdir=self.dataPath.get()
+        if sdir[-1] != '/' :
+            sdir=sdir + '/' 
+        print(sdir)
+
+
+
         saveStreamsA='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
         'lickValues_a','lickValues_b'
         saveStreamsB='pyStatesRS','pyStatesRT'
@@ -808,16 +817,16 @@ class pyDiscrim_mainGUI:
         self.exportArrayB=np.transpose(np.array([svB]))
         self.exportArrayC=np.transpose(np.array([svC]))
                 
-        np.savetxt('{}_{}_trial_{}_a.csv'.\
-            format(self.animalIDStr.get(),self.dateStr,self.currentTrial),\
+        np.savetxt('{}{}_{}_trial_{}_a.csv'.\
+            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial),\
             self.exportArrayA, delimiter=",",fmt="%g")
 
-        np.savetxt('{}_{}_trial_{}_b.csv'.\
-            format(self.animalIDStr.get(),self.dateStr,self.currentTrial), \
+        np.savetxt('{}{}_{}_trial_{}_b.csv'.\
+            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial), \
             self.exportArrayB, delimiter=",",fmt="%g")
 
-        np.savetxt('{}_{}_trial_{}_c.csv'.\
-            format(self.animalIDStr.get(),self.dateStr,self.currentTrial), \
+        np.savetxt('{}{}_{}_trial_{}_c.csv'.\
+            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial), \
             self.exportArrayC, delimiter=",",fmt="%g")
         
         self.dataExists=0
@@ -947,7 +956,7 @@ class pyDiscrim_mainGUI:
                 print('moving spout; cue stim task #2')
                 self.state_util_switchToNewState(self.cue2State)
 
-    def callback_cue1State(self):  #todo; mov could be a func #3
+    def callback_cue1State(self): 
         #trP=float(self.sTask1_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
@@ -967,7 +976,7 @@ class pyDiscrim_mainGUI:
                     print('will play ominous tone')
                     self.state_util_switchToNewState(self.stim2State)
 
-    def callback_cue2State(self):  #todo; mov could be a func #4
+    def callback_cue2State(self): 
         #trP=float(self.sTask2_target_prob.get())
         if self.arduinoTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
