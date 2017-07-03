@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.9 -- State updates MUCH faster; 7/2/2017
+# Version 2.91 -- State updates MUCH faster; 7/2/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -223,28 +223,30 @@ class pyDiscrim_mainGUI:
     ########################################
 
     def utilState_syncSerial(self):
-        self.currentTrial=1
-        gaveFeedback=0
-        if self.currentState==self.bootState:
-            self.serial_readDataFlush()
-            if gaveFeedback==0:
-                print('mc state looks right to me')
-                print('should be ready for a task')
-                gaveFeedback=1
-            return
-        while self.currentState!=self.bootState:
-            if gaveFeedback==0:
-                print('mc state is not right ...')
-                print('will force boot state, might take a second or so ...')
-                print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
-                gaveFeedback=1 
+        ranHeader=0
+        while ranHeader==0:
+            gaveFeedback=0
+            ranHeader=1
+            loopCount=0
+        while ranHeader==1:
+            self.comObj.write(struct.pack('>B', self.bootState))
             self.serial_readDataFlush()
             if self.dataAvail==1:
-                self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
-                self.comObj.write(struct.pack('>B', self.bootState))
-        self.currentState=self.bootState
-        print('$$$ --> mc is reset to boot state; should be good now $$$')
+                if self.currentState!=self.bootState:
+                    if gaveFeedback==0:
+                        print('mc state is not right, thinks it is #: {}'.format(self.currentState))
+                        print('will force boot state, might take a second or so ...')
+                        print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
+                        gaveFeedback=1
+                    loopCount=loopCount+1
+                    if loopCount % 500 ==0:
+                        print('still working: state = {}; loop number = {}'.format(self.currentState,loopCount))
+
+                elif self.currentState==self.bootState:
+                    print('mc thinks it is in state #: {}'.format(self.currentState))
+                    print('looks right to me should be ready for a task')
+                    return
 
     #########################################
     ## **** State Switching Functions **** ##
@@ -256,17 +258,18 @@ class pyDiscrim_mainGUI:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.arduinoTime[-1])
         print('state change to {}'.format(self.targetState))
-        # self.currentState=self.targetState
         self.comObj.write(struct.pack('>B', targetState))
         self.state_flow_exitCurState(self.currentState)
 
-    def state_flow_exitCurState(self,curState): 
-        self.curState=curState
-        while self.currentState==self.curState:      
+    def state_flow_exitCurState(self,cState): 
+        self.cState=cState
+        while self.currentState==self.cState:      
             self.serial_readDataFlush()
             if self.dataAvail==1:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
+                self.pyStatesTS.append(self.currentState)
+                self.pyStatesTT.append(self.arduinoTime[-1])
 
     def state_flow_stateHeader(self,upSt):
         self.upSt=upSt
@@ -753,7 +756,8 @@ class pyDiscrim_mainGUI:
         self.detectedLicks_b=[]
         self.pyStatesRS = []
         self.pyStatesRT = []
-        self.pyStatesCT = []
+        self.pyStatesTT = []
+        self.pyStatesTS = []
 
     def data_cleanContainers(self):
         self.arStates=[]          
@@ -768,13 +772,12 @@ class pyDiscrim_mainGUI:
         self.detectedTrialLicks = []
         self.pyStatesRS = []
         self.pyStatesRT = []
-        self.pyStatesCT = []
+        self.pyStatesTT = []
+        self.pyStatesTS = []
 
     def data_parseData(self):
-
         self.arduinoTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.arduinoTrialTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
-
         self.posDelta.append(int(self.sR[self.stID_pos])-128)
         self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
         self.lastPos=int(self.absolutePosition[-1])
@@ -786,9 +789,11 @@ class pyDiscrim_mainGUI:
         self.dataExists=1
 
     def data_saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,self.absolutePosition,self.arStates])
+        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,\
+            self.absolutePosition,self.arStates])
         np.savetxt('{}_{}_trial_{}.csv'.\
-            format(self.animalIDStr.get(),self.dateStr,self.currentTrial), self.exportArray, delimiter=",",fmt="%g")
+            format(self.animalIDStr.get(),self.dateStr,self.currentTrial), \
+            self.exportArray, delimiter=",",fmt="%g")
         self.dataExists=0
         self.dataSaves=self.dataSaves+1
 
@@ -797,6 +802,7 @@ class pyDiscrim_mainGUI:
         print('last trial = {} and the last state was {}. \
             I will try to save last trial ...'\
             .format(self.currentTrial,self.currentState))
+        self.dataExists=0
         self.data_saveData()
         print('save was a success; now I will close com port and quit')
         print('I will try to reset the mc state before closing the port ...')
