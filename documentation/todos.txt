@@ -1,13 +1,15 @@
 Python High:
-_saveState button increments trial by 2!
 
-_saveData format issues **** 
+_log transition times
+
 
 _ user config windowState
 
 _ user config variables
 
 	_ log time of variable changes
+
+	-reward state doubles trials too
 
 
 

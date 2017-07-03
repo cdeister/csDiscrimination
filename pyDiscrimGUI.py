@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.91 -- State updates MUCH faster; 7/2/2017
+# Version 2.95 -- State updates even MUCH faster; 7/2/2017
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -40,9 +40,10 @@ class pyDiscrim_mainGUI:
         self.data_serialInputIDs()
 
     def runTask(self):
+        self.shouldRun=1
         self.runTask_header()
-        while self.currentTrial<=int(self.totalTrials.get()):
-            self.initTime=0  
+        while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
+            self.initTime=0
             try:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==self.bootState:
@@ -53,8 +54,7 @@ class pyDiscrim_mainGUI:
                         self.serial_readDataFlush()
                         if self.dataAvail==1:
                             self.data_parseData()
-                            self.comObj.write(struct.pack('>B', self.initiationState))
-                            self.state_flow_exitCurState(self.bootState)
+                            self.state_util_switchToNewState(self.initiationState)
 
                 #S1 -----> trial wait state
                 elif self.currentState==self.waitState:
@@ -141,10 +141,8 @@ class pyDiscrim_mainGUI:
                     if self.dataExists==1:
                         self.data_saveData()
                         print('save was a success')
-                    self.mw_button_endSession.config(state=DISABLED)
-                    self.mw_button_startSession.config(state=NORMAL)
-                    print('session finished; ok to start a new one')
-                    return
+                    print('will tidy up serial object ...')
+                    self.shouldRun=0
 
             except:
                 self.exceptionCallback()
@@ -225,6 +223,7 @@ class pyDiscrim_mainGUI:
     def utilState_syncSerial(self):
         ranHeader=0
         while ranHeader==0:
+            print('clean com ...')
             gaveFeedback=0
             ranHeader=1
             loopCount=0
@@ -268,8 +267,8 @@ class pyDiscrim_mainGUI:
             if self.dataAvail==1:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
-                self.pyStatesTS.append(self.currentState)
-                self.pyStatesTT.append(self.arduinoTime[-1])
+        self.pyStatesTS.append(self.currentState)
+        self.pyStatesTT.append(self.arduinoTime[-1])
 
     def state_flow_stateHeader(self,upSt):
         self.upSt=upSt
@@ -789,11 +788,38 @@ class pyDiscrim_mainGUI:
         self.dataExists=1
 
     def data_saveData(self):
-        self.exportArray=np.array([self.arduinoTime,self.arduinoTrialTime,\
-            self.absolutePosition,self.arStates])
-        np.savetxt('{}_{}_trial_{}.csv'.\
+        saveStreamsA='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
+        'lickValues_a','lickValues_b'
+        saveStreamsB='pyStatesRS','pyStatesRT'
+        saveStreamsC='pyStatesTS','pyStatesTT'
+        
+        svA=[]
+        svB=[]
+        svC=[]
+
+        for x in range(0,len(saveStreamsA)):
+            exec('svA.append(self.{})'.format(saveStreamsA[x]))
+        for x in range(0,len(saveStreamsB)):
+            exec('svB.append(self.{})'.format(saveStreamsB[x]))
+        for x in range(0,len(saveStreamsC)):
+            exec('svC.append(self.{})'.format(saveStreamsC[x]))
+
+        self.exportArrayA=np.transpose(np.array([svA]))
+        self.exportArrayB=np.transpose(np.array([svB]))
+        self.exportArrayC=np.transpose(np.array([svC]))
+                
+        np.savetxt('{}_{}_trial_{}_a.csv'.\
+            format(self.animalIDStr.get(),self.dateStr,self.currentTrial),\
+            self.exportArrayA, delimiter=",",fmt="%g")
+
+        np.savetxt('{}_{}_trial_{}_b.csv'.\
             format(self.animalIDStr.get(),self.dateStr,self.currentTrial), \
-            self.exportArray, delimiter=",",fmt="%g")
+            self.exportArrayB, delimiter=",",fmt="%g")
+
+        np.savetxt('{}_{}_trial_{}_c.csv'.\
+            format(self.animalIDStr.get(),self.dateStr,self.currentTrial), \
+            self.exportArrayC, delimiter=",",fmt="%g")
+        
         self.dataExists=0
         self.dataSaves=self.dataSaves+1
 
@@ -906,25 +932,20 @@ class pyDiscrim_mainGUI:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
 
             if self.stillLatch==1 and self.stillTime>1:
-                self.comObj.write(struct.pack('<B', 2))
                 print('Still! ==> Out of wait')
-                print('### S0 --> S1')
-                self.state_flow_exitCurState(self.waitState)
+                print('### S1 --> S2')
+                self.state_util_switchToNewState(self.initiationState)
 
     def callback_initiationState(self):
         t1P=0.5
         if self.absolutePosition[-1]>self.distThr:
             if self.task_switch<=t1P:
-                print('cue 1')
-                self.comObj.write(struct.pack('>B', self.cue1State))
-                print('moving spout; cueing stim task #1')
-                self.state_flow_exitCurState(self.initiationState)
+                print('moving spout; cue stim task #1')
+                self.state_util_switchToNewState(self.cue1State)
             # if stimSwitch is more than task1's probablity then send to task #2
             elif self.task_switch>t1P:
-                print('cue 2')
-                self.comObj.write(struct.pack('>B', self.cue2State))
-                print('moving spout; cueing stim task #2')
-                self.state_flow_exitCurState(self.initiationState)
+                print('moving spout; cue stim task #2')
+                self.state_util_switchToNewState(self.cue2State)
 
     def callback_cue1State(self):  #todo; mov could be a func #3
         #trP=float(self.sTask1_target_prob.get())
@@ -938,17 +959,13 @@ class pyDiscrim_mainGUI:
             if self.dPos<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-               # print(self.outcomeSwitch<=trP)
                 print('Still!')
                 if self.outcomeSwitch<=0.5:
-                    self.comObj.write(struct.pack('>B', 5))
                     print('will play dulcet tone')
-                    self.state_flow_exitCurState(3)
-                # if stimSwitch is more than task1's probablity then send to task #2
+                    self.state_util_switchToNewState(self.stim1State)
                 elif self.outcomeSwitch>0.5:
-                    self.comObj.write(struct.pack('>B', 6))
                     print('will play ominous tone')
-                    self.state_flow_exitCurState(3)
+                    self.state_util_switchToNewState(self.stim2State)
 
     def callback_cue2State(self):  #todo; mov could be a func #4
         #trP=float(self.sTask2_target_prob.get())
@@ -964,18 +981,13 @@ class pyDiscrim_mainGUI:
             if self.stillLatch==1 and self.stillTime>1:
                 #print('result={}'.format(self.outcomeSwitch<=trP))
                 print('Still!')
-                #print(self.outcomeSwitch<=trP)
                 if self.outcomeSwitch<=0.5:
-                    print('debug a')
-                    self.comObj.write(struct.pack('>B', 6))
                     print('will play dulcet tone')
-                    self.state_flow_exitCurState(4)
+                    self.state_util_switchToNewState(self.stim2State)
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif self.outcomeSwitch>0.5:
-                    print('debug b')
-                    self.comObj.write(struct.pack('>B', 5))
                     print('will play ominous tone')
-                    self.state_flow_exitCurState(4)
+                    self.state_util_switchToNewState(self.stim1State)
     
     def callback_stim1State(self):
         if self.arduinoTime[-1]-self.entryTime>2:
@@ -992,10 +1004,8 @@ class pyDiscrim_mainGUI:
             if self.dPos<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-                print('Still!')
-                self.comObj.write(struct.pack('>B', 13))
-                print('off to save')
-                self.state_flow_exitCurState(self.currentState)
+                print('Still!: off to save')
+                self.state_util_switchToNewState(self.saveState)
 
     def callback_stim2State(self):
         if self.arduinoTime[-1]-self.entryTime>2:
@@ -1012,22 +1022,19 @@ class pyDiscrim_mainGUI:
             if self.dPos<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-                print('Still!')
-                self.comObj.write(struct.pack('>B', 13))
-                print('off to save')
-                self.state_flow_exitCurState(self.currentState)
+                print('Still!: off to save')
+                self.state_util_switchToNewState(self.saveState)
 
     def callback_rewardState(self): #21
         #t1P=float(self.sTask1_prob.get())
         if self.absolutePosition[-1]>self.distThr:
-            self.comObj.write(struct.pack('<B', 13))
             print('rewarding')
-            self.state_flow_exitCurState(self.rewardState)
+            self.state_util_switchToNewState(self.saveState)
 
     def callback_punishState(self): #23
         if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
-            self.comObj.write(struct.pack('<B', self.saveState))
-            self.state_flow_exitCurState(self.punishState)
+            print('timeout of {} seconds is over'.format(self.timeOutDuration))
+            self.state_util_switchToNewState(self.saveState)
 
 
 def main(): 
