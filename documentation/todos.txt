@@ -1,5 +1,7 @@
 Python High:
 
+-Prevent same state transitions!
+
 _log transition times
 
 
@@ -23,8 +25,3 @@ _ save path and toggle
 
 Teensey High:
 _ integrate Jay's teensey stuff
-
-Python Low:
-_ fix matplotlib warning:
-
-	_ /anaconda/lib/python3.6/site-packages/matplotlib/backend_bases.py:2453: MatplotlibDeprecationWarning: Using default event loop until function specific to this GUI is implemente
