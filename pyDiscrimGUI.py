@@ -2,8 +2,10 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.96 -- Initial Data Path Support; 7/2/2017
-# todo: animal id = own folder; export and import default path and all user vars etc.
+# Version 2.98
+# Changes: Inital Pandas datahandling
+#           Data is now made into a large pandas dataframe and exported as a CSV, with unequal vector lengths and headers
+#           More to come on pandas frames in the program.
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -20,6 +22,7 @@ import math
 import struct
 import sys
 import os as dirStuff
+import pandas as pd
 
 class pyDiscrim_mainGUI:
 
@@ -127,11 +130,10 @@ class pyDiscrim_mainGUI:
 
                 #S13: save state
                 elif self.currentState==self.saveState:
-                    print('in save state; saving your bacon')
                     self.data_saveData()
                     self.data_cleanContainers()
                     self.currentTrial=self.currentTrial+1
-                    print('trial done')
+                    print('trial {} done, saved its data'.format(self.currentTrial))
                     self.comObj.write(struct.pack('>B', self.waitState))
                     self.state_flow_exitCurState(self.saveState)
                 
@@ -795,39 +797,19 @@ class pyDiscrim_mainGUI:
             sdir=sdir + '/' 
         print(sdir)
 
+        saveStreams='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
+        'lickValues_a','lickValues_b','pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
 
+        self.tCo=[]
+        for x in range(0,len(saveStreams)):
+            exec('self.tCo=self.{}'.format(saveStreams[x]))
+            if x==0:
+                self.rf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
+            elif x != 0:
+                self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
+                self.rf=pd.concat([self.rf,self.tf],axis=1)
 
-        saveStreamsA='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
-        'lickValues_a','lickValues_b'
-        saveStreamsB='pyStatesRS','pyStatesRT'
-        saveStreamsC='pyStatesTS','pyStatesTT'
-        
-        svA=[]
-        svB=[]
-        svC=[]
-
-        for x in range(0,len(saveStreamsA)):
-            exec('svA.append(self.{})'.format(saveStreamsA[x]))
-        for x in range(0,len(saveStreamsB)):
-            exec('svB.append(self.{})'.format(saveStreamsB[x]))
-        for x in range(0,len(saveStreamsC)):
-            exec('svC.append(self.{})'.format(saveStreamsC[x]))
-
-        self.exportArrayA=np.transpose(np.array([svA]))
-        self.exportArrayB=np.transpose(np.array([svB]))
-        self.exportArrayC=np.transpose(np.array([svC]))
-                
-        np.savetxt('{}{}_{}_trial_{}_a.csv'.\
-            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial),\
-            self.exportArrayA, delimiter=",",fmt="%g")
-
-        np.savetxt('{}{}_{}_trial_{}_b.csv'.\
-            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial), \
-            self.exportArrayB, delimiter=",",fmt="%g")
-
-        np.savetxt('{}{}_{}_trial_{}_c.csv'.\
-            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial), \
-            self.exportArrayC, delimiter=",",fmt="%g")
+        self.rf.to_csv('{}{}_{}_trial_{}.csv'.format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial))
         
         self.dataExists=0
         self.dataSaves=self.dataSaves+1
