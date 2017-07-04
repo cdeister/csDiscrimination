@@ -2,12 +2,15 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.96 -- Initial Data Path Support; 7/2/2017
-# todo: animal id = own folder; export and import default path and all user vars etc.
+# Version 2.99
+# Changes: logs and loads metadata, can specify a path will load some info
+# Laying the groundwork for the concept of 
+# a per animal profile that lives with that animal.
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
 from tkinter import *
+from tkinter import filedialog
 import serial
 import numpy as np
 import matplotlib
@@ -19,7 +22,9 @@ import random
 import math
 import struct
 import sys
-import os as dirStuff
+import os
+# check out pathlib as pythonic? os replacement
+import pandas as pd
 
 class pyDiscrim_mainGUI:
 
@@ -30,21 +35,25 @@ class pyDiscrim_mainGUI:
         self.master = master
         self.frame = Frame(self.master)
         self.populate_MainWindow_Primary()
-        self.initVars_session()
-        self.initVars_stateNames()
+        self.sessionVars_init()
+        self.stateNames_init()
         self.populate_MainWindow_SerialBits()
         self.metadata_sessionFlow()
         self.metadata_lickDetection()
         self.metadata_plotting()
         self.initialize_TaskProbs()
         self.initialize_StateVars()
-        self.initVars_stateCallbacks()
+        self.stateVars_init()
         self.data_serialInputIDs()
 
     def runTask(self):
+        self.exportAnimalMeta()
         self.shouldRun=1
+        initTrials=self.sessionTrialCount 
+        # baseline requested trials, by what's been done before.
         self.runTask_header()
-        while self.currentTrial<=int(self.totalTrials.get()) and self.shouldRun==1:
+        while self.currentTrial-initTrials <=int(self.totalTrials.get()) \
+        and self.shouldRun==1:
             self.initTime=0
             try:
                 #S0 -----> hand shake (initialization state)
@@ -127,11 +136,11 @@ class pyDiscrim_mainGUI:
 
                 #S13: save state
                 elif self.currentState==self.saveState:
-                    print('in save state; saving your bacon')
                     self.data_saveData()
                     self.data_cleanContainers()
                     self.currentTrial=self.currentTrial+1
-                    print('trial done')
+                    self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
+                    print('trial {} done, saved its data'.format(self.currentTrial-1))
                     self.comObj.write(struct.pack('>B', self.waitState))
                     self.state_flow_exitCurState(self.saveState)
                 
@@ -164,47 +173,46 @@ class pyDiscrim_mainGUI:
     ## **** These Functions Set All Initial Variables **** ##
     ######################################################### 
 
-    def initVars_session(self):
-        self.ranTask=0  # This increments every time you run a task
-        self.dataSaves=0 # This increments every time you save data to disk
+    # these do not need editing
+    def sessionVars_init(self):
         
+        self.ranTask=0  # This increments every time you run a task        
         self.dataExists=0 
-        # Boolean that keeps track of whether program needs to worry about writing data.
-        # Mostly for crash handling, pausing, and/or ending early.
-        
         self.comObjectExists=0
-        # Boolean that keeps track of whether program needs to worry about closing a com obj.
-
-        self.probsRefreshed=0
+        self.taskProbsRefreshed=0
         self.stateVarsRefreshed=0 
 
-        self.updateStateMap=1
-
-        self.dPos=float(0)
-        # this is the initial position the animal is in
-
-        self.currentTrial=1
+        self.currentTrial=0
         self.currentState=0
+        self.currentSession=0
+        self.sessionTrialCount=0
 
-        self.lowDelta=0 # handshaking
+    def exportAnimalMeta(self):
+        self.fixPath()
+        self.metaNames=['comPath','dirPath']
+        sesVarVals=[self.comPath.get(),self.dirPath]
+        self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
+        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.\
+            format(self.sdir,self.animalIDStr.get()))
 
-        self.ran_stateHeader=0 # boolean for determining if a state header should fire or not.
-
-    def initVars_stateNames(self):
+    def stateNames_init(self):
         # All state have a name (string) and a numerical ID (int).
-        # The stateName is up to you. The stateIDs should line up with your microcontroller however. 
-        self.stateNames='bootState','waitState','initiationState','cue1State','cue2State','stim1State',\
-        'stim2State','catchState','saveState','rewardState','neutralState','punishState',\
-        'endState','defaultState'
+        # The stateName is up to you. T
+        # The stateIDs should line up with your microcontroller however. 
+        self.stateNames=['bootState','waitState','initiationState',\
+        'cue1State','cue2State','stim1State','stim2State','catchState',\
+        'saveState','rewardState','neutralState','punishState',\
+        'endState','defaultState']
 
         self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,25,29]
-        
+        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)
         # This links the names and IDs together.
         for x in range(0,len(self.stateIDs)):
             exec('self.{}={}'.format(self.stateNames[x],self.stateIDs[x]))
+        print(self.stateBindings)
 
-    def initVars_stateCallbacks(self):
-        ## Globals
+    def stateVars_init(self):
+        self.dPos=float(0)
         self.movThr=40       
         self.movTimeThr=2    
         self.stillTime=float(0)
@@ -212,6 +220,29 @@ class pyDiscrim_mainGUI:
         self.stillTimeStart=float(0)
         self.distThr=1000  
         self.timeOutDuration=2;
+
+    ####
+    # Check For User Imports
+    ####
+
+    def makeMetaFrame(self):
+        sesVarVals=[]
+        self.saveVars_session_ids=['sessionTrialCount','currentTrial','timeOutDuration']
+        for x in range(0,len(self.saveVars_session_ids)):
+            exec('sesVarVals.append(self.{})'.format(self.saveVars_session_ids[x]))
+
+        self.sessionDF=pd.DataFrame([sesVarVals],columns=self.saveVars_session_ids)
+        # print(self.sessionDF)
+
+    def updateMetaFrame(self):
+        # updates are series
+            sesVarVals=[]
+            for x in range(0,len(self.saveVars_session_ids)):
+                exec('sesVarVals.append(self.{})'.format(self.saveVars_session_ids[x]))
+            ds=pd.Series(sesVarVals,index=self.saveVars_session_ids)
+            self.sessionDF=self.sessionDF.append(ds,ignore_index=True)
+            print(self.sessionDF)
+
 
     #########################################
     ## ****  Utility Functions **** ##
@@ -235,12 +266,17 @@ class pyDiscrim_mainGUI:
                         print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
                         gaveFeedback=1
                     loopCount=loopCount+1
-                    if loopCount % 1000 ==0:
+                    if loopCount % 5000 ==0:
                         print('still syncing: state #: {}; loop #: {}'.format(self.currentState,loopCount))
 
                 elif self.currentState==self.bootState:
                     print('ready: mc is in state #: {}'.format(self.currentState))
                     return
+
+    def getFilePath(self):
+        self.dirPath =  filedialog.askdirectory(title = "what what?")
+        print (self.dirPath)
+
 
     #########################################
     ## **** State Switching Functions **** ##
@@ -271,7 +307,6 @@ class pyDiscrim_mainGUI:
         self.updateStateMap=upSt
         while ranHeader==0:
             self.cycleCount=1
-            self.ran_stateHeader=1
             self.lastPos=0 # reset where we think the animal is
             self.entryTime=self.arduinoTime[-1] # log state entry time
             print('in state # {}'.format(self.currentState))
@@ -289,32 +324,48 @@ class pyDiscrim_mainGUI:
 
     ################################
     ## **** main window etc. **** ##
-    ################################
-        
+    ################################     
+    
     def populate_MainWindow_Primary(self):
         self.master.title("pyDiscrim")  
 
-        self.quit_button = Button(self.master, text="Exit", \
-            command=self.buttonCallback_exit, width=10)
-        self.quit_button.grid(row=13, column=2)
+        comStrt=0
+        self.comPathLabel = Label(self.master, text="COM Port Location:")
+        self.comPathLabel.grid(row=comStrt, column=0,sticky=W,padx=7)
+
+        self.comPath=StringVar(self.master)
+        self.comPathEntry=Entry(self.master,\
+            textvariable=self.comPath)
+        self.comPathEntry.grid(row=1, column=0)
+        if sys.platform == 'darwin':
+            self.comPath.set('/dev/cu.usbmodem2762721')
+        elif sys.platform == 'win':
+            self.comPath.set('COM11')
+        self.comPathEntry.config(width=20)
+
+        pthStrt=12
+        self.pathLabel = Label(self.master, text="data path:").grid(row=pthStrt,column=0,sticky=W)
+        self.sesPath=StringVar(self.master)
+        self.sesPathEntry=Entry(self.master,textvariable=self.sesPath)
+        self.sesPathEntry.grid(row=pthStrt+1,column=0,sticky=W)
+        self.sesPathEntry.config(width=20)
+        # guess that the right path is current directory
+        self.sesPath.set(os.getcwd())
+
+        self.setPath_button = Button(self.master, text="<- Set Path", \
+            command=self.btnCB_setPath, width=10)
+        self.setPath_button.grid(row=pthStrt+1,column=2,stick=E)
+
+        quitStrt=14
+        self.quitBtn = Button(self.master, text="Exit", command=self.quitBtnCB, width=10)
+        self.quitBtn.grid(row=14, column=2)
 
     def populate_MainWindow_SerialBits(self):
         # Entries and Selections Left
         fRow=0
         fCol=0
         txtPad=7
-        self.comPortEntry_label = Label(self.master, text="COM Port Location:")
-        self.comPortEntry_label.grid(row=fRow, column=fCol,sticky=W,padx=txtPad)
 
-        self.comPortString=StringVar(self.master)
-        self.comPortString_entry=Entry(self.master,\
-            textvariable=self.comPortString)
-        self.comPortString_entry.grid(row=fRow+1, column=fCol)
-        if sys.platform == 'darwin':
-            self.comPortString.set('/dev/cu.usbmodem2762721')
-        elif sys.platform == 'win':
-            self.comPortString.set('COM11')
-        self.comPortString_entry.config(width=20)
 
         self.baudEntry_label = Label(self.master,text="BAUD Rate:")
         self.baudEntry_label.grid(row=fRow+2, column=fCol,sticky=W,padx=txtPad)
@@ -378,13 +429,6 @@ class pyDiscrim_mainGUI:
         self.mw_button_endSession.grid(row=10, column=0,sticky=E,padx=6)
         self.mw_button_endSession.config(state=DISABLED)
 
-        self.dataPath_label = \
-        Label(self.master, text="data path:").grid(row=11,column=0,sticky=W,padx=3)
-        self.dataPath=StringVar(self.master)
-        self.dataPath_entry=Entry(self.master,textvariable=self.dataPath)
-        self.dataPath_entry.grid(row=11,columnspan=3,sticky=E)
-        self.dataPath.set(dirStuff.getcwd())
-        self.dataPath_entry.config(width=25)
 
 
         self.taskProbs_Button = Button(self.master, text = 'Task Probs',\
@@ -467,7 +511,7 @@ class pyDiscrim_mainGUI:
         self.lickMax=1000
         self.timeBase=1000000
 
-    def buttonCallback_exit(self):
+    def quitBtnCB(self):
         if self.ranTask==0 or self.comObjectExists==0:  
             print('*** bye: closed without saving ***')
             exit()
@@ -475,8 +519,25 @@ class pyDiscrim_mainGUI:
             self.data_saveData() 
             self.utilState_syncSerial()
             self.comObj.close()
-            print('*** bye: closed com port, resyncd its state, and saved some data ***')
+            print('bye: closed com port, resyncd its state, and saved some data')
             exit()
+
+    def btnCB_setPath(self):
+        self.getFilePath()
+        self.sesPath.set(self.dirPath)
+        self.fixPath()
+        self.animalIDStr.set(os.path.basename(self.dirPath))
+        metaString='{}{}_animalMeta.csv'.format(self.sdir,self.animalIDStr.get())
+        stateString='{}{}_stateMap.csv'.format(self.sdir,self.animalIDStr.get())
+        self.loadedMeta=os.path.isfile(metaString)
+        self.loadedStates=os.path.isfile(stateString)
+        if self.loadedMeta is True:
+            tempMeta=pd.read_csv(metaString,index_col=0)
+        if self.loadedStates is True:
+            tempStates=pd.Series.from_csv(stateString)
+        print(tempStates)
+        tempMeta.to_csv('.lastMeta.csv')
+        tempStates.to_csv('.lastStates.csv')
 
     ################################
     ## **** Auxilary Windows **** ##
@@ -587,14 +648,14 @@ class pyDiscrim_mainGUI:
         'sTask1_distract_prob','sTask1_target_reward_prob',\
         'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
         'sTask1_distract_punish_prob'
-        if self.probsRefreshed==0:
+        if self.taskProbsRefreshed==0:
             self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
 
         self.t2_probEntries='sTask2_prob','sTask2_target_prob',\
         'sTask2_distract_prob','sTask2_target_reward_prob',\
         'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
         'sTask2_distract_punish_prob'
-        if self.probsRefreshed==0:
+        if self.taskProbsRefreshed==0:
             self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
     
     def populate_taskProbFrame(self):
@@ -606,7 +667,8 @@ class pyDiscrim_mainGUI:
                 format(self.t1_probEntries[x],self.t1_probEntries[x]))
             exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
             exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
-            exec('self.{}.set({})'.format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
+            exec('self.{}.set({})'\
+                .format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
 
         for x in range(0,len(self.t2_probEntries)):
             exec('self.{}=StringVar(self.tb_frame)'.format(self.t2_probEntries[x]))
@@ -616,19 +678,24 @@ class pyDiscrim_mainGUI:
                 format(self.t2_probEntries[x],self.t2_probEntries[x]))
             exec('self.{}_label.grid(row=x, column=3)'.format(self.t2_probEntries[x]))
             exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
-            exec('self.{}.set({})'.format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
+            exec('self.{}.set({})'\
+                .format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
 
     def refresh_TaskProbs(self):
         
         for x in range(0,len(self.t1_probEntries)):
-            exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'.format(self.t1_probEntries[x]))
-            exec('self.{}.set(str(self.t1_probEntriesValues[x]))'.format(self.t1_probEntries[x]))
+            exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'\
+                .format(self.t1_probEntries[x]))
+            exec('self.{}.set(str(self.t1_probEntriesValues[x]))'\
+                .format(self.t1_probEntries[x]))
         
         for x in range(0,len(self.t2_probEntries)):
-            exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'.format(self.t2_probEntries[x]))
-            exec('self.{}.set(str(self.t2_probEntriesValues[x]))'.format(self.t2_probEntries[x]))
+            exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'\
+                .format(self.t2_probEntries[x]))
+            exec('self.{}.set(str(self.t2_probEntriesValues[x]))'\
+                .format(self.t2_probEntries[x]))
 
-        self.probsRefreshed=1
+        self.taskProbsRefreshed=1
 
     def initialize_StateVars(self):
         self.t1_stateVarsEntries='self.movThr','self.movTimeThr'
@@ -637,20 +704,26 @@ class pyDiscrim_mainGUI:
 
     def populate_stateVarFrame(self):
         for x in range(0,len(self.t1_stateVarsEntries)):
-            exec('self.{}=StringVar(self.self.frame_sv)'.format(self.t1_stateVarsEntries[x]))
+            exec('self.{}=StringVar(self.self.frame_sv)'\
+                .format(self.t1_stateVarsEntries[x]))
             exec('self.{}_label = Label(self.self.frame_sv, text="{}")'.\
                 format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
             exec('self.{}_entry=Entry(self.self.frame_sv,width=6,textvariable=self.{})'.\
                 format(self.t1_stateVarsEntries[x],self.t1_stateVarsEntries[x]))
-            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}.set({})'.format(self.t1_stateVarsEntries[x],self.t1_stateVarsValues[x]))
+            exec('self.{}_label.grid(row=x, column=1)'\
+                .format(self.t1_stateVarsEntries[x]))
+            exec('self.{}_entry.grid(row=x, column=0)'\
+                .format(self.t1_stateVarsEntries[x]))
+            exec('self.{}.set({})'\
+                .format(self.t1_stateVarsEntries[x],self.t1_stateVarsValues[x]))
 
     def refresh_stateVars(self):
         
         for x in range(0,len(self.t1_stateVarsEntries)):
-            exec('self.t1_stateVarsValues[x]=(float(self.{}.get()))'.format(self.t1_stateVarsEntries[x]))
-            exec('self.{}.set(str(self.t1_stateVarsValues[x]))'.format(self.t1_stateVarsEntries[x]))
+            exec('self.t1_stateVarsValues[x]=(float(self.{}.get()))'\
+                .format(self.t1_stateVarsEntries[x]))
+            exec('self.{}.set(str(self.t1_stateVarsValues[x]))'\
+                .format(self.t1_stateVarsEntries[x]))
         
         self.stateVarsRefreshed=1
 
@@ -661,14 +734,14 @@ class pyDiscrim_mainGUI:
     def serial_initComObj(self):
         if self.comObjectExists==0:
             print('Opening serial port: {}'.\
-                format(self.comPortString.get()))
-            self.comObj = serial.Serial(self.comPortString.get(),\
+                format(self.comPath.get()))
+            self.comObj = serial.Serial(self.comPath.get(),\
                 self.baudSelected.get()) 
             self.utilState_syncSerial()
             self.comObjectExists=1
 
             # update the GUI
-            self.comPortString_entry.config(state=DISABLED)
+            self.comPathEntry.config(state=DISABLED)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
             self.mw_button_startSession.config(state=NORMAL)
@@ -687,7 +760,7 @@ class pyDiscrim_mainGUI:
             print('> i closed the COM object')
             
             # update the GUI
-            self.comPortString_entry.config(state=NORMAL)
+            self.comPathEntry.config(state=NORMAL)
             self.baudPick.config(state=NORMAL)
             self.createCom_button.config(state=NORMAL)
             self.mw_button_startSession.config(state=DISABLED)
@@ -774,7 +847,8 @@ class pyDiscrim_mainGUI:
 
     def data_parseData(self):
         self.arduinoTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
-        self.arduinoTrialTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
+        self.arduinoTrialTime.append(float(int(self.sR[self.stID_trialTime])/\
+            self.timeBase))
         self.posDelta.append(int(self.sR[self.stID_pos])-128)
         self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
         self.lastPos=int(self.absolutePosition[-1])
@@ -785,52 +859,36 @@ class pyDiscrim_mainGUI:
         self.analysis_lickDetect()
         self.dataExists=1
 
+    def fixPath(self):
+        self.sdir=os.path.isdir(self.sesPath.get())
+        if self.sdir==False:
+            os.mkdir(self.sesPath.get())
+        self.sdir=self.sesPath.get()
+        if self.sdir[-1] != '/' :
+            self.sdir=self.sdir + '/' 
+
     def data_saveData(self):
 
-        sdir=dirStuff.path.isdir(self.dataPath.get())
-        if sdir==False:
-            dirStuff.mkdir(self.dataPath.get())
-        sdir=self.dataPath.get()
-        if sdir[-1] != '/' :
-            sdir=sdir + '/' 
-        print(sdir)
+        self.fixPath()
 
+        saveStreams='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
+        'lickValues_a','lickValues_b','pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
 
+        self.tCo=[]
+        for x in range(0,len(saveStreams)):
+            exec('self.tCo=self.{}'.format(saveStreams[x]))
+            if x==0:
+                self.rf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
+            elif x != 0:
+                self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
+                self.rf=pd.concat([self.rf,self.tf],axis=1)
 
-        saveStreamsA='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
-        'lickValues_a','lickValues_b'
-        saveStreamsB='pyStatesRS','pyStatesRT'
-        saveStreamsC='pyStatesTS','pyStatesTT'
-        
-        svA=[]
-        svB=[]
-        svC=[]
+        self.rf.to_csv('{}{}_{}_trial_{}.csv'.format(self.sdir,self.animalIDStr.get(),\
+            self.dateStr,self.currentTrial))
+        self.stateBindings.to_csv('{}{}_stateMap.csv'.\
+            format(self.sdir,self.animalIDStr.get()))
 
-        for x in range(0,len(saveStreamsA)):
-            exec('svA.append(self.{})'.format(saveStreamsA[x]))
-        for x in range(0,len(saveStreamsB)):
-            exec('svB.append(self.{})'.format(saveStreamsB[x]))
-        for x in range(0,len(saveStreamsC)):
-            exec('svC.append(self.{})'.format(saveStreamsC[x]))
-
-        self.exportArrayA=np.transpose(np.array([svA]))
-        self.exportArrayB=np.transpose(np.array([svB]))
-        self.exportArrayC=np.transpose(np.array([svC]))
-                
-        np.savetxt('{}{}_{}_trial_{}_a.csv'.\
-            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial),\
-            self.exportArrayA, delimiter=",",fmt="%g")
-
-        np.savetxt('{}{}_{}_trial_{}_b.csv'.\
-            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial), \
-            self.exportArrayB, delimiter=",",fmt="%g")
-
-        np.savetxt('{}{}_{}_trial_{}_c.csv'.\
-            format(sdir,self.animalIDStr.get(),self.dateStr,self.currentTrial), \
-            self.exportArrayC, delimiter=",",fmt="%g")
-        
         self.dataExists=0
-        self.dataSaves=self.dataSaves+1
 
     def exceptionCallback(self):
         print('EXCEPTION thrown: I am going down')
@@ -891,8 +949,8 @@ class pyDiscrim_mainGUI:
         plt.xlabel('time since trial start (sec)')
 
         plt.subplot(2,2,3)
-        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.lickValues_a[-self.segPlot:-1],'k-')
-        # self.lH=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],self.detected_licks[-self.segPlot:-1],'ro')
+        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
+            self.lickValues_a[-self.segPlot:-1],'k-')
         plt.ylim(0,int(self.lickPlotMax.get()))
         if len(self.arduinoTrialTime)>self.segPlot+1:
             plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
@@ -1044,7 +1102,6 @@ class pyDiscrim_mainGUI:
         if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
             print('timeout of {} seconds is over'.format(self.timeOutDuration))
             self.state_util_switchToNewState(self.saveState)
-
 
 def main(): 
     root = Tk()
