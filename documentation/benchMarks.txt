@@ -1,0 +1,121 @@
+benchMarks:
+
+arduino spits 500 us (target)
+python plots 500 at a time and updates at 400
+baud = 9600
+9.7560e-13 variance in dt
+5.1524e-04 mean of dt
+s1=5.1491e-04
+s2=5.1523e-04
+s4=5.1539e-04
+s21=5.1558e-04
+
+transition times
+(round trip)
+1->2
+0.0283
+2->4 (button)
+0.1923
+4->21 (button)
+0.1566
+
+
+
+
+
+
+arduino spits 500 us (target)
+python plots 200 at a time and updates at 200
+2
+5.1587e-04
+8.8128e-13
+3
+5.1558e-04
+9.6415e-13
+5
+5.1580e-04
+9.3378e-13
+
+
+4.0150
+4.2442
+2.5461
+
+
+
+arduino spits 500 us (target)
+python plots 500 at a time and updates at 50
+
+1
+5.1530e-04
+9.6807e-13
+
+2
+5.1566e-04
+9.4724e-13
+
+5
+5.1565e-04
+1.0102e-12
+
+13
+0.0076
+0.3573
+
+to 3
+8.7615
+to 5
+0.0082
+save
+8.1496
+
+updates at 1000 2000
+1
+5.1517e-04
+9.4613e-13
+
+2
+5.1546e-04
+9.4096e-13
+
+13
+0.0259
+0.3634
+
+round trip time
+2 4 6 13
+0.0052
+0.1418 btn
+0.0041
+0.0052
+
+
+now arduino loops 1k
+updates at 500
+plots at 1000
+
+
+    0.0102
+    0.1300
+    0.1361
+    0.2072
+    0.1340
+    0.1371
+    0.1533
+    0.1392
+    0.1523
+    0.1381
+    0.0142
+
+    
+     2
+     3
+     2
+     3
+     2
+     4
+     2
+     3
+     2
+     5
+    13
