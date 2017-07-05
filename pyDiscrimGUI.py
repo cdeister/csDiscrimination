@@ -2,10 +2,19 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 2.99
-# Changes: logs and loads metadata, can specify a path will load some info
-# Laying the groundwork for the concept of 
-# a per animal profile that lives with that animal.
+# Version 3.0
+# Most variables are interactive.
+# Parent UI is disorganized, but feature rich.
+# Metadata export, import and autosensing.
+# benchmarks on a dualcore i5 mac laptop:
+# with 1-2K teensey loops: 
+
+# dt variance 9e-13 sec; mean 1±0.1 ms at 1k and 0.5±0.001 ms at 2k
+# round trip with ui updates every 200-1k samples is:
+#  0.004 ± 0.001 and 0.13 ± 0.02 ms buttons or natural transitions
+# no difference between forward and backward transitions
+
+# Upcoming: variable bindings
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -29,32 +38,33 @@ import pandas as pd
 class pyDiscrim_mainGUI:
 
     def __init__(self,master):
-        
-        # Make the main GUI window
-        # Tkinter requires a parent named master.
         self.master = master
         self.frame = Frame(self.master)
-        self.populate_MainWindow_Primary()
         self.sessionVars_init()
+        self.mainWindowPopulate()
+        print(self.currentTrial)
+        print(self.currentSession)
         self.stateNames_init()
-        self.populate_MainWindow_SerialBits()
-        self.metadata_sessionFlow()
-        self.metadata_lickDetection()
-        self.metadata_plotting()
-        self.initialize_TaskProbs()
+        self.setTaskProbs(0)
         self.initialize_StateVars()
         self.stateVars_init()
         self.data_serialInputIDs()
 
-    def runTask(self):
-        self.exportAnimalMeta()
+    def runTask_header(self):
+        self.endBtn.config(state=NORMAL)
+        self.startBtn.config(state=DISABLED)
+        print('started at state #: {}'.format(self.currentState))
+        self.data_makeContainers()
+        self.uiUpdateDelta=int(self.uiUpdateSamps.get())
+        self.ranTask=self.ranTask+1
         self.shouldRun=1
-        initTrials=self.sessionTrialCount 
-        # baseline requested trials, by what's been done before.
+        self.trialTimes=[]
+
+    def runTask(self):
         self.runTask_header()
-        while self.currentTrial-initTrials <=int(self.totalTrials.get()) \
+        aa=time.time()
+        while self.currentTrial <=int(self.totalTrials.get()) \
         and self.shouldRun==1:
-            self.initTime=0
             try:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==self.bootState:
@@ -65,166 +75,191 @@ class pyDiscrim_mainGUI:
                         self.serial_readDataFlush()
                         if self.dataAvail==1:
                             self.data_parseData()
-                            self.state_util_switchToNewState(self.initiationState)
+                            self.switchState(self.initiationState)
 
                 #S1 -----> trial wait state
                 elif self.currentState==self.waitState:
-                    self.state_flow_stateHeader(1)
+                    self.stateHeader(1)
                     while self.currentState==self.waitState:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_waitState()
 
                 #S2 -----> trial initiation state
                 elif self.currentState==self.initiationState:
                     self.task_switch=random.random()
-                    self.state_flow_stateHeader(1)
+                    self.stateHeader(1)
                     while self.currentState==self.initiationState:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_initiationState()
 
                 #S3 -----> cue #1
                 elif self.currentState==self.cue1State:
-                    self.state_flow_stateHeader(1)
+                    self.stateHeader(1)
                     self.outcomeSwitch=random.random()
                     while self.currentState==self.cue1State:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_cue1State()
 
                 #S4 -----> cue #2
                 elif self.currentState==self.cue2State:
-                    self.state_flow_stateHeader(1)
+                    self.stateHeader(1)
                     self.outcomeSwitch=random.random() # debug
                     while self.currentState==self.cue2State:    
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_cue2State()
 
                 #S5 -----> stim tone #1
                 elif self.currentState==self.stim1State:
-                    self.state_flow_stateHeader(1)
+                    self.stateHeader(1)
                     while self.currentState==self.stim1State:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_stim1State()
 
                 #S6 -----> stim tone #2
                 elif self.currentState==self.stim2State:
-                    self.state_flow_stateHeader(1)
+                    self.stateHeader(1)
                     while self.currentState==self.stim2State:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_stim2State()
 
                 #S21 -----> reward state
                 elif self.currentState==self.rewardState:
-                    self.state_flow_stateHeader(0)
+                    self.stateHeader(0)
                     while self.currentState==self.rewardState:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_rewardState()
 
                 #S23 -----> punish state
                 elif self.currentState==self.punishState:
-                    self.state_flow_stateHeader(0)
+                    self.stateHeader(0)
                     while self.currentState==self.punishState:
-                        self.state_flow_coreState()
+                        self.coreState()
                         if self.fireCallback:
                             self.callback_punishState()
 
                 #S13: save state
                 elif self.currentState==self.saveState:
+                    bb=time.time()
+                    self.trialTimes.append(bb-aa)
+                    print('last trial took: {} seconds'.format(bb-aa))
                     self.data_saveData()
                     self.data_cleanContainers()
                     self.currentTrial=self.currentTrial+1
                     self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
                     print('trial {} done, saved its data'.format(self.currentTrial-1))
+                    aa=time.time()
                     self.comObj.write(struct.pack('>B', self.waitState))
-                    self.state_flow_exitCurState(self.saveState)
+                    self.exitState(self.saveState)
                 
                 #S25: end session state
                 elif self.currentState==self.endState:
                     print('About to end the session ...')
                     if self.dataExists==1:
                         self.data_saveData()
-                        print('saved data')
+                        self.data_cleanContainers()
+                        self.currentTrial=self.currentTrial+1
+                        self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
                     self.shouldRun=0
 
             except:
+                self.exportAnimalMeta()
                 self.exceptionCallback()
-
-        self.mw_button_endSession.config(state=DISABLED)
-        self.mw_button_startSession.config(state=NORMAL)
+        self.currentSession=self.currentSession+1
+        self.exportAnimalMeta()
+        self.endBtn.config(state=DISABLED)
+        self.startBtn.config(state=NORMAL)
+        self.stateBindings.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
         print('I completed {} trials.'.format(self.currentTrial-1))
         print('!!!!!!! --> Session #:{} Finished'.format(self.ranTask))
-        self.utilState_syncSerial()
+        self.updateDispTime()
+        self.syncSerial()
 
-    def runTask_header(self):
-        self.mw_button_endSession.config(state=NORMAL)
-        self.mw_button_startSession.config(state=DISABLED)
-        print('started at state #: {}'.format(self.currentState))
-        self.data_makeContainers()
-        self.uiUpdateDelta=300
-        self.ranTask=self.ranTask+1
-
-    #########################################################
-    ## **** These Functions Set All Initial Variables **** ##
-    ######################################################### 
+    #####################################
+    ## **** Set Initial Variables **** ##
+    #####################################
 
     # these do not need editing
     def sessionVars_init(self):
-        
-        self.ranTask=0  # This increments every time you run a task        
-        self.dataExists=0 
-        self.comObjectExists=0
-        self.taskProbsRefreshed=0
-        self.stateVarsRefreshed=0 
-
-        self.currentTrial=0
-        self.currentState=0
-        self.currentSession=0
-        self.sessionTrialCount=0
-
-    def exportAnimalMeta(self):
-        self.fixPath()
-        self.metaNames=['comPath','dirPath']
-        sesVarVals=[self.comPath.get(),self.dirPath]
-        self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
-        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.\
-            format(self.sdir,self.animalIDStr.get()))
+        # session vars
+        self.sessionVarIDs=['ranTask','dataExists','comObjectExists',\
+        'taskProbsRefreshed','stateVarsRefreshed','currentTrial',\
+        'currentState','currentSession','sessionTrialCount']
+        self.sessionVarVals=\
+        [0,0,0,\
+         0,0,1,\
+         0,1,1]
+        self.mapAssign(self.sessionVarIDs,self.sessionVarVals)
 
     def stateNames_init(self):
-        # All state have a name (string) and a numerical ID (int).
-        # The stateName is up to you. T
-        # The stateIDs should line up with your microcontroller however. 
         self.stateNames=['bootState','waitState','initiationState',\
         'cue1State','cue2State','stim1State','stim2State','catchState',\
         'saveState','rewardState','neutralState','punishState',\
         'endState','defaultState']
 
         self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,25,29]
-        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)
-        # This links the names and IDs together.
-        for x in range(0,len(self.stateIDs)):
-            exec('self.{}={}'.format(self.stateNames[x],self.stateIDs[x]))
-        print(self.stateBindings)
+        
+        self.mapAssign(self.stateNames,self.stateIDs)
+        
+        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)    
 
     def stateVars_init(self):
-        self.dPos=float(0)
-        self.movThr=40       
-        self.movTimeThr=2    
-        self.stillTime=float(0)
-        self.stillLatch=0
-        self.stillTimeStart=float(0)
-        self.distThr=1000  
-        self.timeOutDuration=2;
+        self.stateVarIDs=['dPos','movThr','movTimeThr',\
+        'stillTime','stillLatch','stillTimeStart','distThr',\
+        'timeOutDuration']
+        self.stateVarInitVals=[0,40,2,0,0,0,1000,2]
+        self.mapAssign(self.stateVarIDs,self.stateVarInitVals)
 
-    ####
-    # Check For User Imports
-    ####
+    def setTaskProbs(self,refresh):
+        if refresh==0:
+            self.t1_probEntries='sTask1_prob','sTask1_target_prob',\
+            'sTask1_distract_prob','sTask1_target_reward_prob',\
+            'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
+            'sTask1_distract_punish_prob'
+            if self.taskProbsRefreshed==0:
+                self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
 
+            self.t2_probEntries='sTask2_prob','sTask2_target_prob',\
+            'sTask2_distract_prob','sTask2_target_reward_prob',\
+            'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
+            'sTask2_distract_punish_prob'
+            if self.taskProbsRefreshed==0:
+                self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
+            self.taskProbsSet=1
+
+        if refresh==1:
+            for x in range(0,len(self.t1_probEntries)):
+                exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'\
+                    .format(self.t1_probEntries[x]))
+                exec('self.{}.set(str(self.t1_probEntriesValues[x]))'\
+                    .format(self.t1_probEntries[x]))
+        
+            for x in range(0,len(self.t2_probEntries)):
+                exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'\
+                    .format(self.t2_probEntries[x]))
+                exec('self.{}.set(str(self.t2_probEntriesValues[x]))'\
+                    .format(self.t2_probEntries[x]))
+            self.taskProbsRefreshed=1
+
+
+    ############################### 
+    ##  Check For User Imports.  ## 
+    ###############################
+    def exportAnimalMeta(self):
+        self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot','uiUpdateSamps',\
+        'ux_adaptThresh','lickValuesOrDeltas','lickThr_a','lickPlotMax']
+        sesVarVals=[self.comPath.get(),self.dirPath.get(),self.animalIDStr.get(),self.totalTrials.get(),\
+        self.sampsToPlot.get(),self.uiUpdateSamps.get(),self.ux_adaptThresh.get(),self.lickValuesOrDeltas.get(),\
+        self.lickThr_a.get(),self.lickPlotMax.get()]
+        self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
+        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+    
     def makeMetaFrame(self):
         sesVarVals=[]
         self.saveVars_session_ids=['sessionTrialCount','currentTrial','timeOutDuration']
@@ -243,13 +278,13 @@ class pyDiscrim_mainGUI:
             self.sessionDF=self.sessionDF.append(ds,ignore_index=True)
             print(self.sessionDF)
 
-
     #########################################
     ## ****  Utility Functions **** ##
     ########################################
 
-    def utilState_syncSerial(self):
+    def syncSerial(self):
         ranHeader=0
+        self.dataExists=0
         while ranHeader==0:
             gaveFeedback=0
             ranHeader=1
@@ -273,25 +308,44 @@ class pyDiscrim_mainGUI:
                     print('ready: mc is in state #: {}'.format(self.currentState))
                     return
 
-    def getFilePath(self):
-        self.dirPath =  filedialog.askdirectory(title = "what what?")
-        print (self.dirPath)
+    def getPath(self):
 
+        self.selectPath = filedialog.askdirectory(title = "what what?")
+
+    def getFilePath(self):
+
+        self.selectPath = filedialog.askopenfilename(title = "what what?",defaultextension='.csv')
+
+    def setSessionPath(self):
+        dirPathFlg=os.path.isdir(self.dirPath.get())
+        if dirPathFlg==False:
+            os.mkdir(self.dirPath)
+        self.dirPath.set(self.dirPath)
+        self.setSesPath=1 
+
+    def mapAssign(self,l1,l2):
+        for x in range(0,len(l1)):
+            exec('self.{}={}'.format(l1[x],l2[x])) 
+
+    def mapAssignStringEntries(self,l1,l2):
+        for x in range(0,len(l1)):
+            a=[l2[x]]
+            exec('self.{}.set(a[0])'.format(l1[x]))
 
     #########################################
     ## **** State Switching Functions **** ##
     ######################################### 
     
-    def state_util_switchToNewState(self,targetState):
+    def switchState(self,targetState):
         self.targetState=targetState
         if self.dataExists==1:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.arduinoTime[-1])
         print('pushing: s{} -> s{}'.format(self.currentState,targetState))
         self.comObj.write(struct.pack('>B', targetState))
-        self.state_flow_exitCurState(self.currentState)
+        self.exitState(self.currentState)
 
-    def state_flow_exitCurState(self,cState): 
+    def exitState(self,cState): 
         self.cState=cState
         while self.currentState==self.cState:      
             self.serial_readDataFlush()
@@ -301,7 +355,7 @@ class pyDiscrim_mainGUI:
         self.pyStatesTS.append(self.currentState)
         self.pyStatesTT.append(self.arduinoTime[-1])
 
-    def state_flow_stateHeader(self,upSt):
+    def stateHeader(self,upSt):
         self.upSt=upSt
         ranHeader=0 # set the latch, the header runs once per entry.
         self.updateStateMap=upSt
@@ -312,187 +366,153 @@ class pyDiscrim_mainGUI:
             print('in state # {}'.format(self.currentState))
             ranHeader=1 # fire the latch
         
-    def state_flow_coreState(self):
+    def coreState(self):
+        uiUp=int(self.uiUpdateSamps.get())
         self.fireCallback=0
         self.serial_readDataFlush()
         if self.dataAvail==1:
             self.data_parseData()
-            if int(self.cycleCount) % int(self.uiUpdateDelta)==0:
+            if self.cycleCount % uiUp == 0:
                 self.updatePlotCheck()
             self.fireCallback=1
             self.cycleCount=self.cycleCount+1;
 
     ################################
     ## **** main window etc. **** ##
-    ################################     
-    
-    def populate_MainWindow_Primary(self):
-        self.master.title("pyDiscrim")  
+    ################################   
 
-        comStrt=0
-        self.comPathLabel = Label(self.master, text="COM Port Location:")
-        self.comPathLabel.grid(row=comStrt, column=0,sticky=W,padx=7)
+    def updateDispTime(self):
+        self.dateStr = datetime.datetime.\
+        fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
+        self.timeDisp.config(text=' #{} started: '.format(self.currentSession) + self.dateStr)  
+    
+    def blankLine(self,targ,startRow):
+        self.guiBuf=Label(targ, text="")
+        self.guiBuf.grid(row=startRow,column=0,sticky=W)
+
+    def addSerialBlock(self,startRow):
+        self.startRow = startRow
+
+        # @@@@@ --> Serial Block
+        self.blankLine(self.master,startRow)
+        self.comPathLabel = Label(self.master,text="COM Port Location:",justify=LEFT)
+        self.comPathLabel.grid(row=startRow+1,column=0,sticky=W)
 
         self.comPath=StringVar(self.master)
-        self.comPathEntry=Entry(self.master,\
-            textvariable=self.comPath)
-        self.comPathEntry.grid(row=1, column=0)
+        self.comPathEntry=Entry(self.master,textvariable=self.comPath)
+        self.comPathEntry.grid(row=startRow+2, column=0)
+        self.comPathEntry.config(width=20)
+        
         if sys.platform == 'darwin':
             self.comPath.set('/dev/cu.usbmodem2762721')
         elif sys.platform == 'win':
             self.comPath.set('COM11')
-        self.comPathEntry.config(width=20)
 
-        pthStrt=12
-        self.pathLabel = Label(self.master, text="data path:").grid(row=pthStrt,column=0,sticky=W)
-        self.sesPath=StringVar(self.master)
-        self.sesPathEntry=Entry(self.master,textvariable=self.sesPath)
-        self.sesPathEntry.grid(row=pthStrt+1,column=0,sticky=W)
-        self.sesPathEntry.config(width=20)
-        # guess that the right path is current directory
-        self.sesPath.set(os.getcwd())
-
-        self.setPath_button = Button(self.master, text="<- Set Path", \
-            command=self.btnCB_setPath, width=10)
-        self.setPath_button.grid(row=pthStrt+1,column=2,stick=E)
-
-        quitStrt=14
-        self.quitBtn = Button(self.master, text="Exit", command=self.quitBtnCB, width=10)
-        self.quitBtn.grid(row=14, column=2)
-
-    def populate_MainWindow_SerialBits(self):
-        # Entries and Selections Left
-        fRow=0
-        fCol=0
-        txtPad=7
-
-
-        self.baudEntry_label = Label(self.master,text="BAUD Rate:")
-        self.baudEntry_label.grid(row=fRow+2, column=fCol,sticky=W,padx=txtPad)
+        self.baudEntry_label = Label(self.master,text="BAUD Rate:",justify=LEFT)
+        self.baudEntry_label.grid(row=startRow+3, column=0,sticky=W)
 
         self.baudSelected=IntVar(self.master)
         self.baudSelected.set(9600)
         self.baudPick = OptionMenu(self.master,self.baudSelected,9600,19200)
-        self.baudPick.grid(row=fRow+3, column=fCol)
+        self.baudPick.grid(row=startRow+4, column=0)
         self.baudPick.config(width=20)
 
-        # Buttons Right
-        fRow=1
-        self.createCom_button = Button(self.master, text="Start Serial",\
-         width = 10, command=self.serial_initComObj)
-        self.createCom_button.grid(row=fRow, column=2)
-        self.createCom_button.config(state=NORMAL) 
-        
-        self.syncComObj_button = Button(self.master, text="Sync Serial",\
-            width = 10, command=self.utilState_syncSerial)
-        self.syncComObj_button.grid(row=fRow+1, column=2)
+        self.createCom_button = Button(self.master,text="Start Serial",width = 10, \
+            command=self.serial_initComObj)
+        self.createCom_button.grid(row=startRow+2, column=2)
+        self.createCom_button.config(state=NORMAL)
+
+        self.syncComObj_button = Button(self.master,text="Sync Serial",width = 10, \
+            command=self.syncSerial)
+        self.syncComObj_button.grid(row=startRow+3, column=2)
         self.syncComObj_button.config(state=DISABLED)  
 
-        self.closeComObj_button = Button(self.master, text="Close Serial",\
-            width = 10, command=self.serial_closeComObj)
-        self.closeComObj_button.grid(row=fRow+2, column=2)
-        self.closeComObj_button.config(state=DISABLED) 
-    
-    def metadata_sessionFlow(self):
-        self.guiPad = Label(self.master, text="")
-        self.guiPad.grid(row=6, column=0)
+        self.closeComObj_button = Button(self.master,text="Close Serial",width = 10, \
+            command=self.serial_closeComObj)
+        self.closeComObj_button.grid(row=startRow+4, column=2)
+        self.closeComObj_button.config(state=DISABLED)
 
-        self.sessionStuffLabel = Label(self.master, text="Session Stuff:")
-        self.sessionStuffLabel.grid(row=7, column=0,sticky=W,padx=5)
+    def addSessionBlock(self,startRow):
+        # @@@@@ --> Session Block
+        self.sesPathFuzzy=1 # This variable is set when we guess the path.
 
-        self.animalIDStr_label = \
-        Label(self.master, text="animal id:").grid(row=8,column=0,sticky=W)
+        self.animalID='yourID'
+        self.dateStr = datetime.datetime.\
+        fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
+
+        self.blankLine(self.master,startRow)
+        self.sessionStuffLabel = Label(self.master, text="Session Stuff: ",justify=LEFT).grid(row=startRow+1, column=0,sticky=W)
+
+        self.timeDisp = Label(self.master, text=' #{} started: '.format(self.currentSession) + self.dateStr,justify=LEFT)
+        self.timeDisp.grid(row=startRow+2, column=0,sticky=W)
+
+        self.dirPath=StringVar(self.master)
+        self.pathEntry=Entry(self.master,textvariable=self.dirPath,width=24,bg='grey')
+        self.pathEntry.grid(row=startRow+3,column=0,sticky=W)
+        self.dirPath.set(os.path.join(os.getcwd(),self.animalID))
+
+        self.setPath_button = Button(self.master,text="<- Set Path",command=self.setPathBtn, width=10)
+        self.setPath_button.grid(row=startRow+3,column=2,stick=E)
+
+        self.aIDLabel=Label(self.master, text="animal id:").grid(row=startRow+4,column=0,sticky=W)
         self.animalIDStr=StringVar(self.master)
-        self.animalIDStr_entry=Entry(self.master,\
-            textvariable=self.animalIDStr)
-        self.animalIDStr_entry.grid(row=8,column=0,sticky=E)
-        self.animalIDStr.set('cj_dX')
-        self.animalIDStr_entry.config(width=12)
+        self.animalIDEntry=Entry(self.master,textvariable=self.animalIDStr,width=12,bg='grey')
+        self.animalIDEntry.grid(row=startRow+4,column=0,sticky=E)
+        self.animalIDStr.set(self.animalID)
 
-        self.totalTrials_label = \
-        Label(self.master, text="total trials").grid(row=9,column=0,sticky=W)
+        self.totalTrials_label = Label(self.master,text="total trials:").grid(row=startRow+5,column=0,sticky=W)
         self.totalTrials=StringVar(self.master)
         self.totalTrials_entry=Entry(self.master,textvariable=self.totalTrials)
-        self.totalTrials_entry.grid(row=9, column=0,sticky=E)
+        self.totalTrials_entry.grid(row=startRow+5,column=0,sticky=E)
         self.totalTrials.set('100')
         self.totalTrials_entry.config(width=12)
-        self.dateStr = datetime.datetime.\
-        fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M')
 
-        self.mw_button_startSession = Button(self.master, text="Start Task",\
-            width = 7, command=self.runTask)
-        self.mw_button_startSession.grid(row=10, column=0,sticky=W,padx=6)
-        self.mw_button_startSession.config(state=DISABLED)
+        self.curSession_label = Label(self.master,text="current session:").grid(row=startRow+6,column=0,sticky=W)
+        self.curSession=StringVar(self.master)
+        self.curSession_entry=Entry(self.master,textvariable=self.totalTrials)
+        self.curSession_entry.grid(row=startRow+5,column=0,sticky=E)
+        self.curSession.set('1')
+        self.curSession_entry.config(width=12)
 
-        self.mw_button_endSession = Button(self.master, text="End Task",\
-            width = 7, command=lambda: self.state_util_switchToNewState(self.endState))
-        self.mw_button_endSession.grid(row=10, column=0,sticky=E,padx=6)
-        self.mw_button_endSession.config(state=DISABLED)
+        self.taskProbsBtn = Button(self.master,text='Task Probs',width = 10,command=self.taskProbWindow)
+        self.taskProbsBtn.grid(row=startRow+4, column=2)
+        self.taskProbsBtn.config(state=NORMAL)
 
-
-
-        self.taskProbs_Button = Button(self.master, text = 'Task Probs',\
-         width = 10, command = self.make_taskProbFrame)
-        self.taskProbs_Button.grid(row=8, column=2)
-        self.taskProbs_Button.config(state=NORMAL)
-
-        self.stateToggles_Button = Button(self.master, text = 'State Toggles',\
-         width = 10, command = self.make_stateToggleFrame)
-        self.stateToggles_Button.grid(row=9, column=2)
-        self.stateToggles_Button.config(state=NORMAL)
+        self.stateTogglesBtn = Button(self.master,text = 'State Toggles',width = 10,command=self.stateToggleWindow)
+        self.stateTogglesBtn.grid(row=startRow+5, column=2)
+        self.stateTogglesBtn.config(state=NORMAL)
         
-        self.stateVars_Button = Button(self.master, text = 'State Vars',\
-         width = 10, command = self.make_stateVarFrame)
-        self.stateVars_Button.grid(row=10, column=2)
-        self.stateVars_Button.config(state=NORMAL)
+        self.stateVarsBtn = Button(self.master,text = 'State Vars',width = 10, command = self.stateVarWindow)
+        self.stateVarsBtn.grid(row=startRow+6, column=2)
+        self.stateVarsBtn.config(state=NORMAL)
 
-    def metadata_lickDetection(self):
-        sRow=12
-        self.guiPad = Label(self.master, text="")
-        self.guiPad.grid(row=sRow, column=0)
+        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',width = 10, command = self.loadSessionMetaData)
+        self.loadAnimalMetaBtn.grid(row=startRow+1, column=2)
+        self.loadAnimalMetaBtn.config(state=NORMAL)
 
-        self.guiPad = Label(self.master, text="Lick Detection:")
-        self.guiPad.grid(row=sRow+2, column=0,sticky=W,padx=7)
+        self.saveCurrentMetaBtn=Button(self.master,text="Save Cur. Meta",command=self.exportAnimalMeta, width=10)
+        self.saveCurrentMetaBtn.grid(row=startRow+2,column=2,stick=E)
 
-        self.ux_adaptThresh=StringVar(self.master)
-        self.ux_adaptThreshToggle=Checkbutton(self.master, \
-            text="Ad Thr?",variable=self.ux_adaptThresh)
-        self.ux_adaptThreshToggle.grid(row=sRow+3, column=0,sticky=W,padx=20)
-        self.ux_adaptThreshToggle.select()
-
-        self.lickValuesOrDeltas=StringVar(self.master)
-        self.ux_lickValuesToggle=Checkbutton(self.master, \
-            text="Lk Val?",variable=self.lickValuesOrDeltas)
-        self.ux_lickValuesToggle.grid(row=sRow+3, column=0,sticky=E,padx=20)
-        self.ux_lickValuesToggle.select()
-
-        self.lickThreshold_label = Label(self.master, text="lick threshold:")
-        self.lickThreshold_label.grid(row=sRow+4,column=0,sticky=W,padx=12)
-        self.lickThr_a=StringVar(self.master)
-        self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickThr_a)
-        self.lickMax_entry.grid(row=sRow+4, column=0,sticky=E,padx=12)
-        self.lickThr_a.set(12)
-
-        # plot stuff
-        self.lickMax_label = Label(self.master, text="        lick max:")
-        self.lickMax_label.grid(row=sRow+5, column=0,sticky=W,padx=12)
-        self.lickPlotMax=StringVar(self.master)
-        self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickPlotMax)
-        self.lickMax_entry.grid(row=sRow+5, column=0,sticky=E,padx=12)
-        self.lickPlotMax.set('2000')
-
-    def metadata_plotting(self):
-        sRow=17
-        self.guiPad = Label(self.master, text="")
-        self.guiPad.grid(row=sRow, column=0)
-
-        # TODO: organize by plot types
-        self.sampPlot_label = Label(self.master, text="samples to plot")
-        self.sampPlot_label.grid(row=sRow+1, column=0,sticky=W)
+    def addPlotBlock(self,startRow):
+        self.blankLine(self.master,startRow)
+        self.plotBlock_label = Label(self.master,text="Plotting:")
+        self.plotBlock_label.grid(row=startRow+1, column=0,sticky=W)
+        
+        self.sampPlot_label = Label(self.master,text="Samples to Plot:")
+        self.sampPlot_label.grid(row=startRow+2,column=0,sticky=W)
         self.sampsToPlot=StringVar(self.master)
-        self.sampPlot_entry=Entry(self.master,width=6,textvariable=self.sampsToPlot)
-        self.sampPlot_entry.grid(row=sRow+1, column=0,sticky=E)
+        self.sampPlot_entry=Entry(self.master,width=5,textvariable=self.sampsToPlot)
+        self.sampPlot_entry.grid(row=startRow+2, column=0,sticky=E)
         self.sampsToPlot.set('1000')
+
+        self.uiUpdateSamps_label = Label(self.master, text="Update Sample #:")
+        self.uiUpdateSamps_label.grid(row=startRow+3, column=0,sticky=W)
+        self.uiUpdateSamps=StringVar(self.master)
+        self.uiUpdateSamps_entry=Entry(self.master,width=5,textvariable=self.uiUpdateSamps)
+        self.uiUpdateSamps_entry.grid(row=startRow+3, column=0,sticky=E)
+        self.uiUpdateSamps.set('500')
+        
+
         self.lickMinMax=[-5,10]
         self.initPltRng=2.5
         self.pltDelay=0.0000001 
@@ -511,24 +531,115 @@ class pyDiscrim_mainGUI:
         self.lickMax=1000
         self.timeBase=1000000
 
+    def addLickDetectionBlock(self,startRow):
+        self.blankLine(self.master,startRow)
+        self.lickDetectionLabel = Label(self.master, text="Lick Detection:")
+        self.lickDetectionLabel.grid(row=startRow+1, column=0,sticky=W)
+
+        self.ux_adaptThresh=StringVar(self.master)
+        self.ux_adaptThreshToggle=Checkbutton(self.master, \
+            text="Ad Thr?",variable=self.ux_adaptThresh)
+        self.ux_adaptThreshToggle.grid(row=startRow+4, column=0,sticky=W,padx=20)
+        self.ux_adaptThreshToggle.select()
+
+        self.lickValuesOrDeltas=StringVar(self.master)
+        self.ux_lickValuesToggle=Checkbutton(self.master, \
+            text="Lk Val?",variable=self.lickValuesOrDeltas)
+        self.ux_lickValuesToggle.grid(row=startRow+4, column=0,sticky=E,padx=20)
+        self.ux_lickValuesToggle.select()
+
+        self.lickThreshold_label = Label(self.master, text="lick threshold:")
+        self.lickThreshold_label.grid(row=startRow+5,column=0,sticky=W,padx=12)
+        self.lickThr_a=StringVar(self.master)
+        self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickThr_a)
+        self.lickMax_entry.grid(row=startRow+5, column=0,sticky=E,padx=12)
+        self.lickThr_a.set(12)
+
+        # plot stuff
+        self.lickMax_label = Label(self.master, text="        lick max:")
+        self.lickMax_label.grid(row=startRow+6, column=0,sticky=W,padx=12)
+        self.lickPlotMax=StringVar(self.master)
+        self.lickMax_entry=Entry(self.master,width=6,textvariable=self.lickPlotMax)
+        self.lickMax_entry.grid(row=startRow+6, column=0,sticky=E,padx=12)
+        self.lickPlotMax.set('2000')
+
+    def mainWindowPopulate(self):
+        # The main window is organized as logical blocks.
+        # You define a block as a function that takes a Tkinter Grid start row as an argument.
+        # example: self.addSerialBlock(serStart)
+
+        self.master.title("pyDiscrim")
+
+        pStart=0
+        self.blankLine(self.master,0)
+        self.mainCntrlLabel = Label(self.master, text="Main Controls:").grid(row=pStart,column=0,sticky=W)
+
+        
+        self.quitBtn = Button(self.master,text="Exit Program",command=self.quitBtnCB, width=10)
+        self.quitBtn.grid(row=pStart+1, column=2)
+
+        self.startBtn = Button(self.master, text="Start Task",width=10, command=self.runTask,state=DISABLED)
+        self.startBtn.grid(row=pStart+1, column=0,sticky=W,padx=10)
+
+        self.endBtn = Button(self.master, text="End Task",width=10, \
+            command=lambda: self.switchState(self.endState),state=DISABLED)
+        self.endBtn.grid(row=pStart+2, column=0,sticky=W,padx=10)
+
+        
+        serStart=pStart+3
+        sesStart=serStart+5
+        plotStart=sesStart+9
+        lickStart=plotStart+8
+         
+
+        self.addSerialBlock(serStart)
+        self.addSessionBlock(sesStart)
+        self.addPlotBlock(plotStart)
+        self.addLickDetectionBlock(lickStart)
+
+        # look in whatever it thinks the working dir is and look for metadata to populate
+        self.dirAnimalMetaExists=os.path.isfile(self.dirPath.get() + '.lastMeta.csv')
+        print(self.dirAnimalMetaExists) 
+
     def quitBtnCB(self):
         if self.ranTask==0 or self.comObjectExists==0:  
             print('*** bye: closed without saving ***')
             exit()
-        elif self.ranTask>=1 and self.comObjectExists==1:
-            self.data_saveData() 
-            self.utilState_syncSerial()
-            self.comObj.close()
-            print('bye: closed com port, resyncd its state, and saved some data')
+        else: 
+            print('!!!! going down')
+            if self.dataExists==1:
+                self.data_saveData()
+                print('... saved some remaining data')
+            if self.comObjectExists==1:
+                self.syncSerial()
+                print('... resyncd serial state')
+                self.comObj.close()
+                print('... closed the com obj')
             exit()
 
-    def btnCB_setPath(self):
-        self.getFilePath()
-        self.sesPath.set(self.dirPath)
-        self.fixPath()
-        self.animalIDStr.set(os.path.basename(self.dirPath))
-        metaString='{}{}_animalMeta.csv'.format(self.sdir,self.animalIDStr.get())
-        stateString='{}{}_stateMap.csv'.format(self.sdir,self.animalIDStr.get())
+    def setPathBtn(self):
+        self.getPath()
+        self.dirPath.set(self.selectPath)
+
+        self.pathEntry.config(bg='white')
+        self.animalIDStr.set(os.path.basename(self.selectPath))
+        self.animalIDEntry.config(bg='white')
+        self.sesPathFuzzy=0
+        metaString='{}{}_animalMeta.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        stateString='{}{}_stateMap.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        self.loadedMeta=os.path.isfile(metaString)
+        self.loadedStates=os.path.isfile(stateString)
+        if self.loadedMeta is True:
+            tempMeta=pd.read_csv(metaString,index_col=0)
+            self.parseMetaDataStringVals(tempMeta)
+            print("loaded {}'s previous settings".format(self.animalIDStr.get()))
+        if self.loadedStates is True:
+            tempStates=pd.Series.from_csv(stateString)
+            print("loaded {}'s previous state assignments, but didn't parse them".format(self.animalIDStr.get()))
+
+    def archiveMeta(self):
+        metaString='{}{}_animalMeta.csv'.format(self.pathSet,self.animalIDStr.get())
+        stateString='{}{}_stateMap.csv'.format(self.pathSet,self.animalIDStr.get())
         self.loadedMeta=os.path.isfile(metaString)
         self.loadedStates=os.path.isfile(stateString)
         if self.loadedMeta is True:
@@ -536,14 +647,36 @@ class pyDiscrim_mainGUI:
         if self.loadedStates is True:
             tempStates=pd.Series.from_csv(stateString)
         print(tempStates)
+        
         tempMeta.to_csv('.lastMeta.csv')
         tempStates.to_csv('.lastStates.csv')
+
+    def loadSessionMetaData(self):
+        aa=filedialog.askopenfilename(title = "what what?",defaultextension='.csv')
+        tempMeta=pd.read_csv(aa,index_col=0)
+        aa=tempMeta.dtypes.index
+        varNames=[]
+        varVals=[]
+        for x in range(0,len(tempMeta.columns)):
+            varNames.append(aa[x])
+            varVals.append(tempMeta.iloc[0][x])
+        self.mapAssignStringEntries(varNames,varVals)
+
+    def parseMetaDataStringVals(self,tmpDataFrame):
+        aa=tmpDataFrame.dtypes.index
+        varNames=[]
+        varVals=[]
+        for x in range(0,len(tmpDataFrame.columns)):
+            varNames.append(aa[x])
+            varVals.append(tmpDataFrame.iloc[0][x])
+        self.mapAssignStringEntries(varNames,varVals)
+
 
     ################################
     ## **** Auxilary Windows **** ##
     ################################
 
-    def make_taskProbFrame(self):
+    def taskProbWindow(self):
         tb_frame = Toplevel()
         tb_frame.title('Task Probs')
         self.tb_frame=tb_frame
@@ -552,12 +685,10 @@ class pyDiscrim_mainGUI:
         # How many choice splits in your task
 
         self.populate_taskProbFrame()
-        self.setTaskProbs = Button(tb_frame, \
-            text = 'Set Probs.', width = 10, \
-            command = self.refresh_TaskProbs)
-        self.setTaskProbs.grid(row=8, column=1)    
+        self.setTaskProbsBtn = Button(tb_frame, text = 'Set Probs.', width = 10, command = lambda: self.setTaskProbs(1))
+        self.setTaskProbsBtn.grid(row=8, column=1)    
 
-    def make_stateToggleFrame(self):
+    def stateToggleWindow(self):
         st_frame = Toplevel()
         st_frame.title('States in Task')
         self.st_frame=st_frame
@@ -568,71 +699,71 @@ class pyDiscrim_mainGUI:
         self.stateStartRow=stateStartRow
 
         self.sBtn_boot = Button(st_frame, text="S0: Boot", \
-            command=lambda: self.state_util_switchToNewState(self.bootState))
+            command=lambda: self.switchState(self.bootState))
         self.sBtn_boot.grid(row=stateStartRow-1, column=stateStartColumn)
         self.sBtn_boot.config(state=NORMAL)
 
         self.sBtn_wait = Button(st_frame, text="S1: Wait", \
-            command=lambda: self.state_util_switchToNewState(self.waitState))
+            command=lambda: self.switchState(self.waitState))
         self.sBtn_wait.grid(row=stateStartRow, column=stateStartColumn)
         self.sBtn_wait.config(state=NORMAL)
 
         self.sBtn_initiate = Button(st_frame, text="S2: Initiate", \
-            command=lambda: self.state_util_switchToNewState(self.initiationState))
+            command=lambda: self.switchState(self.initiationState))
         self.sBtn_initiate.grid(row=stateStartRow, column=stateStartColumn+1)
         self.sBtn_initiate.config(state=NORMAL)
 
         self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", \
-            command=lambda: self.state_util_switchToNewState(self.cue1State))
+            command=lambda: self.switchState(self.cue1State))
         self.sBtn_cue1.grid(row=stateStartRow-1, column=stateStartColumn+2)
         self.sBtn_cue1.config(state=NORMAL)
 
         self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", \
-            command=lambda: self.state_util_switchToNewState(self.cue2State))
+            command=lambda: self.switchState(self.cue2State))
         self.sBtn_cue2.grid(row=stateStartRow+1, column=stateStartColumn+2)
         self.sBtn_cue2.config(state=NORMAL)
 
         self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", \
-            command=lambda: self.state_util_switchToNewState(self.stim1State))
+            command=lambda: self.switchState(self.stim1State))
         self.sBtn_stim1.grid(row=stateStartRow-2, column=stateStartColumn+3)
         self.sBtn_stim1.config(state=NORMAL)
 
         self.sBtn_stim2 = Button(st_frame, text="SS2: Stim 2",\
-            command=lambda: self.state_util_switchToNewState(self.stim2State))
+            command=lambda: self.switchState(self.stim2State))
         self.sBtn_stim2.grid(row=stateStartRow-1, column=stateStartColumn+3)
         self.sBtn_stim2.config(state=NORMAL)
 
         self.sBtn_catch = Button(st_frame, text="SC: Catch", \
-            command=lambda: self.state_util_switchToNewState(self.catchState))
+            command=lambda: self.switchState(self.catchState))
         self.sBtn_catch.grid(row=stateStartRow, column=stateStartColumn+3)
         self.sBtn_catch.config(state=NORMAL)
 
         self.sBtn_reward = Button(st_frame, text="Reward State", \
-            command=lambda: self.state_util_switchToNewState(self.rewardState))
+            command=lambda: self.switchState(self.rewardState))
         self.sBtn_reward.grid(row=stateStartRow-1, column=stateStartColumn+4)
         self.sBtn_reward.config(state=NORMAL)
 
         self.sBtn_neutral = Button(st_frame, text="SN: Neutral", \
-            command=lambda: self.state_util_switchToNewState(self.neutralState))
+            command=lambda: self.switchState(self.neutralState))
         self.sBtn_neutral.grid(row=stateStartRow, column=stateStartColumn+4)
         self.sBtn_neutral.config(state=NORMAL)
 
         self.sBtn_punish = Button(st_frame, text="SP: Punish", \
-            command=lambda: self.state_util_switchToNewState(self.punishState))
+            command=lambda: self.switchState(self.punishState))
         self.sBtn_punish.grid(row=stateStartRow+1, column=stateStartColumn+4)
         self.sBtn_punish.config(state=NORMAL)
 
         self.sBtn_save = Button(st_frame, text="Save State", \
-            command=lambda: self.state_util_switchToNewState(self.saveState))
+            command=lambda: self.switchState(self.saveState))
         self.sBtn_save.grid(row=stateStartRow+1, column=stateStartColumn)
         self.sBtn_save.config(state=NORMAL)
 
         self.sBtn_endSession = Button(st_frame, text="End Session", \
-            command=lambda: self.state_util_switchToNewState(self.endState))
+            command=lambda: self.switchState(self.endState))
         self.sBtn_endSession.grid(row=stateStartRow-2, column=stateStartColumn)
         self.sBtn_endSession.config(state=NORMAL)
     
-    def make_stateVarFrame(self):
+    def stateVarWindow(self):
         frame_sv = Toplevel()
         frame_sv.title('Task Probs')
         self.frame_sv=frame_sv
@@ -641,22 +772,7 @@ class pyDiscrim_mainGUI:
         self.setStateVars = Button(frame_sv, \
             text = 'Set Variables.', width = 10, \
             command = self.refresh_stateVars)
-        self.setStateVars.grid(row=8, column=1)
-    
-    def initialize_TaskProbs(self):
-        self.t1_probEntries='sTask1_prob','sTask1_target_prob',\
-        'sTask1_distract_prob','sTask1_target_reward_prob',\
-        'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
-        'sTask1_distract_punish_prob'
-        if self.taskProbsRefreshed==0:
-            self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-
-        self.t2_probEntries='sTask2_prob','sTask2_target_prob',\
-        'sTask2_distract_prob','sTask2_target_reward_prob',\
-        'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
-        'sTask2_distract_punish_prob'
-        if self.taskProbsRefreshed==0:
-            self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
+        self.setStateVars.grid(row=8, column=1)  
     
     def populate_taskProbFrame(self):
         for x in range(0,len(self.t1_probEntries)):
@@ -680,22 +796,6 @@ class pyDiscrim_mainGUI:
             exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
             exec('self.{}.set({})'\
                 .format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
-
-    def refresh_TaskProbs(self):
-        
-        for x in range(0,len(self.t1_probEntries)):
-            exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'\
-                .format(self.t1_probEntries[x]))
-            exec('self.{}.set(str(self.t1_probEntriesValues[x]))'\
-                .format(self.t1_probEntries[x]))
-        
-        for x in range(0,len(self.t2_probEntries)):
-            exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'\
-                .format(self.t2_probEntries[x]))
-            exec('self.{}.set(str(self.t2_probEntriesValues[x]))'\
-                .format(self.t2_probEntries[x]))
-
-        self.taskProbsRefreshed=1
 
     def initialize_StateVars(self):
         self.t1_stateVarsEntries='self.movThr','self.movTimeThr'
@@ -737,24 +837,24 @@ class pyDiscrim_mainGUI:
                 format(self.comPath.get()))
             self.comObj = serial.Serial(self.comPath.get(),\
                 self.baudSelected.get()) 
-            self.utilState_syncSerial()
+            self.syncSerial()
             self.comObjectExists=1
 
             # update the GUI
             self.comPathEntry.config(state=DISABLED)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
-            self.mw_button_startSession.config(state=NORMAL)
+            self.startBtn.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
-            # self.taskProbs_Button.invoke()
-            # self.stateToggles_Button.invoke()
+            # self.taskProbsBtn.invoke()
+            # self.stateTogglesBtn.invoke()
         
     def serial_closeComObj(self):
         if self.comObjectExists==1:
             if self.dataExists==1:
                 self.data_saveData()
-            self.utilState_syncSerial()
+            self.syncSerial()
             self.comObj.close()
             self.comObjectExists=0
             print('> i closed the COM object')
@@ -763,11 +863,11 @@ class pyDiscrim_mainGUI:
             self.comPathEntry.config(state=NORMAL)
             self.baudPick.config(state=NORMAL)
             self.createCom_button.config(state=NORMAL)
-            self.mw_button_startSession.config(state=DISABLED)
+            self.startBtn.config(state=DISABLED)
             self.closeComObj_button.config(state=DISABLED)
             self.syncComObj_button.config(state=DISABLED)
-            # self.taskProbs_Button.invoke()
-            # self.stateToggles_Button.invoke()
+            # self.taskProbsBtn.invoke()
+            # self.stateTogglesBtn.invoke()
 
     def serial_readDataFlush(self):
         self.comObj.flush()
@@ -777,7 +877,8 @@ class pyDiscrim_mainGUI:
         # position is 8-bit, hence the 256
         self.sR=self.comObj.readline().strip().decode()
         self.sR=self.sR.split(',')
-        if len(self.sR)==7 and self.sR[self.stID_header]=='data' and \
+        if len(self.sR)==7 and \
+        self.sR[self.stID_header]=='data' and \
         str.isnumeric(self.sR[1])==1 and \
         str.isnumeric(self.sR[2])==1 and \
         str.isnumeric(self.sR[self.stID_pos])==1 and \
@@ -787,7 +888,8 @@ class pyDiscrim_mainGUI:
         str.isnumeric(self.sR[6])==1 :
             self.dataAvail=1
 
-        elif len(self.sR)!=7 or self.sR[self.stID_header]!='data' or \
+        elif len(self.sR)!=7 or \
+        self.sR[self.stID_header] != 'data' or \
         str.isnumeric(self.sR[1])!=1 or \
         str.isnumeric(self.sR[2])!=1 or \
         str.isnumeric(self.sR[self.stID_pos])!=1 or \
@@ -859,17 +961,9 @@ class pyDiscrim_mainGUI:
         self.analysis_lickDetect()
         self.dataExists=1
 
-    def fixPath(self):
-        self.sdir=os.path.isdir(self.sesPath.get())
-        if self.sdir==False:
-            os.mkdir(self.sesPath.get())
-        self.sdir=self.sesPath.get()
-        if self.sdir[-1] != '/' :
-            self.sdir=self.sdir + '/' 
-
     def data_saveData(self):
 
-        self.fixPath()
+        self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
         saveStreams='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
         'lickValues_a','lickValues_b','pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
@@ -883,11 +977,7 @@ class pyDiscrim_mainGUI:
                 self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
                 self.rf=pd.concat([self.rf,self.tf],axis=1)
 
-        self.rf.to_csv('{}{}_{}_trial_{}.csv'.format(self.sdir,self.animalIDStr.get(),\
-            self.dateStr,self.currentTrial))
-        self.stateBindings.to_csv('{}{}_stateMap.csv'.\
-            format(self.sdir,self.animalIDStr.get()))
-
+        self.rf.to_csv('{}{}_trial_{}_{}_s{}.csv'.format(self.dirPath.get() + '/', self.animalIDStr.get(), self.currentTrial, self.dateSvStr, self.currentSession))
         self.dataExists=0
 
     def exceptionCallback(self):
@@ -897,8 +987,10 @@ class pyDiscrim_mainGUI:
             .format(self.currentTrial,self.currentState))
         self.dataExists=0
         self.data_saveData()
-        print('save was a success; now I will close com port and quit')
-        print('I will try to reset the mc state before closing the port ...')
+        print('save was a success; now \
+            I will close com port and quit')
+        print('I will try to reset the mc state \
+            before closing the port ...')
         self.comObj.close()
         #todo: add a timeout for the resync
         print('closed the com port cleanly')
@@ -908,14 +1000,16 @@ class pyDiscrim_mainGUI:
     ## **** These Are Data Handling Functions **** ##
     #################################################
 
-    def analysis_updateLickThresholds(self):   
-        #todo: I think the asignment conflicts now because of the graph
+    def analysis_updateLickThresholds(self):
         if self.ux_adaptThresh.get()==1:
             print(int(self.lickThr_a))
             tA=np.abs(np.array(self.lickValues_a))
-            print(int(np.percentile(aaa[np.where(aaa != 0)[0]],75)))
-            self.lickThr_a.set(str(np.percentile(tA[np.where(tA != 0)[0]],75)))
-            self.lickMinMax=[min(self.lickValues_a),max(self.lickValues_a)]
+            print(int(np.percentile\
+                (aaa[np.where(aaa != 0)[0]],75)))
+            self.lickThr_a.set(\
+                str(np.percentile(tA[np.where(tA != 0)[0]],75)))
+            self.lickMinMax=[min(self.lickValues_a),\
+            max(self.lickValues_a)]
 
     def analysis_lickDetect(self):
         if self.lickValues_a[-1]>int(self.lickThr_a.get()):
@@ -1001,18 +1095,18 @@ class pyDiscrim_mainGUI:
             if self.stillLatch==1 and self.stillTime>1:
                 print('Still! ==> Out of wait')
                 print('### S1 --> S2')
-                self.state_util_switchToNewState(self.initiationState)
+                self.switchState(self.initiationState)
 
     def callback_initiationState(self):
         t1P=0.5
         if self.absolutePosition[-1]>self.distThr:
             if self.task_switch<=t1P:
                 print('moving spout; cue stim task #1')
-                self.state_util_switchToNewState(self.cue1State)
+                self.switchState(self.cue1State)
             # if stimSwitch is more than task1's probablity then send to task #2
             elif self.task_switch>t1P:
                 print('moving spout; cue stim task #2')
-                self.state_util_switchToNewState(self.cue2State)
+                self.switchState(self.cue2State)
 
     def callback_cue1State(self): 
         #trP=float(self.sTask1_target_prob.get())
@@ -1029,10 +1123,10 @@ class pyDiscrim_mainGUI:
                 print('Still!')
                 if self.outcomeSwitch<=0.5:
                     print('will play dulcet tone')
-                    self.state_util_switchToNewState(self.stim1State)
+                    self.switchState(self.stim1State)
                 elif self.outcomeSwitch>0.5:
                     print('will play ominous tone')
-                    self.state_util_switchToNewState(self.stim2State)
+                    self.switchState(self.stim2State)
 
     def callback_cue2State(self): 
         #trP=float(self.sTask2_target_prob.get())
@@ -1050,11 +1144,11 @@ class pyDiscrim_mainGUI:
                 print('Still!')
                 if self.outcomeSwitch<=0.5:
                     print('will play dulcet tone')
-                    self.state_util_switchToNewState(self.stim2State)
+                    self.switchState(self.stim2State)
                 # if stimSwitch is more than task1's probablity then send to task #2
                 elif self.outcomeSwitch>0.5:
                     print('will play ominous tone')
-                    self.state_util_switchToNewState(self.stim1State)
+                    self.switchState(self.stim1State)
     
     def callback_stim1State(self):
         if self.arduinoTime[-1]-self.entryTime>2:
@@ -1072,7 +1166,7 @@ class pyDiscrim_mainGUI:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
                 print('Still!: off to save')
-                self.state_util_switchToNewState(self.saveState)
+                self.switchState(self.saveState)
 
     def callback_stim2State(self):
         if self.arduinoTime[-1]-self.entryTime>2:
@@ -1090,18 +1184,18 @@ class pyDiscrim_mainGUI:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
                 print('Still!: off to save')
-                self.state_util_switchToNewState(self.saveState)
+                self.switchState(self.saveState)
 
     def callback_rewardState(self): #21
         #t1P=float(self.sTask1_prob.get())
         if self.absolutePosition[-1]>self.distThr:
             print('rewarding')
-            self.state_util_switchToNewState(self.saveState)
+            self.switchState(self.saveState)
 
     def callback_punishState(self): #23
         if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
             print('timeout of {} seconds is over'.format(self.timeOutDuration))
-            self.state_util_switchToNewState(self.saveState)
+            self.switchState(self.saveState)
 
 def main(): 
     root = Tk()
