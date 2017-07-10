@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.0
+# Version 3.05
 # Most variables are interactive.
 # Parent UI is disorganized, but feature rich.
 # Metadata export, import and autosensing.
@@ -45,7 +45,8 @@ class pyDiscrim_mainGUI:
         print(self.currentTrial)
         print(self.currentSession)
         self.stateNames_init()
-        self.setTaskProbs(0)
+        self.setTask1Probs(0)
+        self.setTask2Probs(0)
         self.initialize_StateVars()
         self.stateVars_init()
         self.data_serialInputIDs()
@@ -216,49 +217,66 @@ class pyDiscrim_mainGUI:
         self.stateVarInitVals=[0,40,2,0,0,0,1000,2]
         self.mapAssign(self.stateVarIDs,self.stateVarInitVals)
 
-    def setTaskProbs(self,refresh):
-        if refresh==0:
-            self.t1_probEntries='sTask1_prob','sTask1_target_prob',\
-            'sTask1_distract_prob','sTask1_target_reward_prob',\
-            'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
-            'sTask1_distract_punish_prob'
-            if self.taskProbsRefreshed==0:
-                self.t1_probEntriesValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-
-            self.t2_probEntries='sTask2_prob','sTask2_target_prob',\
-            'sTask2_distract_prob','sTask2_target_reward_prob',\
-            'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
-            'sTask2_distract_punish_prob'
-            if self.taskProbsRefreshed==0:
-                self.t2_probEntriesValues=[0.5,0.5,0.5,0.0,1.0,1.0,0.0]
-            self.taskProbsSet=1
-
-        if refresh==1:
-            for x in range(0,len(self.t1_probEntries)):
-                exec('self.t1_probEntriesValues[x]=(float(self.{}.get()))'\
-                    .format(self.t1_probEntries[x]))
-                exec('self.{}.set(str(self.t1_probEntriesValues[x]))'\
-                    .format(self.t1_probEntries[x]))
+    def setTask1Probs(self,refresh):
         
-            for x in range(0,len(self.t2_probEntries)):
-                exec('self.t2_probEntriesValues[x]=(float(self.{}.get()))'\
-                    .format(self.t2_probEntries[x]))
-                exec('self.{}.set(str(self.t2_probEntriesValues[x]))'\
-                    .format(self.t2_probEntries[x]))
-            self.taskProbsRefreshed=1
+        if refresh==0: #set
+            self.t1ProbLabels='sTask1_prob','sTask1_target_prob',\
+                'sTask1_distract_prob','sTask1_target_reward_prob',\
+                'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
+                'sTask1_distract_punish_prob'
+            self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+            self.mapAssign(self.t1ProbLabels,self.t1ProbValues)
 
+        if refresh==1: #refresh from entries
+            self.t1ProbUpdates=[]
+            for x in range(0,len(self.t1ProbLabels)):
+                self.ogV=self.t1ProbValues[x]
+                exec('self.t1ProbValues[{}]=(float(self.{}_tv.get()))'.format(x,self.t1ProbLabels[x]))
+                exec('self.{}_tv.set({})'.format(self.t1ProbLabels[x],self.t1ProbValues[x]))
+                if self.ogV-self.t1ProbValues[x] != 0: # var changed
+                    self.t1ProbUpdates.append(x)
+        if refresh==2: #write only
+            for x in range(0,len(self.t1ProbLabels)):
+                exec('self.{}_tv.set({})'.format(self.t1ProbLabels[x],self.t1ProbValues[x]))
+
+    def setTask2Probs(self,refresh):
+        
+        if refresh==0: #set
+            self.t2ProbLabels='sTask2_prob','sTask2_target_prob',\
+                'sTask2_distract_prob','sTask2_target_reward_prob',\
+                'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
+                'sTask2_distract_punish_prob'
+            self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+            self.mapAssign(self.t2ProbLabels,self.t2ProbValues)
+
+        if refresh==1: #refresh from entries
+            self.t2ProbUpdates=[]
+            for x in range(0,len(self.t2ProbLabels)):
+                self.ogV=self.t2ProbValues[x]
+                exec('self.t2ProbValues[{}]=(float(self.{}_tv.get()))'.format(x,self.t2ProbLabels[x]))
+                exec('self.{}_tv.set({})'.format(self.t2ProbLabels[x],self.t2ProbValues[x]))
+                if self.ogV-self.t2ProbValues[x] != 0: # var changed
+                    self.t2ProbUpdates.append(x)
+
+        if refresh==2: #write only
+            for x in range(0,len(self.t2ProbLabels)):
+                exec('self.{}_tv.set({})'.format(self.t2ProbLabels[x],self.t2ProbValues[x]))
 
     ############################### 
     ##  Check For User Imports.  ## 
     ###############################
+
     def exportAnimalMeta(self):
-        self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot','uiUpdateSamps',\
-        'ux_adaptThresh','lickValuesOrDeltas','lickThr_a','lickPlotMax']
-        sesVarVals=[self.comPath.get(),self.dirPath.get(),self.animalIDStr.get(),self.totalTrials.get(),\
-        self.sampsToPlot.get(),self.uiUpdateSamps.get(),self.ux_adaptThresh.get(),self.lickValuesOrDeltas.get(),\
+        self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot',\
+        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThr_a','lickPlotMax']
+        sesVarVals=[self.comPath.get(),self.dirPath.get(),self.animalIDStr.get(),\
+        self.totalTrials.get(),\
+        self.sampsToPlot.get(),self.uiUpdateSamps.get(),self.ux_adaptThresh.get(),\
+        self.lickValuesOrDeltas.get(),\
         self.lickThr_a.get(),self.lickPlotMax.get()]
         self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
-        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',\
+            self.animalIDStr.get()))
     
     def makeMetaFrame(self):
         sesVarVals=[]
@@ -296,13 +314,16 @@ class pyDiscrim_mainGUI:
                 self.currentState=int(self.sR[self.stID_state])
                 if self.currentState!=self.bootState:
                     if gaveFeedback==0:
-                        print('mc state is not right, thinks it is #: {}'.format(self.currentState))
+                        print('mc state is not right, thinks it is #: {}'\
+                            .format(self.currentState))
                         print('will force boot state, might take a second or so ...')
-                        print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
+                        print('!!!! ~~> UI may become unresponsive \
+                            for 1-30 seconds or so, but I havent crashed ...')
                         gaveFeedback=1
                     loopCount=loopCount+1
                     if loopCount % 5000 ==0:
-                        print('still syncing: state #: {}; loop #: {}'.format(self.currentState,loopCount))
+                        print('still syncing: state #: {}; loop #: {}'\
+                            .format(self.currentState,loopCount))
 
                 elif self.currentState==self.bootState:
                     print('ready: mc is in state #: {}'.format(self.currentState))
@@ -441,9 +462,11 @@ class pyDiscrim_mainGUI:
         fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
 
         self.blankLine(self.master,startRow)
-        self.sessionStuffLabel = Label(self.master, text="Session Stuff: ",justify=LEFT).grid(row=startRow+1, column=0,sticky=W)
+        self.sessionStuffLabel = Label(self.master, text="Session Stuff: ",justify=LEFT)\
+        .grid(row=startRow+1, column=0,sticky=W)
 
-        self.timeDisp = Label(self.master, text=' #{} started: '.format(self.currentSession) + self.dateStr,justify=LEFT)
+        self.timeDisp = Label(self.master, text=' #{} started: '\
+            .format(self.currentSession) + self.dateStr,justify=LEFT)
         self.timeDisp.grid(row=startRow+2, column=0,sticky=W)
 
         self.dirPath=StringVar(self.master)
@@ -451,7 +474,8 @@ class pyDiscrim_mainGUI:
         self.pathEntry.grid(row=startRow+3,column=0,sticky=W)
         self.dirPath.set(os.path.join(os.getcwd(),self.animalID))
 
-        self.setPath_button = Button(self.master,text="<- Set Path",command=self.setPathBtn, width=10)
+        self.setPath_button = Button(self.master,text="<- Set Path",\
+            command=self.setPathBtn, width=10)
         self.setPath_button.grid(row=startRow+3,column=2,stick=E)
 
         self.aIDLabel=Label(self.master, text="animal id:").grid(row=startRow+4,column=0,sticky=W)
@@ -460,37 +484,44 @@ class pyDiscrim_mainGUI:
         self.animalIDEntry.grid(row=startRow+4,column=0,sticky=E)
         self.animalIDStr.set(self.animalID)
 
-        self.totalTrials_label = Label(self.master,text="total trials:").grid(row=startRow+5,column=0,sticky=W)
+        self.totalTrials_label = Label(self.master,text="total trials:")\
+        .grid(row=startRow+5,column=0,sticky=W)
         self.totalTrials=StringVar(self.master)
         self.totalTrials_entry=Entry(self.master,textvariable=self.totalTrials)
         self.totalTrials_entry.grid(row=startRow+5,column=0,sticky=E)
         self.totalTrials.set('100')
         self.totalTrials_entry.config(width=12)
 
-        self.curSession_label = Label(self.master,text="current session:").grid(row=startRow+6,column=0,sticky=W)
+        self.curSession_label = Label(self.master,text="current session:")\
+        .grid(row=startRow+6,column=0,sticky=W)
         self.curSession=StringVar(self.master)
         self.curSession_entry=Entry(self.master,textvariable=self.totalTrials)
         self.curSession_entry.grid(row=startRow+5,column=0,sticky=E)
         self.curSession.set('1')
         self.curSession_entry.config(width=12)
 
-        self.taskProbsBtn = Button(self.master,text='Task Probs',width = 10,command=self.taskProbWindow)
+        self.taskProbsBtn = Button(self.master,text='Task Probs',width = 10,\
+            command=self.taskProbWindow)
         self.taskProbsBtn.grid(row=startRow+4, column=2)
         self.taskProbsBtn.config(state=NORMAL)
 
-        self.stateTogglesBtn = Button(self.master,text = 'State Toggles',width = 10,command=self.stateToggleWindow)
+        self.stateTogglesBtn = Button(self.master,text = 'State Toggles',width = 10,\
+            command=self.stateToggleWindow)
         self.stateTogglesBtn.grid(row=startRow+5, column=2)
         self.stateTogglesBtn.config(state=NORMAL)
         
-        self.stateVarsBtn = Button(self.master,text = 'State Vars',width = 10, command = self.stateVarWindow)
+        self.stateVarsBtn = Button(self.master,text = 'State Vars',width = 10,\
+            command = self.stateVarWindow)
         self.stateVarsBtn.grid(row=startRow+6, column=2)
         self.stateVarsBtn.config(state=NORMAL)
 
-        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',width = 10, command = self.loadSessionMetaData)
+        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',\
+            width = 10, command = self.loadSessionMetaData)
         self.loadAnimalMetaBtn.grid(row=startRow+1, column=2)
         self.loadAnimalMetaBtn.config(state=NORMAL)
 
-        self.saveCurrentMetaBtn=Button(self.master,text="Save Cur. Meta",command=self.exportAnimalMeta, width=10)
+        self.saveCurrentMetaBtn=Button(self.master,text="Save Cur. Meta",\
+            command=self.exportAnimalMeta, width=10)
         self.saveCurrentMetaBtn.grid(row=startRow+2,column=2,stick=E)
 
     def addPlotBlock(self,startRow):
@@ -572,13 +603,15 @@ class pyDiscrim_mainGUI:
 
         pStart=0
         self.blankLine(self.master,0)
-        self.mainCntrlLabel = Label(self.master, text="Main Controls:").grid(row=pStart,column=0,sticky=W)
+        self.mainCntrlLabel = Label(self.master, text="Main Controls:")\
+        .grid(row=pStart,column=0,sticky=W)
 
         
         self.quitBtn = Button(self.master,text="Exit Program",command=self.quitBtnCB, width=10)
         self.quitBtn.grid(row=pStart+1, column=2)
 
-        self.startBtn = Button(self.master, text="Start Task",width=10, command=self.runTask,state=DISABLED)
+        self.startBtn = Button(self.master, text="Start Task",\
+            width=10, command=self.runTask,state=DISABLED)
         self.startBtn.grid(row=pStart+1, column=0,sticky=W,padx=10)
 
         self.endBtn = Button(self.master, text="End Task",width=10, \
@@ -635,7 +668,8 @@ class pyDiscrim_mainGUI:
             print("loaded {}'s previous settings".format(self.animalIDStr.get()))
         if self.loadedStates is True:
             tempStates=pd.Series.from_csv(stateString)
-            print("loaded {}'s previous state assignments, but didn't parse them".format(self.animalIDStr.get()))
+            print("loaded {}'s previous state assignments, but didn't parse them".\
+                format(self.animalIDStr.get()))
 
     def archiveMeta(self):
         metaString='{}{}_animalMeta.csv'.format(self.pathSet,self.animalIDStr.get())
@@ -671,22 +705,46 @@ class pyDiscrim_mainGUI:
             varVals.append(tmpDataFrame.iloc[0][x])
         self.mapAssignStringEntries(varNames,varVals)
 
-
     ################################
     ## **** Auxilary Windows **** ##
     ################################
 
     def taskProbWindow(self):
+        eval('self.sTask1_prob')
         tb_frame = Toplevel()
         tb_frame.title('Task Probs')
         self.tb_frame=tb_frame
 
-        self.taskLimbs=2  
-        # How many choice splits in your task
-
         self.populate_taskProbFrame()
-        self.setTaskProbsBtn = Button(tb_frame, text = 'Set Probs.', width = 10, command = lambda: self.setTaskProbs(1))
-        self.setTaskProbsBtn.grid(row=8, column=1)    
+        
+        self.setTaskProbsBtn = Button(tb_frame, text = 'Set Probs.', \
+            width = 15, command = lambda: self.taskProbRefreshBtnCB())
+        self.setTaskProbsBtn.grid(row=8, column=0,sticky=W)
+
+        self.setCorTaskProbsBtn = Button(tb_frame, text = 'Set & Correct Probs', \
+            width = 15, command = lambda: self.taskProbCorRefreshBtnCB())
+        self.setCorTaskProbsBtn.grid(row=8, column=1,sticky=E)
+
+    def taskProbRefreshBtnCB(self):
+        
+        self.setTask1Probs(1)
+        self.setTask2Probs(1)
+
+    def taskProbCorRefreshBtnCB(self):
+        
+        self.setTask1Probs(1)
+        if len(self.t1ProbUpdates) > 0:
+            for x in range(0,len(self.t1ProbUpdates)):
+                self.t2ProbValues[self.t1ProbUpdates[x]]=abs(1.0000-self.t1ProbValues[x])
+                print(self.t2ProbValues[self.t1ProbUpdates[x]])
+            self.setTask2Probs(2)
+
+        self.setTask2Probs(1)
+        if len(self.t2ProbUpdates) > 0:
+            for x in range(0,len(self.t2ProbUpdates)):
+                self.t1ProbValues[self.t2ProbUpdates[x]]=abs(1.0000-self.t2ProbValues[x])
+                print(self.t1ProbValues[self.t2ProbUpdates[x]])
+            self.setTask1Probs(2)
 
     def stateToggleWindow(self):
         st_frame = Toplevel()
@@ -773,29 +831,27 @@ class pyDiscrim_mainGUI:
             text = 'Set Variables.', width = 10, \
             command = self.refresh_stateVars)
         self.setStateVars.grid(row=8, column=1)  
-    
-    def populate_taskProbFrame(self):
-        for x in range(0,len(self.t1_probEntries)):
-            exec('self.{}=StringVar(self.tb_frame)'.format(self.t1_probEntries[x]))
-            exec('self.{}_label = Label(self.tb_frame, text="{}")'.\
-                format(self.t1_probEntries[x],self.t1_probEntries[x]))
-            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.\
-                format(self.t1_probEntries[x],self.t1_probEntries[x]))
-            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1_probEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=0)'.format(self.t1_probEntries[x]))
-            exec('self.{}.set({})'\
-                .format(self.t1_probEntries[x],self.t1_probEntriesValues[x]))
 
-        for x in range(0,len(self.t2_probEntries)):
-            exec('self.{}=StringVar(self.tb_frame)'.format(self.t2_probEntries[x]))
+    def populate_taskProbFrame(self):
+        for x in range(0,len(self.t1ProbLabels)):
+            exec('self.{}_tv=StringVar(self.tb_frame)'.format(self.t1ProbLabels[x]))
+            exec('self.{}_label = Label(self.tb_frame, text="{}")'\
+                .format(self.t1ProbLabels[x],self.t1ProbLabels[x]))
+            exec('self.{}_entries=Entry(self.tb_frame,width=6,textvariable=self.{}_tv)'\
+                .format(self.t1ProbLabels[x],self.t1ProbLabels[x]))
+            exec('self.{}_label.grid(row=x, column=1)'.format(self.t1ProbLabels[x]))
+            exec('self.{}_entries.grid(row=x, column=0)'.format(self.t1ProbLabels[x]))
+            exec('self.{}_tv.set({})'.format(self.t1ProbLabels[x],self.t1ProbValues[x]))
+
+        for x in range(0,len(self.t2ProbLabels)):
+            exec('self.{}_tv=StringVar(self.tb_frame)'.format(self.t2ProbLabels[x]))
             exec('self.{}_label = Label(self.tb_frame, text="{}")'.\
-                format(self.t2_probEntries[x],self.t2_probEntries[x]))
-            exec('self.{}_entry=Entry(self.tb_frame,width=6,textvariable=self.{})'.\
-                format(self.t2_probEntries[x],self.t2_probEntries[x]))
-            exec('self.{}_label.grid(row=x, column=3)'.format(self.t2_probEntries[x]))
-            exec('self.{}_entry.grid(row=x, column=2)'.format(self.t2_probEntries[x]))
-            exec('self.{}.set({})'\
-                .format(self.t2_probEntries[x],self.t2_probEntriesValues[x]))
+                format(self.t2ProbLabels[x],self.t2ProbLabels[x]))
+            exec('self.{}_entries=Entry(self.tb_frame,width=6,textvariable=self.{}_tv)'.\
+                format(self.t2ProbLabels[x],self.t2ProbLabels[x]))
+            exec('self.{}_label.grid(row=x, column=3)'.format(self.t2ProbLabels[x]))
+            exec('self.{}_entries.grid(row=x, column=2)'.format(self.t2ProbLabels[x]))
+            exec('self.{}_tv.set({})'.format(self.t2ProbLabels[x],self.t2ProbValues[x]))
 
     def initialize_StateVars(self):
         self.t1_stateVarsEntries='self.movThr','self.movTimeThr'
@@ -824,7 +880,6 @@ class pyDiscrim_mainGUI:
                 .format(self.t1_stateVarsEntries[x]))
             exec('self.{}.set(str(self.t1_stateVarsValues[x]))'\
                 .format(self.t1_stateVarsEntries[x]))
-        
         self.stateVarsRefreshed=1
 
     ########################################
@@ -833,10 +888,8 @@ class pyDiscrim_mainGUI:
 
     def serial_initComObj(self):
         if self.comObjectExists==0:
-            print('Opening serial port: {}'.\
-                format(self.comPath.get()))
-            self.comObj = serial.Serial(self.comPath.get(),\
-                self.baudSelected.get()) 
+            print('Opening serial port: {}'.format(self.comPath.get()))
+            self.comObj = serial.Serial(self.comPath.get(),self.baudSelected.get()) 
             self.syncSerial()
             self.comObjectExists=1
 
@@ -977,7 +1030,9 @@ class pyDiscrim_mainGUI:
                 self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
                 self.rf=pd.concat([self.rf,self.tf],axis=1)
 
-        self.rf.to_csv('{}{}_trial_{}_{}_s{}.csv'.format(self.dirPath.get() + '/', self.animalIDStr.get(), self.currentTrial, self.dateSvStr, self.currentSession))
+        self.rf.to_csv('{}{}_trial_{}_{}_s{}.csv'.\
+            format(self.dirPath.get() + '/', \
+                self.animalIDStr.get(), self.currentTrial, self.dateSvStr, self.currentSession))
         self.dataExists=0
 
     def exceptionCallback(self):
