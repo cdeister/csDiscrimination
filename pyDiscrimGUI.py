@@ -60,7 +60,7 @@ class pyDiscrim_mainGUI:
             try:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==self.bootState:
-                    self.updateStateMap=1
+                    # self.updateStateMap=1
                     print('in state 0: boot state')
                     self.lastPos=0 
                     while self.currentState==self.bootState:
@@ -363,7 +363,7 @@ class pyDiscrim_mainGUI:
     def stateHeader(self,upSt):
         self.upSt=upSt
         ranHeader=0 # set the latch, the header runs once per entry.
-        self.updateStateMap=upSt
+        # self.updateStateMap=upSt
         while ranHeader==0:
             self.cycleCount=1
             self.lastPos=0 # reset where we think the animal is
@@ -714,21 +714,22 @@ class pyDiscrim_mainGUI:
         tp_frame.title('Task Feedback')
         self.tp_frame=tp_frame
 
-        x = np.arange(0, 10, 1)
-        y = np.arange(0, 10, 1)
+        x1 = np.arange(0, 10, 1)
+        y1 = np.arange(0, 10, 1)
+        x2 = np.arange(0, 10, 1)
+        y2 = np.arange(0, 10, 1)
 
         self.fig2 = plt.Figure()
+        
         self.canvas2 = FigureCanvasTkAgg(self.fig2, master=tp_frame)
         self.canvas2.show()
         self.canvas2.get_tk_widget().grid(row=0,column=0)
 
         self.ax = self.fig2.add_subplot(221)
-
-        self.line, = self.ax.plot(x,y)
+        self.line, = self.ax.plot(x1,y1)
 
         self.ax2 = self.fig2.add_subplot(222)
-
-        self.line2, = self.ax2.plot(x,y)
+        self.line2, = self.ax2.plot(x2,y2)
 
 
         self.canvas2.draw()
@@ -738,25 +739,25 @@ class pyDiscrim_mainGUI:
         self.figButton.config(state=NORMAL)
 
     def updatePlot(self):
+        self.fig2
         splt=int(self.sampsToPlot.get())
         if len(self.arduinoTrialTime)>(splt+10):
+
+        
+            x1=self.arduinoTrialTime[-splt:-1]
+            y1=self.arStates[-splt:-1]
+            y2=self.arStates[-splt:-1]
             
-            x=self.arduinoTrialTime[-splt:-1]
-            y=self.arStates[-splt:-1]
-            
-            self.line.set_data(x,y)
-            self.line2.set_data(x,y)
+            self.line.set_data(x1,y1)
+            self.line2.set_data(x1,y2)
             
             self.ax.relim()
+            self.ax.set_ylim(0,30)
             self.ax.autoscale_view()
 
             self.ax2.relim()
             self.ax2.autoscale_view()
-            
             self.canvas2.draw()
-
-
-
 
     ####################################
     ## **** State Toggle Windows **** ##
@@ -1092,20 +1093,19 @@ class pyDiscrim_mainGUI:
     #################################################
     ## **** These Are Plotting  Functions **** ##
     #################################################
-    def updatePosPlot2(self):
-        plt.pause(self.pltDelay)
+    # def updatePosPlot2(self):
+    #     plt.pause(self.pltDelay)
 
     def updatePosPlot(self):
-        if len(self.arduinoTime)>2: 
-            self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
-            self.tTP=self.segPlot*self.cTD
-        self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
-        int(self.sampsToPlot.get())
-        
-        # plt.subplot(2,2,1)
-        # self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
-        #     self.absolutePosition[-self.segPlot:-1],'k-')
-        # plt.ylim(-6000,6000)
+        # if len(self.arduinoTime)>2: 
+        #     self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
+        #     self.tTP=self.segPlot*self.cTD
+        # self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
+        # int(self.sampsToPlot.get())
+        # self.cTD
+        plt.subplot(2,2,1)
+        self.lA=plt.plot([0,1],[0,1],'k-')
+        plt.ylim(-6000,6000)
         
         # if len(self.arduinoTrialTime)>self.segPlot+1:
         #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
@@ -1113,40 +1113,38 @@ class pyDiscrim_mainGUI:
         #     plt.xlim(0,self.tTP)
 
         
-        plt.ylabel('position')
-        plt.xlabel('time since trial start (sec)')
+        # plt.ylabel('position')
+        # plt.xlabel('time since trial start (sec)')
 
-        plt.subplot(2,2,3)
-        self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
-            self.lickValues_a[-self.segPlot:-1],'k-')
-        plt.ylim(0,int(self.lickPlotMax.get()))
-        if len(self.arduinoTrialTime)>self.segPlot+1:
-            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        elif len(self.arduinoTrialTime)<=self.segPlot+1:
-            plt.xlim(0,self.tTP)
-        plt.ylabel('licks (binary)')
-        plt.xlabel('time since trial start (sec)')
+        # plt.subplot(2,2,3)
+        # self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
+        #     self.lickValues_a[-self.segPlot:-1],'k-')
+        # plt.ylim(0,int(self.lickPlotMax.get()))
+        # if len(self.arduinoTrialTime)>self.segPlot+1:
+        #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        # elif len(self.arduinoTrialTime)<=self.segPlot+1:
+        #     plt.xlim(0,self.tTP)
+        # plt.ylabel('licks (binary)')
+        # plt.xlabel('time since trial start (sec)')
 
-        plt.subplot(2,2,2)
-        if self.updateStateMap==1:
-            self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
-            self.lD=plt.plot(self.stateDiagX[self.currentState],\
-                self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
-            plt.ylim(0,10)
-            plt.xlim(0,10)
-            plt.title('trial = {} ; state = {}'.format(self.currentTrial,self.currentState))
+        # plt.subplot(2,2,2)
+        # if self.updateStateMap==1:
+        #     self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
+        #     self.lD=plt.plot(self.stateDiagX[self.currentState],\
+        #         self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
+        #     plt.ylim(0,10)
+        #     plt.xlim(0,10)
+        #     plt.title('trial = {} ; state = {}'.format(self.currentTrial,self.currentState))
 
         plt.pause(self.pltDelay)
-        # self.lA.pop(0).remove()
-        self.lG.pop(0).remove()
-        if self.updateStateMap==1:
-            self.lC.pop(0).remove()
-            self.lD.pop(0).remove()
+        self.lA.pop(0).remove()
 
     def updatePlotCheck(self):
         self.analysis_updateLickThresholds()
         self.updatePosPlot()
-        self.updatePlot()
+        plt.pause(self.pltDelay)
+        if self.tp_frame.winfo_exists():
+            self.updatePlot()
         self.cycleCount=0
 
     #######################################
