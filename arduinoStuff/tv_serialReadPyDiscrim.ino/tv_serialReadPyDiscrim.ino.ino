@@ -349,25 +349,6 @@ void loop() {
   }
   
   
-//  // S23: Punish State
-//  else if (curState==23){
-//    while (bef ==1) {
-//      establishOrder();
-//      punishOffset=millis();
-//      bef=0;
-//    };
-//    punishTimer = millis()-punishOffset;
-//    msCorrected=micros()-msOffset;
-//    msInTrial=micros()-s1Offset;
-//    
-//    pollOpticalMouse();
-//    
-//    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-//    
-//    if(punishTimer<punishTime){
-//      
-//    }
-    
   
   else {
     bef=1;  // was zero may have been importatn
