@@ -2,7 +2,9 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.2
+# Version 3.17
+#
+# interim plotting updates
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -14,6 +16,8 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 import time
 import datetime
 import random
@@ -542,6 +546,12 @@ class pyDiscrim_mainGUI:
         self.uiUpdateSamps_entry=Entry(self.master,width=5,textvariable=self.uiUpdateSamps)
         self.uiUpdateSamps_entry.grid(row=startRow+3, column=0,sticky=E)
         self.uiUpdateSamps.set('500')
+
+
+        self.togglePlotWinBtn=Button(self.master,text = 'Toggle Plot',width=self.col2BW,\
+            command=self.taskPlotWindow)
+        self.togglePlotWinBtn.grid(row=startRow+3, column=2)
+        self.togglePlotWinBtn.config(state=NORMAL)
         
 
         self.lickMinMax=[-5,10]
@@ -698,6 +708,55 @@ class pyDiscrim_mainGUI:
             varNames.append(aa[x])
             varVals.append(tmpDataFrame.iloc[0][x])
         self.mapAssignStringEntries(varNames,varVals)
+
+    def taskPlotWindow(self):
+        tp_frame = Toplevel()
+        tp_frame.title('Task Feedback')
+        self.tp_frame=tp_frame
+
+        x = np.arange(0, 10, 1)
+        y = np.arange(0, 10, 1)
+
+        self.fig2 = plt.Figure()
+        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=tp_frame)
+        self.canvas2.show()
+        self.canvas2.get_tk_widget().grid(row=0,column=0)
+
+        self.ax = self.fig2.add_subplot(221)
+
+        self.line, = self.ax.plot(x,y)
+
+        self.ax2 = self.fig2.add_subplot(222)
+
+        self.line2, = self.ax2.plot(x,y)
+
+
+        self.canvas2.draw()
+
+        self.figButton=Button(master=tp_frame,text="Stuff",width=10, command=self.updatePlot)
+        self.figButton.grid(row=1, column=0)
+        self.figButton.config(state=NORMAL)
+
+    def updatePlot(self):
+        splt=int(self.sampsToPlot.get())
+        if len(self.arduinoTrialTime)>(splt+10):
+            
+            x=self.arduinoTrialTime[-splt:-1]
+            y=self.arStates[-splt:-1]
+            
+            self.line.set_data(x,y)
+            self.line2.set_data(x,y)
+            
+            self.ax.relim()
+            self.ax.autoscale_view()
+
+            self.ax2.relim()
+            self.ax2.autoscale_view()
+            
+            self.canvas2.draw()
+
+
+
 
     ####################################
     ## **** State Toggle Windows **** ##
@@ -1033,6 +1092,8 @@ class pyDiscrim_mainGUI:
     #################################################
     ## **** These Are Plotting  Functions **** ##
     #################################################
+    def updatePosPlot2(self):
+        plt.pause(self.pltDelay)
 
     def updatePosPlot(self):
         if len(self.arduinoTime)>2: 
@@ -1041,15 +1102,15 @@ class pyDiscrim_mainGUI:
         self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
         int(self.sampsToPlot.get())
         
-        plt.subplot(2,2,1)
-        self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
-            self.absolutePosition[-self.segPlot:-1],'k-')
-        plt.ylim(-6000,6000)
+        # plt.subplot(2,2,1)
+        # self.lA=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
+        #     self.absolutePosition[-self.segPlot:-1],'k-')
+        # plt.ylim(-6000,6000)
         
-        if len(self.arduinoTrialTime)>self.segPlot+1:
-            plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        elif len(self.arduinoTrialTime)<=self.segPlot+1:
-            plt.xlim(0,self.tTP)
+        # if len(self.arduinoTrialTime)>self.segPlot+1:
+        #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
+        # elif len(self.arduinoTrialTime)<=self.segPlot+1:
+        #     plt.xlim(0,self.tTP)
 
         
         plt.ylabel('position')
@@ -1076,7 +1137,7 @@ class pyDiscrim_mainGUI:
             plt.title('trial = {} ; state = {}'.format(self.currentTrial,self.currentState))
 
         plt.pause(self.pltDelay)
-        self.lA.pop(0).remove()
+        # self.lA.pop(0).remove()
         self.lG.pop(0).remove()
         if self.updateStateMap==1:
             self.lC.pop(0).remove()
@@ -1085,6 +1146,7 @@ class pyDiscrim_mainGUI:
     def updatePlotCheck(self):
         self.analysis_updateLickThresholds()
         self.updatePosPlot()
+        self.updatePlot()
         self.cycleCount=0
 
     #######################################
