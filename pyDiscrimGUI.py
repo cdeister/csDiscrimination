@@ -2,12 +2,10 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.17
+# Version 3.2 -- Lick Detection Reimplimented 
 #
-# interim plotting updates
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
-
 
 from tkinter import *
 from tkinter import filedialog
@@ -15,9 +13,10 @@ import serial
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg 
 from matplotlib import pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import matplotlib.animation as animation
 import time
 import datetime
 import random
@@ -27,6 +26,8 @@ import sys
 import os
 # check out pathlib as pythonic? os replacement
 import pandas as pd
+
+rxr=np.linspace(0, 2*np.pi, 1024)
 
 class pyDiscrim_mainGUI:
 
@@ -41,6 +42,7 @@ class pyDiscrim_mainGUI:
         self.setTaskProbs()
         self.setStateVars()
         self.data_serialInputIDs()
+        self.data_makeContainers()
 
     def runTask_header(self):
         self.endBtn.config(state=NORMAL)
@@ -309,12 +311,12 @@ class pyDiscrim_mainGUI:
 
     def exportAnimalMeta(self):
         self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot',\
-        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThr_a','lickPlotMax']
+        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThresholdStrValA','lickPlotMax']
         sesVarVals=[self.comPath.get(),self.dirPath.get(),self.animalIDStr.get(),\
         self.totalTrials.get(),\
         self.sampsToPlot.get(),self.uiUpdateSamps.get(),self.ux_adaptThresh.get(),\
         self.lickValuesOrDeltas.get(),\
-        self.lickThr_a.get(),self.lickPlotMax.get()]
+        self.lickThresholdStrValA.get(),self.lickPlotMax.get()]
         self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
         self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',\
             self.animalIDStr.get()))
@@ -367,6 +369,8 @@ class pyDiscrim_mainGUI:
         while ranHeader==0:
             self.cycleCount=1
             self.lastPos=0 # reset where we think the animal is
+            self.lastLickCountA=0
+            self.lastLickCountB=0
             self.entryTime=self.arduinoTime[-1] # log state entry time
             print('in state # {}'.format(self.currentState))
             ranHeader=1 # fire the latch
@@ -550,9 +554,18 @@ class pyDiscrim_mainGUI:
 
         self.togglePlotWinBtn=Button(self.master,text = 'Toggle Plot',width=self.col2BW,\
             command=self.taskPlotWindow)
-        self.togglePlotWinBtn.grid(row=startRow+3, column=2)
+        self.togglePlotWinBtn.grid(row=startRow+2, column=2)
         self.togglePlotWinBtn.config(state=NORMAL)
-        
+
+        self.debugWindowBtn=Button(self.master,text = 'Debug Toggles',width=self.col2BW,\
+            command=self.debugWindow)
+        self.debugWindowBtn.grid(row=startRow+3, column=2)
+        self.debugWindowBtn.config(state=NORMAL)
+
+
+        self.xVarsToPlot=StringVar(self.master)
+        self.yVarsToPlot=StringVar(self.master)
+
 
         self.lickMinMax=[-5,10]
         self.initPltRng=2.5
@@ -591,19 +604,19 @@ class pyDiscrim_mainGUI:
 
         self.lickThresholdA_label = Label(self.master, text="Thr A:")
         self.lickThresholdA_label.grid(row=startRow+2,column=0,padx=84,sticky=E)
-        self.lickThr_a=StringVar(self.master)
+        self.lickThresholdStrValA=StringVar(self.master)
         
         self.lickThresholdB_label = Label(self.master,text="Thr B:")
         self.lickThresholdB_label.grid(row=startRow+3,column=0,padx=84,sticky=E)
-        self.lickThr_b=StringVar(self.master)
+        self.lickThresholdStrValB=StringVar(self.master)
 
-        self.aThrEntry=Entry(self.master,width=6,textvariable=self.lickThr_a)
+        self.aThrEntry=Entry(self.master,width=6,textvariable=self.lickThresholdStrValA)
         self.aThrEntry.grid(row=startRow+2, column=0,sticky=E,padx=5)
-        self.bThrEntry=Entry(self.master,width=6,textvariable=self.lickThr_a)
+        self.bThrEntry=Entry(self.master,width=6,textvariable=self.lickThresholdStrValA)
         self.bThrEntry.grid(row=startRow+3, column=0,sticky=E,padx=5)
         
-        self.lickThr_a.set(12)
-        self.lickThr_b.set(12)
+        self.lickThresholdStrValA.set(12)
+        self.lickThresholdStrValB.set(12)
 
         # plot stuff
         self.lickMax_label = Label(self.master, text="Lick Max:")
@@ -618,14 +631,14 @@ class pyDiscrim_mainGUI:
         # You define a block as a function that takes a Tkinter Grid start row as an argument.
         # example: self.addSerialBlock(serStart)
 
-        self.master.title("pyDiscrim")
+        # self.master.title("pyDiscrim")
         self.col2BW=10
         pStart=0
     
         serStart=pStart+3
         sesStart=serStart+8
         plotStart=sesStart+7
-        lickStart=plotStart+6
+        lickStart=plotStart+7
         mainStart=lickStart+7
 
         self.addSerialBlock(serStart)
@@ -709,55 +722,100 @@ class pyDiscrim_mainGUI:
             varVals.append(tmpDataFrame.iloc[0][x])
         self.mapAssignStringEntries(varNames,varVals)
 
+    def debugWindow(self):
+        dbgFrame = Toplevel()
+        dbgFrame.title('Debug Toggles')
+        self.dbgFrame=dbgFrame
+
+        self.mFwdBtn=Button(master=dbgFrame,text="Move +",width=10,command=lambda:self.dbMv(100))
+        self.mFwdBtn.grid(row=0, column=0)
+        self.mFwdBtn.config(state=NORMAL)
+
+        self.mBwdBtn=Button(master=dbgFrame,text="Move -",width=10,command=lambda:self.dbMv(-100))
+        self.mBwdBtn.grid(row=1, column=0)
+        self.mBwdBtn.config(state=NORMAL)
+
+        self.lickABtn=Button(master=dbgFrame,text="Lick Left",width=10, command=lambda:self.dbLick(2000,0))
+        self.lickABtn.grid(row=0, column=1)
+        self.lickABtn.config(state=NORMAL)
+
+        self.lickBBtn=Button(master=dbgFrame,text="Lick Right",width=10, command=lambda:self.dbLick(2000,1))
+        self.lickBBtn.grid(row=1, column=1)
+        self.lickBBtn.config(state=NORMAL)
+
+    def dbMv(self,delta):
+        if len(self.absolutePosition)>0:
+            self.absolutePosition[-1]=self.absolutePosition[-1]+delta
+            self.lastPos=self.lastPos+delta
+        elif len(self.absolutePosition)==0:
+            self.lastPos=delta
+
+    def dbLick(self,val,spout):
+        if len(self.lickValsA)>0 and spout == 0:
+            self.lickValsA[-1]=self.lickValsA[-1]+val
+            self.analysis_lickDetectDB()
+
+        if len(self.lickValsB)>0 and spout == 1:
+            self.lickValsB[-1]=self.lickValsB[-1]+val
+            self.analysis_lickDetectDB()
+  
     def taskPlotWindow(self):
         tp_frame = Toplevel()
         tp_frame.title('Task Feedback')
         self.tp_frame=tp_frame
 
-        x1 = np.arange(0, 10, 1)
-        y1 = np.arange(0, 10, 1)
-        x2 = np.arange(0, 10, 1)
-        y2 = np.arange(0, 10, 1)
-
-        self.fig2 = plt.Figure()
+        self.fig2 = Figure()
+        splt=int(self.sampsToPlot.get())
+        sbIDs=[221,222,223,224]
         
-        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=tp_frame)
-        self.canvas2.show()
-        self.canvas2.get_tk_widget().grid(row=0,column=0)
+        for x in range(0,4):
+            exec('self.initX{}=np.arange(0,{},1)'.format(x,splt))
+            exec('self.initY{}=np.zeros({})'.format(x,splt))
+            exec('self.ax{}=self.fig2.add_subplot({})'.format(x,sbIDs[x]))
+            exec('self.line{},=self.ax{}.plot(self.initX{},self.initY{})'.format(x,x,x,x))
 
-        self.ax = self.fig2.add_subplot(221)
-        self.line, = self.ax.plot(x1,y1)
-
-        self.ax2 = self.fig2.add_subplot(222)
-        self.line2, = self.ax2.plot(x2,y2)
-
-
-        self.canvas2.draw()
+        self.canvas = FigureCanvasTkAgg(self.fig2, master=tp_frame)
+        self.canvas.get_tk_widget().grid(row=0,column=0)
 
         self.figButton=Button(master=tp_frame,text="Stuff",width=10, command=self.updatePlot)
         self.figButton.grid(row=1, column=0)
         self.figButton.config(state=NORMAL)
-
+    
     def updatePlot(self):
-        self.fig2
         splt=int(self.sampsToPlot.get())
         if len(self.arduinoTrialTime)>(splt+10):
+            x0=self.arduinoTrialTime[-splt:-1]
+            y0=self.arStates[-splt:-1]
+            y1=self.absolutePosition[-splt:-1]
+            y2=self.lickValsA[-splt:-1]
+            y3=self.lickValsB[-splt:-1]
+            y4=self.thrLicksA[-splt:-1]
+            y5=self.thrLicksB[-splt:-1]
+            for x in range(0,4):
+                exec('self.line{}.set_data(x0,y{})'.format(x,x,x))
+                exec('self.ax{}.relim()'.format(x))
+                exec('self.ax{}.autoscale_view()'.format(x))
 
-        
-            x1=self.arduinoTrialTime[-splt:-1]
-            y1=self.arStates[-splt:-1]
-            y2=self.arStates[-splt:-1]
-            
-            self.line.set_data(x1,y1)
-            self.line2.set_data(x1,y2)
-            
-            self.ax.relim()
-            self.ax.set_ylim(0,30)
-            self.ax.autoscale_view()
+        self.canvas.draw()
 
-            self.ax2.relim()
-            self.ax2.autoscale_view()
-            self.canvas2.draw()
+    def updatePlotCheck(self):
+        self.analysis_updateLickThresholds()
+        self.updatePosPlot()
+        if self.tp_frame.winfo_exists():
+            self.updatePlot()
+            self.tp_frame
+        self.cycleCount=0
+
+    def updatePosPlot(self):
+        plt.subplot(2,2,1)
+        self.lA=plt.plot([],[],'k-')
+
+        plt.pause(self.pltDelay)
+        self.lA.pop(0).remove()
+
+    def setPlotVariables(self):
+
+        self.plotVarIDs=['arStates','arduinoTime','lickValsA','lickValsB']
 
     ####################################
     ## **** State Toggle Windows **** ##
@@ -768,75 +826,80 @@ class pyDiscrim_mainGUI:
         st_frame.title('States in Task')
         self.st_frame=st_frame
 
-        stateStartColumn=0
-        stateStartRow=4
-        self.stateStartColumn=stateStartColumn
-        self.stateStartRow=stateStartRow
+        sCl=0
+        sRw=4
+        btWdth=8
+        
+        self.stateStartColumn=sCl
+        self.stateStartRow=sRw
 
-        self.sBtn_boot = Button(st_frame, text="S0: Boot", \
-            command=lambda: self.switchState(self.bootState))
-        self.sBtn_boot.grid(row=stateStartRow-1, column=stateStartColumn)
-        self.sBtn_boot.config(state=NORMAL)
-
-        self.sBtn_wait = Button(st_frame, text="S1: Wait", \
-            command=lambda: self.switchState(self.waitState))
-        self.sBtn_wait.grid(row=stateStartRow, column=stateStartColumn)
-        self.sBtn_wait.config(state=NORMAL)
-
-        self.sBtn_initiate = Button(st_frame, text="S2: Initiate", \
-            command=lambda: self.switchState(self.initiationState))
-        self.sBtn_initiate.grid(row=stateStartRow, column=stateStartColumn+1)
-        self.sBtn_initiate.config(state=NORMAL)
-
-        self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", \
-            command=lambda: self.switchState(self.cue1State))
-        self.sBtn_cue1.grid(row=stateStartRow-1, column=stateStartColumn+2)
-        self.sBtn_cue1.config(state=NORMAL)
-
-        self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", \
-            command=lambda: self.switchState(self.cue2State))
-        self.sBtn_cue2.grid(row=stateStartRow+1, column=stateStartColumn+2)
-        self.sBtn_cue2.config(state=NORMAL)
-
-        self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", \
-            command=lambda: self.switchState(self.stim1State))
-        self.sBtn_stim1.grid(row=stateStartRow-2, column=stateStartColumn+3)
-        self.sBtn_stim1.config(state=NORMAL)
-
-        self.sBtn_stim2 = Button(st_frame, text="SS2: Stim 2",\
-            command=lambda: self.switchState(self.stim2State))
-        self.sBtn_stim2.grid(row=stateStartRow-1, column=stateStartColumn+3)
-        self.sBtn_stim2.config(state=NORMAL)
-
-        self.sBtn_catch = Button(st_frame, text="SC: Catch", \
-            command=lambda: self.switchState(self.catchState))
-        self.sBtn_catch.grid(row=stateStartRow, column=stateStartColumn+3)
-        self.sBtn_catch.config(state=NORMAL)
-
-        self.sBtn_reward = Button(st_frame, text="Reward State", \
-            command=lambda: self.switchState(self.rewardState))
-        self.sBtn_reward.grid(row=stateStartRow-1, column=stateStartColumn+4)
-        self.sBtn_reward.config(state=NORMAL)
-
-        self.sBtn_neutral = Button(st_frame, text="SN: Neutral", \
-            command=lambda: self.switchState(self.neutralState))
-        self.sBtn_neutral.grid(row=stateStartRow, column=stateStartColumn+4)
-        self.sBtn_neutral.config(state=NORMAL)
-
-        self.sBtn_punish = Button(st_frame, text="SP: Punish", \
-            command=lambda: self.switchState(self.punishState))
-        self.sBtn_punish.grid(row=stateStartRow+1, column=stateStartColumn+4)
-        self.sBtn_punish.config(state=NORMAL)
+        # self.blankLine(self.st_frame,sRw)
 
         self.sBtn_save = Button(st_frame, text="Save State", \
-            command=lambda: self.switchState(self.saveState))
-        self.sBtn_save.grid(row=stateStartRow+1, column=stateStartColumn)
+            command=lambda: self.switchState(self.saveState),width=btWdth)
+        self.sBtn_save.grid(row=sRw+1, column=sCl)
         self.sBtn_save.config(state=NORMAL)
 
         self.sBtn_endSession = Button(st_frame, text="End Session", \
-            command=lambda: self.switchState(self.endState))
-        self.sBtn_endSession.grid(row=stateStartRow-2, column=stateStartColumn)
+            command=lambda: self.switchState(self.endState),width=btWdth)
+        self.sBtn_endSession.grid(row=sRw-2, column=sCl+1)
         self.sBtn_endSession.config(state=NORMAL)
+
+        self.sBtn_boot = Button(st_frame, text="S0: Boot", \
+            command=lambda: self.switchState(self.bootState),width=btWdth)
+        self.sBtn_boot.grid(row=sRw-1, column=sCl)
+        self.sBtn_boot.config(state=NORMAL)
+
+        self.sBtn_wait = Button(st_frame, text="S1: Wait", \
+            command=lambda: self.switchState(self.waitState),width=btWdth)
+        self.sBtn_wait.grid(row=sRw, column=sCl)
+        self.sBtn_wait.config(state=NORMAL)
+
+        self.sBtn_initiate = Button(st_frame, text="S2: Initiate", \
+            command=lambda: self.switchState(self.initiationState),width=btWdth)
+        self.sBtn_initiate.grid(row=sRw, column=sCl+1)
+        self.sBtn_initiate.config(state=NORMAL)
+
+        self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", \
+            command=lambda: self.switchState(self.cue1State),width=btWdth)
+        self.sBtn_cue1.grid(row=sRw-1, column=sCl+2)
+        self.sBtn_cue1.config(state=NORMAL)
+
+        self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", \
+            command=lambda: self.switchState(self.cue2State),width=btWdth)
+        self.sBtn_cue2.grid(row=sRw+1, column=sCl+2)
+        self.sBtn_cue2.config(state=NORMAL)
+
+        self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", \
+            command=lambda: self.switchState(self.stim1State),width=btWdth)
+        self.sBtn_stim1.grid(row=sRw-2, column=sCl+3)
+        self.sBtn_stim1.config(state=NORMAL)
+
+        self.sBtn_stim2 = Button(st_frame, text="SS1: Stim 2",\
+            command=lambda: self.switchState(self.stim2State),width=btWdth)
+        self.sBtn_stim2.grid(row=sRw+2, column=sCl+3)
+        self.sBtn_stim2.config(state=NORMAL)
+
+
+        self.sBtn_catch = Button(st_frame, text="SC: Catch", \
+            command=lambda: self.switchState(self.catchState),width=btWdth)
+        self.sBtn_catch.grid(row=sRw, column=sCl+3)
+        self.sBtn_catch.config(state=NORMAL)
+
+        self.sBtn_reward = Button(st_frame, text="SR: Reward", \
+            command=lambda: self.switchState(self.rewardState),width=btWdth)
+        self.sBtn_reward.grid(row=sRw-1, column=sCl+4)
+        self.sBtn_reward.config(state=NORMAL)
+
+        self.sBtn_neutral = Button(st_frame, text="SN: Neutral", \
+            command=lambda: self.switchState(self.neutralState),width=btWdth)
+        self.sBtn_neutral.grid(row=sRw, column=sCl+4)
+        self.sBtn_neutral.config(state=NORMAL)
+
+        self.sBtn_punish = Button(st_frame, text="SP: Punish", \
+            command=lambda: self.switchState(self.punishState),width=btWdth)
+        self.sBtn_punish.grid(row=sRw+1, column=sCl+4)
+        self.sBtn_punish.config(state=NORMAL)
 
     #################################
     ## **** Task Prob Windows **** ##
@@ -994,14 +1057,18 @@ class pyDiscrim_mainGUI:
         self.arduinoTrialTime=[]  
         self.absolutePosition=[]
         self.posDelta=[]        
-        self.lickValues_a=[]
-        self.lickValues_b=[]
-        self.detectedLicks_a=[]
-        self.detectedLicks_b=[]
+        self.lickValsA=[]
+        self.lickValsB=[]
+        self.thrLicksA=[]
+        self.thrLicksB=[]
+        self.stateLickCountA=[]
+        self.stateLickCountB=[]
         self.pyStatesRS = []
         self.pyStatesRT = []
         self.pyStatesTT = []
         self.pyStatesTS = []
+        self.lastLickCountA=0
+        self.lastLickCountB=0
 
     def data_cleanContainers(self):
         self.arStates=[]          
@@ -1009,11 +1076,12 @@ class pyDiscrim_mainGUI:
         self.arduinoTrialTime=[]  
         self.absolutePosition=[]
         self.posDelta=[]        
-        self.lickValues_a=[]
-        self.lickValues_b=[]
-        self.detectedLicks_a=[]
-        self.detectedLicks_b=[]
-        self.detectedTrialLicks = []
+        self.lickValsA=[]
+        self.lickValsB=[]
+        self.thrLicksA=[]
+        self.thrLicksB=[]
+        self.stateLickCountA=[]
+        self.stateLickCountB=[]
         self.pyStatesRS = []
         self.pyStatesRT = []
         self.pyStatesTT = []
@@ -1028,17 +1096,19 @@ class pyDiscrim_mainGUI:
         self.lastPos=int(self.absolutePosition[-1])
         self.currentState=int(self.sR[self.stID_state])
         self.arStates.append(self.currentState)
-        self.lickValues_a.append(int(self.sR[self.stID_lickSensor_a]))
-        self.lickValues_b.append(int(self.sR[self.stID_lickSensor_b]))
+        self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
+        self.lickValsB.append(int(self.sR[self.stID_lickSensor_b]))
         self.analysis_lickDetect()
         self.dataExists=1
 
     def data_saveData(self):
-
+        print(len(self.stateLickCountA))
+        print(len(self.stateLickCountB))
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
         saveStreams='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
-        'lickValues_a','lickValues_b','pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
+        'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCountA','stateLickCountB','pyStatesRS',\
+        'pyStatesRT','pyStatesTS','pyStatesTT'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
@@ -1075,77 +1145,48 @@ class pyDiscrim_mainGUI:
 
     def analysis_updateLickThresholds(self):
         if self.ux_adaptThresh.get()==1:
-            print(int(self.lickThr_a))
-            tA=np.abs(np.array(self.lickValues_a))
+            print(int(self.lickThresholdStrValA))
+            tA=np.abs(np.array(self.lickValsA))
             print(int(np.percentile\
                 (aaa[np.where(aaa != 0)[0]],75)))
-            self.lickThr_a.set(\
+            self.lickThresholdStrValA.set(\
                 str(np.percentile(tA[np.where(tA != 0)[0]],75)))
-            self.lickMinMax=[min(self.lickValues_a),\
-            max(self.lickValues_a)]
+            self.lickMinMax=[min(self.lickValsA),\
+            max(self.lickValsA)]
+
+    def analysis_lickDetectDB(self):
+        if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()):
+            self.thrLicksA[-1]=1
+            
+            self.lastLickCountA=self.lastLickCountA+1
+            self.stateLickCountA[-1]=self.lastLickCountA+1
+
+
+        if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()):
+            self.thrLicksB[-1]=1
+            
+            self.lastLickCountB=self.lastLickCountB+1
+            self.stateLickCountB[-1]=self.lastLickCountB+1
+
 
     def analysis_lickDetect(self):
-        if self.lickValues_a[-1]>int(self.lickThr_a.get()):
-            self.detectedLicks_a.append(int(self.lickPlotMax.get())/2)
-        elif self.lickValues_a[-1]<=int(self.lickThr_a.get()):
-            self.detectedLicks_a.append(0)
+        if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()):
+            self.thrLicksA.append(1)
+            
+            self.lastLickCountA+1
+            self.stateLickCountA.append(self.lastLickCountA)
 
-    #################################################
-    ## **** These Are Plotting  Functions **** ##
-    #################################################
-    # def updatePosPlot2(self):
-    #     plt.pause(self.pltDelay)
+        elif self.lickValsA[-1]<=int(self.lickThresholdStrValA.get()):
+            self.thrLicksA.append(0)
+            self.stateLickCountA.append(self.lastLickCountA)
 
-    def updatePosPlot(self):
-        # if len(self.arduinoTime)>2: 
-        #     self.cTD=self.arduinoTrialTime[-1]-self.arduinoTrialTime[-2]
-        #     self.tTP=self.segPlot*self.cTD
-        # self.segPlot=int(self.sampsToPlot.get())    #=int(self.sampsToPlot.get())
-        # int(self.sampsToPlot.get())
-        # self.cTD
-        plt.subplot(2,2,1)
-        self.lA=plt.plot([0,1],[0,1],'k-')
-        plt.ylim(-6000,6000)
-        
-        # if len(self.arduinoTrialTime)>self.segPlot+1:
-        #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        # elif len(self.arduinoTrialTime)<=self.segPlot+1:
-        #     plt.xlim(0,self.tTP)
-
-        
-        # plt.ylabel('position')
-        # plt.xlabel('time since trial start (sec)')
-
-        # plt.subplot(2,2,3)
-        # self.lG=plt.plot(self.arduinoTrialTime[-self.segPlot:-1],\
-        #     self.lickValues_a[-self.segPlot:-1],'k-')
-        # plt.ylim(0,int(self.lickPlotMax.get()))
-        # if len(self.arduinoTrialTime)>self.segPlot+1:
-        #     plt.xlim(self.arduinoTrialTime[-self.segPlot],self.arduinoTrialTime[-1])
-        # elif len(self.arduinoTrialTime)<=self.segPlot+1:
-        #     plt.xlim(0,self.tTP)
-        # plt.ylabel('licks (binary)')
-        # plt.xlabel('time since trial start (sec)')
-
-        # plt.subplot(2,2,2)
-        # if self.updateStateMap==1:
-        #     self.lC=plt.plot(self.stateDiagX,self.stateDiagY,'ro',markersize=self.smMrk)
-        #     self.lD=plt.plot(self.stateDiagX[self.currentState],\
-        #         self.stateDiagY[self.currentState],'go',markersize=self.lrMrk)
-        #     plt.ylim(0,10)
-        #     plt.xlim(0,10)
-        #     plt.title('trial = {} ; state = {}'.format(self.currentTrial,self.currentState))
-
-        plt.pause(self.pltDelay)
-        self.lA.pop(0).remove()
-
-    def updatePlotCheck(self):
-        self.analysis_updateLickThresholds()
-        self.updatePosPlot()
-        plt.pause(self.pltDelay)
-        if self.tp_frame.winfo_exists():
-            self.updatePlot()
-        self.cycleCount=0
+        if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()):
+            self.thrLicksB.append(1)
+            self.lastLickCountB+1
+            self.stateLickCountB.append(self.lastLickCountB)
+        elif self.lickValsB[-1]<=int(self.lickThresholdStrValB.get()):
+            self.thrLicksB.append(0)
+            self.stateLickCountB.append(self.lastLickCountB)
 
     #######################################
     ## **** Custom State Callbacks **** ##
@@ -1274,10 +1315,10 @@ class pyDiscrim_mainGUI:
             print('timeout of {} seconds is over'.format(self.timeOutDuration))
             self.switchState(self.saveState)
 
-def main(): 
-    root = Tk()
-    app = pyDiscrim_mainGUI(root)
-    root.mainloop()
+# def main(): 
+root = Tk()
+app = pyDiscrim_mainGUI(root)
+root.mainloop()
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
