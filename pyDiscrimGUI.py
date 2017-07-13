@@ -2,21 +2,28 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.2 -- Lick Detection Reimplimented 
-#
+# Version 3.4 -- Default Choices and Shaping Variables All Implemented
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
+
+# bugs: must keep a benign matplotlib fig (Figure 1) open. Can be minmized, but has to be open.
+# bugs: have to keep task feedback opebn
+
+# todos: make outcome plot frequency
+# todos: make rewardState and do reward1State reward2State
 
 from tkinter import *
 from tkinter import filedialog
 import serial
 import numpy as np
+
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg 
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
-import matplotlib.animation as animation
+# import matplotlib.animation as animation
+
 import time
 import datetime
 import random
@@ -24,12 +31,302 @@ import math
 import struct
 import sys
 import os
-# check out pathlib as pythonic? os replacement
 import pandas as pd
 
-rxr=np.linspace(0, 2*np.pi, 1024)
 
 class pyDiscrim_mainGUI:
+
+    #####################################
+    ## **** Set Initial Variables **** ##
+    #####################################
+
+    def setStateNames(self):
+        self.stateNames=\
+        ['bootState','waitState','initiationState','cue1State','cue2State',\
+        'stim1State','stim2State','catchState','saveState','rewardState',\
+        'neutralState','punishState','endState','defaultState']
+
+        self.stateIDs=\
+        [0,1,2,3,4,\
+        5,6,7,13,21,\
+        22,23,25,29]
+        
+        self.mapAssign(self.stateNames,self.stateIDs)
+        
+        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)    
+
+    def setSessionVars(self):
+        # session vars
+        self.sessionVarIDs=['ranTask','dataExists','comObjectExists',\
+        'taskProbsRefreshed','stateVarsRefreshed','currentTrial',\
+        'currentState','currentSession','sessionTrialCount']
+        self.sessionVarVals=\
+        [0,0,0,\
+         0,0,1,\
+         0,1,1]
+        self.mapAssign(self.sessionVarIDs,self.sessionVarVals)
+
+    def setStateVars(self):
+        self.stateVarLabels=\
+        ['dPos','movThr','movTimeThr','stillTime','stillLatch',\
+        'stillTimeStart','distThr','timeOutDuration']
+        self.stateVarValues=\
+        [0,40,2,0,0,\
+        0,1000,2]
+        
+        self.mapAssign(self.stateVarLabels,self.stateVarValues)
+
+    def setTaskProbs(self):
+
+        self.t1ProbLabels='sTask1_prob','sTask1_target_prob',\
+            'sTask1_distract_prob','sTask1_target_reward_prob',\
+            'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
+            'sTask1_distract_punish_prob'
+        self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+        self.mapAssign(self.t1ProbLabels,self.t1ProbValues)
+
+        self.t2ProbLabels='sTask2_prob','sTask2_target_prob',\
+                'sTask2_distract_prob','sTask2_target_reward_prob',\
+                'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
+                'sTask2_distract_punish_prob'
+        self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+        self.mapAssign(self.t2ProbLabels,self.t2ProbValues)
+
+    ##############################
+    ##  Custom State Callbacks  ##
+    ##############################
+
+    def callback_waitState(self):
+        if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
+            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
+            
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+
+            if self.dPos<self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+
+            if self.stillLatch==1 and self.stillTime>1:
+                print('Still! ==> Out of wait')
+                print('### S1 --> S2')
+                self.switchState(self.initiationState)
+
+    
+    def custHeader_initiationState(self):
+        self.task_switch=random.random()
+
+    def callback_initiationState(self):
+        t1P=self.sTask1_prob
+        if self.absolutePosition[-1]>self.distThr:
+            if self.task_switch<=t1P:
+                print('moving spout; cue stim task #1')
+                self.switchState(self.cue1State)
+            # if stimSwitch is more than task1's probablity then send to task #2
+            elif self.task_switch>t1P:
+                print('moving spout; cue stim task #2')
+                self.switchState(self.cue2State)
+
+    def custHeader_cue1State(self):
+
+        self.outcomeSwitch=random.random()
+
+    def custHeader_cue2State(self):
+        
+        self.outcomeSwitch=random.random()
+
+    def callback_cue1State(self):
+        #trP=float(self.sTask1_target_prob.get())
+        if self.arduinoTime[-1]-self.entryTime>4:
+            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+            if self.dPos<=self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+            if self.stillLatch==1 and self.stillTime>1:
+                print('Still!')
+                if self.outcomeSwitch<=0.5:
+                    print('stim 1 reward left')
+                    self.switchState(self.stim1State)
+                    self.rewardContingency.append(10)   # stim bit: correct spout bit --> 1 is stim 1 and 0 is left spout
+                elif self.outcomeSwitch>0.5:
+                    print('stim 2 reward right')
+                    self.switchState(self.stim2State)
+                    self.rewardContingency.append(21) # stim bit: correct spout bit --> 2 is stim 2 and 1 is reward right spout
+
+    def callback_cue2State(self): 
+        #trP=float(self.sTask2_target_prob.get())
+        if self.arduinoTime[-1]-self.entryTime>4:
+            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
+            if self.dPos>self.movThr and self.stillLatch==1:
+                self.stillLatch=0
+            if self.dPos<=self.movThr and self.stillLatch==0:
+                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillLatch=1
+            if self.dPos<=self.movThr and self.stillLatch==1:
+                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+            if self.stillLatch==1 and self.stillTime>1:
+                #print('result={}'.format(self.outcomeSwitch<=trP))
+                print('Still!')
+                if self.outcomeSwitch<=0.5:
+                    print('stim 1 reward right')
+                    self.switchState(self.stim1State)
+                    self.rewardContingency.append(11)
+                elif self.outcomeSwitch>0.5:
+                    print('stim 2 reward left')
+                    self.switchState(self.stim2State)
+                    self.rewardContingency.append(20)
+    
+    def callback_stim1State(self):
+        
+        # conditions < -- training vars
+        self.minStim1Time=0.2
+        self.minTarget1Licks=2
+        self.maxOffTarget1Licks=1
+        self.minOffTarget1Licks=1
+        self.reportMax1Time=10
+
+        print('set var 1')
+
+        if self.arduinoTime[-1]-self.entryTime>self.minStim1Time:
+            print('time cond met') #debug
+            if self.arduinoTime[-1]-self.entryTime<self.reportMax1Time:
+                if self.rewardContingency[-1] == 10 and \
+                self.stateLickCountA[-1]>=self.minTarget1Licks and \
+                self.stateLickCountB[-1]<self.maxOffTarget1Licks: # target left; licked left
+                    print('licked left: on target -> reward') #debug
+                    self.trialOutcome.append(11) # 1 was the stim, and the outcome is rewarded: 1
+                    self.switchState(self.rewardState)
+
+                elif self.rewardContingency[-1] == 10 and \
+                self.stateLickCountA[-1]<=self.minTarget1Licks and \
+                self.stateLickCountB[-1]>self.minOffTarget1Licks: # target left; licked right
+                    print('licked right: obvious off target -> punish')
+                    self.trialOutcome.append(12)
+                    self.switchState(self.punishState)
+
+                elif self.rewardContingency[-1] == 10 and \
+                self.stateLickCountA[-1]>self.minTarget1Licks and \
+                self.stateLickCountB[-1]>self.minOffTarget1Licks:
+                    print('licked both: ambiguous choice ... wrong -> punish')
+                    self.trialOutcome.append(13)
+                    self.switchState(self.punishState)
+
+                elif self.rewardContingency[-1] == 11 and \
+                self.stateLickCountB[-1]>=self.minTarget1Licks and \
+                self.stateLickCountA[-1]<self.maxOffTarget1Licks: # target left; licked left
+                    print('licked right: on target -> reward') #debug
+                    self.trialOutcome.append(11) # 1 is rewarded
+                    self.switchState(self.rewardState)
+
+                elif self.rewardContingency[-1] == 11 and \
+                self.stateLickCountA[-1]<=self.minTarget1Licks \
+                and self.stateLickCountB[-1]>self.minOffTarget1Licks: # target left; licked right
+                    print('licked left: off target -> punish')
+                    self.trialOutcome.append(12)
+                    self.switchState(self.punishState)
+
+                elif self.rewardContingency[-1] == 11 and \
+                self.stateLickCountA[-1]>self.minTarget1Licks \
+                and self.stateLickCountB[-1]>self.minOffTarget1Licks:
+                    print('licked both: ambiguous choice ... wrong -> punish')
+                    self.trialOutcome.append(13)
+                    self.switchState(self.punishState)
+            
+            elif self.arduinoTime[-1]-self.entryTime>=self.reportMax1Time:
+                self.trialOutcome.append(10)
+                print('timed out: did not report')
+                self.switchState(self.neutralState)      #5
+
+    def callback_stim2State(self):
+        print('may set var 2')
+        # conditions < -- training vars
+        self.minStim2Time=0.2
+        self.minTarget2Licks=2
+        self.maxOffTarget2Licks=1
+        self.minOffTarget2Licks=1
+        self.reportMax2Time=10
+
+        print('set var 2')
+        print('some shiz')
+        if self.arduinoTime[-1]-self.entryTime>self.minStim2Time:
+            print('some shiz')
+            print('time cond met') #debug
+            if self.arduinoTime[-1]-self.entryTime<self.reportMax2Time:
+                if self.rewardContingency[-1] == 20 and \
+                self.stateLickCountA[-1]>=self.minTarget2Licks and \
+                self.stateLickCountB[-1]<self.maxOffTarget2Licks: # target left; licked left
+                    print('20 licked left: on target -> reward') #debug
+                    self.trialOutcome.append(11) # 1 was the stim, and the outcome is rewarded: 1
+                    self.switchState(self.rewardState)
+
+                elif self.rewardContingency[-1] == 20 and \
+                self.stateLickCountA[-1]<=self.minTarget2Licks and \
+                self.stateLickCountB[-1]>self.minOffTarget2Licks: # target left; licked right
+                    print('20 licked right: obvious off target -> punish')
+                    self.trialOutcome.append(12)
+                    self.switchState(self.punishState)
+
+                elif self.rewardContingency[-1] == 20 and \
+                self.stateLickCountA[-1]>self.minTarget2Licks and \
+                self.stateLickCountB[-1]>self.minOffTarget2Licks:
+                    print('20 licked both: ambiguous choice ... wrong -> punish')
+                    self.trialOutcome.append(13)
+                    self.switchState(self.punishState)
+
+                elif self.rewardContingency[-1] == 21 and \
+                self.stateLickCountB[-1]>=self.minTarget2Licks and \
+                self.stateLickCountA[-1]<self.maxOffTarget2Licks: # target left; licked left
+                    print('21 licked right: on target -> reward') #debug
+                    self.trialOutcome.append(11) # 1 is rewarded
+                    self.switchState(self.rewardState)
+
+                elif self.rewardContingency[-1] == 21 and\
+                 self.stateLickCountB[-1]<=self.minTarget2Licks and \
+                 self.stateLickCountA[-1]>self.minOffTarget2Licks: # target left; licked right
+                    print('21 licked left: off target -> punish')
+                    self.trialOutcome.append(12)
+                    self.switchState(self.punishState)
+
+                elif self.rewardContingency[-1] == 21 and \
+                self.stateLickCountA[-1]>self.minTarget2Licks \
+                and self.stateLickCountB[-1]>self.minOffTarget2Licks:
+                    print('21 licked both: ambiguous choice ... wrong -> punish')
+                    self.trialOutcome.append(13)
+                    self.switchState(self.punishState)
+            
+            elif self.arduinoTime[-1]-self.entryTime>=self.reportMax2Time:
+                self.trialOutcome.append(10)
+                print('timed out: did not report')
+                self.switchState(self.neutralState)   #6
+
+    
+    def callback_rewardState(self):
+        self.rewardTime=1
+        if self.arduinoTime[-1]-self.entryTime<self.rewardTime:
+            print('rewarding')
+            self.switchState(self.saveState)
+
+    def callback_neutralState(self):
+        self.neutralTime=1
+        if self.absolutePosition[-1]>self.distThr:
+            print('no reward')
+            self.switchState(self.saveState)
+
+    def callback_punishState(self):
+        if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
+            print('timeout of {} seconds is over'.format(self.timeOutDuration))
+            self.switchState(self.saveState)
+    
+    ###########################
+    ## ****  Main Task  **** ##
+    ###########################
 
     def __init__(self,master):
         self.master = master
@@ -44,7 +341,7 @@ class pyDiscrim_mainGUI:
         self.data_serialInputIDs()
         self.data_makeContainers()
 
-    def runTask_header(self):
+    def taskHeader(self):
         self.endBtn.config(state=NORMAL)
         self.startBtn.config(state=DISABLED)
         print('started at state #: {}'.format(self.currentState))
@@ -54,8 +351,8 @@ class pyDiscrim_mainGUI:
         self.shouldRun=1
         self.trialTimes=[]
 
-    def runTask(self):
-        self.runTask_header()
+    def task(self):
+        self.taskHeader()
         aa=time.time()
         while self.currentTrial <=int(self.totalTrials.get()) \
         and self.shouldRun==1:
@@ -70,7 +367,7 @@ class pyDiscrim_mainGUI:
                         if self.dataAvail==1:
                             self.data_parseData()
                             self.switchState(self.initiationState)
-
+                
                 #S1 -----> trial wait state
                 elif self.currentState==self.waitState:
                     self.stateHeader(1)
@@ -78,34 +375,32 @@ class pyDiscrim_mainGUI:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_waitState()
-
+                
                 #S2 -----> trial initiation state
                 elif self.currentState==self.initiationState:
-                    self.task_switch=random.random()
                     self.stateHeader(1)
+                    self.custHeader_initiationState()
                     while self.currentState==self.initiationState:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_initiationState()
-
+                
                 #S3 -----> cue #1
                 elif self.currentState==self.cue1State:
                     self.stateHeader(1)
-                    self.outcomeSwitch=random.random()
+                    self.custHeader_cue1State()
                     while self.currentState==self.cue1State:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_cue1State()
-
                 #S4 -----> cue #2
                 elif self.currentState==self.cue2State:
                     self.stateHeader(1)
-                    self.outcomeSwitch=random.random() # debug
+                    self.custHeader_cue2State()
                     while self.currentState==self.cue2State:    
                         self.coreState()
                         if self.fireCallback:
                             self.callback_cue2State()
-
                 #S5 -----> stim tone #1
                 elif self.currentState==self.stim1State:
                     self.stateHeader(1)
@@ -113,7 +408,6 @@ class pyDiscrim_mainGUI:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_stim1State()
-
                 #S6 -----> stim tone #2
                 elif self.currentState==self.stim2State:
                     self.stateHeader(1)
@@ -121,7 +415,7 @@ class pyDiscrim_mainGUI:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_stim2State()
-
+                
                 #S21 -----> reward state
                 elif self.currentState==self.rewardState:
                     self.stateHeader(0)
@@ -129,7 +423,13 @@ class pyDiscrim_mainGUI:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_rewardState()
-
+                #S22 -----> neutral state
+                elif self.currentState==self.neutralState:
+                    self.stateHeader(0)
+                    while self.currentState==self.neutralState:
+                        self.coreState()
+                        if self.fireCallback:
+                            self.callback_neutralState()
                 #S23 -----> punish state
                 elif self.currentState==self.punishState:
                     self.stateHeader(0)
@@ -151,7 +451,6 @@ class pyDiscrim_mainGUI:
                     aa=time.time()
                     self.comObj.write(struct.pack('>B', self.waitState))
                     self.exitState(self.saveState)
-                
                 #S25: end session state
                 elif self.currentState==self.endState:
                     print('About to end the session ...')
@@ -175,9 +474,9 @@ class pyDiscrim_mainGUI:
         self.updateDispTime()
         self.syncSerial()
 
-    #########################################
+    ##################################
     ## ****  Utility Functions **** ##
-    ########################################
+    ##################################
 
     def syncSerial(self):
         ranHeader=0
@@ -249,61 +548,23 @@ class pyDiscrim_mainGUI:
             for x in range(0,len(varLabels)):
                 eval('self.{}_tv.set({})'.format(varLabels[x],varValues[x]))
 
-    #####################################
-    ## **** Set Initial Variables **** ##
-    #####################################
+    def parseMetaDataStrings(self,tmpDataFrame):
+        aa=tmpDataFrame.dtypes.index
+        varNames=[]
+        varVals=[]
+        for x in range(0,len(tmpDataFrame.columns)):
+            varNames.append(aa[x])
+            varVals.append(tmpDataFrame.iloc[0][x])
+        self.mapAssignStringEntries(varNames,varVals)
 
-    def setStateNames(self):
-        self.stateNames=\
-        ['bootState','waitState','initiationState','cue1State','cue2State',\
-        'stim1State','stim2State','catchState','saveState','rewardState',\
-        'neutralState','punishState','endState','defaultState']
+    def blankLine(self,targ,startRow):
+        self.guiBuf=Label(targ, text="")
+        self.guiBuf.grid(row=startRow,column=0,sticky=W)
 
-        self.stateIDs=\
-        [0,1,2,3,4,\
-        5,6,7,13,21,\
-        22,23,25,29]
-        
-        self.mapAssign(self.stateNames,self.stateIDs)
-        
-        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)    
-
-    def setSessionVars(self):
-        # session vars
-        self.sessionVarIDs=['ranTask','dataExists','comObjectExists',\
-        'taskProbsRefreshed','stateVarsRefreshed','currentTrial',\
-        'currentState','currentSession','sessionTrialCount']
-        self.sessionVarVals=\
-        [0,0,0,\
-         0,0,1,\
-         0,1,1]
-        self.mapAssign(self.sessionVarIDs,self.sessionVarVals)
-
-    def setStateVars(self):
-        self.stateVarLabels=\
-        ['dPos','movThr','movTimeThr','stillTime','stillLatch',\
-        'stillTimeStart','distThr','timeOutDuration']
-        self.stateVarValues=\
-        [0,40,2,0,0,\
-        0,1000,2]
-        
-        self.mapAssign(self.stateVarLabels,self.stateVarValues)
-
-    def setTaskProbs(self):
-
-        self.t1ProbLabels='sTask1_prob','sTask1_target_prob',\
-            'sTask1_distract_prob','sTask1_target_reward_prob',\
-            'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
-            'sTask1_distract_punish_prob'
-        self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        self.mapAssign(self.t1ProbLabels,self.t1ProbValues)
-
-        self.t2ProbLabels='sTask2_prob','sTask2_target_prob',\
-                'sTask2_distract_prob','sTask2_target_reward_prob',\
-                'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
-                'sTask2_distract_punish_prob'
-        self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        self.mapAssign(self.t2ProbLabels,self.t2ProbValues)
+    def updateDispTime(self):
+        self.dateStr = datetime.datetime.\
+        fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
+        self.timeDisp.config(text=' #{} started: '.format(self.currentSession) + self.dateStr)  
 
     ############################### 
     ##  Check For User Imports.  ## 
@@ -339,9 +600,9 @@ class pyDiscrim_mainGUI:
             self.sessionDF=self.sessionDF.append(ds,ignore_index=True)
             print(self.sessionDF)
 
-    #########################################
-    ## **** State Switching Functions **** ##
-    ######################################### 
+    ###############################
+    ##  State Related Functions  ##
+    ###############################
     
     def switchState(self,targetState):
         self.targetState=targetState
@@ -386,18 +647,9 @@ class pyDiscrim_mainGUI:
             self.fireCallback=1
             self.cycleCount=self.cycleCount+1;
 
-    ################################
-    ## **** main window etc. **** ##
-    ################################   
-
-    def updateDispTime(self):
-        self.dateStr = datetime.datetime.\
-        fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
-        self.timeDisp.config(text=' #{} started: '.format(self.currentSession) + self.dateStr)  
-    
-    def blankLine(self,targ,startRow):
-        self.guiBuf=Label(targ, text="")
-        self.guiBuf.grid(row=startRow,column=0,sticky=W)
+    ####################
+    ##  Window: Main  ##
+    ####################
 
     def addMainBlock(self,startRow):
         self.startRow = startRow
@@ -406,11 +658,11 @@ class pyDiscrim_mainGUI:
         self.mainCntrlLabel = Label(self.master, text="Main Controls:")\
         .grid(row=startRow,column=0,sticky=W)
 
-        self.quitBtn = Button(self.master,text="Exit Program",command=self.quitBtnCB, width=self.col2BW)
+        self.quitBtn = Button(self.master,text="Exit Program",command=self.mwQuitBtn, width=self.col2BW)
         self.quitBtn.grid(row=startRow+1, column=2)
 
         self.startBtn = Button(self.master, text="Start Task",\
-            width=10, command=self.runTask,state=DISABLED)
+            width=10, command=self.task,state=DISABLED)
         self.startBtn.grid(row=startRow+1, column=0,sticky=W,padx=10)
 
         self.endBtn = Button(self.master, text="End Task",width=self.col2BW, \
@@ -483,7 +735,7 @@ class pyDiscrim_mainGUI:
         self.pathEntry.grid(row=startRow+3,column=0,sticky=W)
         self.dirPath.set(os.path.join(os.getcwd(),self.animalID))
 
-        self.setPath_button = Button(self.master,text="<- Set Path",command=self.setPathBtn,width=self.col2BW)
+        self.setPath_button = Button(self.master,text="<- Set Path",command=self.mwPathBtn,width=self.col2BW)
         self.setPath_button.grid(row=startRow+3,column=2)
 
         self.aIDLabel=Label(self.master, text="animal id:").grid(row=startRow+4,column=0,sticky=W)
@@ -524,7 +776,7 @@ class pyDiscrim_mainGUI:
         self.stateVarsBtn.config(state=NORMAL)
 
         self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',\
-            width = self.col2BW, command = self.loadSessionMetaData)
+            width = self.col2BW, command = self.mwLoadMetaBtn)
         self.loadAnimalMetaBtn.grid(row=startRow+1, column=2)
         self.loadAnimalMetaBtn.config(state=NORMAL)
 
@@ -631,7 +883,7 @@ class pyDiscrim_mainGUI:
         # You define a block as a function that takes a Tkinter Grid start row as an argument.
         # example: self.addSerialBlock(serStart)
 
-        # self.master.title("pyDiscrim")
+        self.master.title("pyDiscrim")
         self.col2BW=10
         pStart=0
     
@@ -651,7 +903,8 @@ class pyDiscrim_mainGUI:
         self.dirAnimalMetaExists=os.path.isfile(self.dirPath.get() + '.lastMeta.csv')
         print(self.dirAnimalMetaExists) 
 
-    def quitBtnCB(self):
+    
+    def mwQuitBtn(self):
         if self.ranTask==0 or self.comObjectExists==0:  
             print('*** bye: closed without saving ***')
             exit()
@@ -667,7 +920,7 @@ class pyDiscrim_mainGUI:
                 print('... closed the com obj')
             exit()
 
-    def setPathBtn(self):
+    def mwPathBtn(self):
         self.getPath()
         self.dirPath.set(self.selectPath)
 
@@ -681,14 +934,14 @@ class pyDiscrim_mainGUI:
         self.loadedStates=os.path.isfile(stateString)
         if self.loadedMeta is True:
             tempMeta=pd.read_csv(metaString,index_col=0)
-            self.parseMetaDataStringVals(tempMeta)
+            self.parseMetaDataStrings(tempMeta)
             print("loaded {}'s previous settings".format(self.animalIDStr.get()))
         if self.loadedStates is True:
             tempStates=pd.Series.from_csv(stateString)
             print("loaded {}'s previous state assignments, but didn't parse them".\
                 format(self.animalIDStr.get()))
 
-    def archiveMeta(self):
+    def mwSaveMetaBtn(self):
         metaString='{}{}_animalMeta.csv'.format(self.pathSet,self.animalIDStr.get())
         stateString='{}{}_stateMap.csv'.format(self.pathSet,self.animalIDStr.get())
         self.loadedMeta=os.path.isfile(metaString)
@@ -702,7 +955,7 @@ class pyDiscrim_mainGUI:
         tempMeta.to_csv('.lastMeta.csv')
         tempStates.to_csv('.lastStates.csv')
 
-    def loadSessionMetaData(self):
+    def mwLoadMetaBtn(self):
         aa=filedialog.askopenfilename(title = "what what?",defaultextension='.csv')
         tempMeta=pd.read_csv(aa,index_col=0)
         aa=tempMeta.dtypes.index
@@ -713,14 +966,10 @@ class pyDiscrim_mainGUI:
             varVals.append(tempMeta.iloc[0][x])
         self.mapAssignStringEntries(varNames,varVals)
 
-    def parseMetaDataStringVals(self,tmpDataFrame):
-        aa=tmpDataFrame.dtypes.index
-        varNames=[]
-        varVals=[]
-        for x in range(0,len(tmpDataFrame.columns)):
-            varNames.append(aa[x])
-            varVals.append(tmpDataFrame.iloc[0][x])
-        self.mapAssignStringEntries(varNames,varVals)
+
+    #######################
+    ###  Window: Debug  ###
+    #######################
 
     def debugWindow(self):
         dbgFrame = Toplevel()
@@ -753,11 +1002,15 @@ class pyDiscrim_mainGUI:
     def dbLick(self,val,spout):
         if len(self.lickValsA)>0 and spout == 0:
             self.lickValsA[-1]=self.lickValsA[-1]+val
-            self.analysis_lickDetectDB()
+            self.analysisDebugLickDetection()
 
         if len(self.lickValsB)>0 and spout == 1:
             self.lickValsB[-1]=self.lickValsB[-1]+val
-            self.analysis_lickDetectDB()
+            self.analysisDebugLickDetection()
+
+    #####################################
+    ###  Window: Basic Task Feedback  ###
+    #####################################
   
     def taskPlotWindow(self):
         tp_frame = Toplevel()
@@ -817,9 +1070,9 @@ class pyDiscrim_mainGUI:
 
         self.plotVarIDs=['arStates','arduinoTime','lickValsA','lickValsB']
 
-    ####################################
-    ## **** State Toggle Windows **** ##
-    ####################################
+    #############################
+    ##  Window: State Toggles  ##
+    #############################
 
     def stateToggleWindow(self):
         st_frame = Toplevel()
@@ -901,23 +1154,6 @@ class pyDiscrim_mainGUI:
         self.sBtn_punish.grid(row=sRw+1, column=sCl+4)
         self.sBtn_punish.config(state=NORMAL)
 
-    #################################
-    ## **** Task Prob Windows **** ##
-    #################################
-
-    def taskProbWindow(self):
-        eval('self.sTask1_prob')
-        tb_frame = Toplevel()
-        tb_frame.title('Task Probs')
-        self.tb_frame=tb_frame
-
-        self.populateVarFrames(self.t1ProbLabels,self.t1ProbValues,0,'tb_frame')
-        self.populateVarFrames(self.t2ProbLabels,self.t2ProbValues,2,'tb_frame')
-        
-        self.setTaskProbsBtn = Button(tb_frame,text='Set Probs.',width = 10,\
-            command = lambda: self.taskProbRefreshBtnCB())
-        self.setTaskProbsBtn.grid(row=8, column=0,sticky=E)
-
     def stateEditWindow(self):
         se_frame = Toplevel()
         se_frame.title('Set States')
@@ -929,9 +1165,29 @@ class pyDiscrim_mainGUI:
             width = 15, command = lambda: self.stateNumsRefreshBtnCB())
         self.setStatesBtn.grid(row=len(self.stateNames)+1, column=0)
 
+    #########################
+    ##  Task Prob Windows  ##
+    #########################
+
+    def taskProbWindow(self):
+        tb_frame = Toplevel()
+        tb_frame.title('Task Probs')
+        self.tb_frame=tb_frame
+
+        self.populateVarFrames(self.t1ProbLabels,self.t1ProbValues,0,'tb_frame')
+        self.populateVarFrames(self.t2ProbLabels,self.t2ProbValues,2,'tb_frame')
+        
+        self.setTaskProbsBtn = Button(tb_frame,text='Set Probs.',width = 10,\
+            command = lambda: self.taskProbRefreshBtnCB())
+        self.setTaskProbsBtn.grid(row=8, column=0,sticky=E)
+
     def taskProbRefreshBtnCB(self):
         self.refreshVars(self.t1ProbLabels,self.t1ProbValues,1)
         self.refreshVars(self.t2ProbLabels,self.t2ProbValues,1)
+
+    ###############################
+    ##  State Variables  ##
+    ###############################
 
     def stateVarWindow(self):
         frame_sv = Toplevel()
@@ -964,9 +1220,9 @@ class pyDiscrim_mainGUI:
             
             exec('self.{}_tv.set({})'.format(varLabels[x],varValues[x]))
 
-    ########################################
-    ## **** Serial Related Functions **** ##
-    ########################################
+    ################################
+    ##  Serial Related Functions  ##
+    ################################
 
     def serial_initComObj(self):
         if self.comObjectExists==0:
@@ -1036,9 +1292,9 @@ class pyDiscrim_mainGUI:
 
         #print(self.sR)
 
-    #################################################
-    ## **** These Are Data Handling Functions **** ##
-    #################################################
+    ###############################
+    ##  Data Handling Functions  ##
+    ###############################
 
     def data_serialInputIDs(self):
         # we name each stream from the main 
@@ -1069,6 +1325,8 @@ class pyDiscrim_mainGUI:
         self.pyStatesTS = []
         self.lastLickCountA=0
         self.lastLickCountB=0
+        self.rewardContingency=[] 
+        self.trialOutcome=[]   
 
     def data_cleanContainers(self):
         self.arStates=[]          
@@ -1086,6 +1344,10 @@ class pyDiscrim_mainGUI:
         self.pyStatesRT = []
         self.pyStatesTT = []
         self.pyStatesTS = []
+        self.lastLickCountA=0
+        self.lastLickCountB=0
+        self.rewardContingency=[]
+        self.trialOutcome=[]    
 
     def data_parseData(self):
         self.arduinoTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
@@ -1098,7 +1360,7 @@ class pyDiscrim_mainGUI:
         self.arStates.append(self.currentState)
         self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
         self.lickValsB.append(int(self.sR[self.stID_lickSensor_b]))
-        self.analysis_lickDetect()
+        self.analysisLickDetection()
         self.dataExists=1
 
     def data_saveData(self):
@@ -1139,9 +1401,9 @@ class pyDiscrim_mainGUI:
         print('closed the com port cleanly')
         exit()
 
-    #################################################
-    ## **** These Are Data Handling Functions **** ##
-    #################################################
+    #########################
+    ##  Analysis Function  ##
+    #########################
 
     def analysis_updateLickThresholds(self):
         if self.ux_adaptThresh.get()==1:
@@ -1154,7 +1416,7 @@ class pyDiscrim_mainGUI:
             self.lickMinMax=[min(self.lickValsA),\
             max(self.lickValsA)]
 
-    def analysis_lickDetectDB(self):
+    def analysisDebugLickDetection(self):
         if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()):
             self.thrLicksA[-1]=1
             
@@ -1168,8 +1430,7 @@ class pyDiscrim_mainGUI:
             self.lastLickCountB=self.lastLickCountB+1
             self.stateLickCountB[-1]=self.lastLickCountB+1
 
-
-    def analysis_lickDetect(self):
+    def analysisLickDetection(self):
         if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()):
             self.thrLicksA.append(1)
             
@@ -1188,137 +1449,8 @@ class pyDiscrim_mainGUI:
             self.thrLicksB.append(0)
             self.stateLickCountB.append(self.lastLickCountB)
 
-    #######################################
-    ## **** Custom State Callbacks **** ##
-    ######################################
 
-    def callback_waitState(self):
-        if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
-            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
-            
-            if self.dPos>self.movThr and self.stillLatch==1:
-                self.stillLatch=0
 
-            if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
-                self.stillLatch=1
-
-            if self.dPos<self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
-
-            if self.stillLatch==1 and self.stillTime>1:
-                print('Still! ==> Out of wait')
-                print('### S1 --> S2')
-                self.switchState(self.initiationState)
-
-    def callback_initiationState(self):
-        t1P=self.sTask1_prob
-        if self.absolutePosition[-1]>self.distThr:
-            if self.task_switch<=t1P:
-                print('moving spout; cue stim task #1')
-                self.switchState(self.cue1State)
-            # if stimSwitch is more than task1's probablity then send to task #2
-            elif self.task_switch>t1P:
-                print('moving spout; cue stim task #2')
-                self.switchState(self.cue2State)
-
-    def callback_cue1State(self): 
-        #trP=float(self.sTask1_target_prob.get())
-        if self.arduinoTime[-1]-self.entryTime>4:
-            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
-            if self.dPos>self.movThr and self.stillLatch==1:
-                self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
-                self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
-            if self.stillLatch==1 and self.stillTime>1:
-                print('Still!')
-                if self.outcomeSwitch<=0.5:
-                    print('will play dulcet tone')
-                    self.switchState(self.stim1State)
-                elif self.outcomeSwitch>0.5:
-                    print('will play ominous tone')
-                    self.switchState(self.stim2State)
-
-    def callback_cue2State(self): 
-        #trP=float(self.sTask2_target_prob.get())
-        if self.arduinoTime[-1]-self.entryTime>4:
-            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
-            if self.dPos>self.movThr and self.stillLatch==1:
-                self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
-                self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
-            if self.stillLatch==1 and self.stillTime>1:
-                #print('result={}'.format(self.outcomeSwitch<=trP))
-                print('Still!')
-                if self.outcomeSwitch<=0.5:
-                    print('will play dulcet tone')
-                    self.switchState(self.stim2State)
-                # if stimSwitch is more than task1's probablity then send to task #2
-                elif self.outcomeSwitch>0.5:
-                    print('will play ominous tone')
-                    self.switchState(self.stim1State)
-    
-    def callback_stim1State(self):
-        if self.arduinoTime[-1]-self.entryTime>2:
-            print('time cond met') #debug
-            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
-            print(self.dPos)
-            if self.dPos>self.movThr and self.stillLatch==1:
-                print('moving')
-                self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
-                print('still')
-                self.stillTimeStart=self.arduinoTime[-1]
-                self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
-            if self.stillLatch==1 and self.stillTime>1:
-                print('Still!: off to save')
-                self.switchState(self.saveState)
-
-    def callback_stim2State(self):
-        if self.arduinoTime[-1]-self.entryTime>2:
-            print('time cond met') #debug
-            self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
-            print(self.dPos)
-            if self.dPos>self.movThr and self.stillLatch==1:
-                print('moving')
-                self.stillLatch=0
-            if self.dPos<=self.movThr and self.stillLatch==0:
-                print('still')
-                self.stillTimeStart=self.arduinoTime[-1]
-                self.stillLatch=1
-            if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
-            if self.stillLatch==1 and self.stillTime>1:
-                print('Still!: off to save')
-                self.switchState(self.saveState)
-
-    def callback_rewardState(self):
-        if self.absolutePosition[-1]>self.distThr:
-            print('rewarding')
-            self.switchState(self.saveState)
-
-    def callback_neutralState(self):
-        if self.absolutePosition[-1]>self.distThr:
-            print('no reward')
-            self.switchState(self.saveState)
-
-    def callback_punishState(self):
-        if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
-            print('timeout of {} seconds is over'.format(self.timeOutDuration))
-            self.switchState(self.saveState)
-
-# def main(): 
 root = Tk()
 app = pyDiscrim_mainGUI(root)
 root.mainloop()
-
-# if __name__ == '__main__':
-#     main()
