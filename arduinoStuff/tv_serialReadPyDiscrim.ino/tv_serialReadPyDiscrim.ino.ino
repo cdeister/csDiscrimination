@@ -1,7 +1,7 @@
 /*
- * See how they run
- * Three blind mice
- */
+   See how they run
+   Three blind mice
+*/
 
 // I could do states with switch, but seems unecessary.
 // I assume switch is more efficient http://www.blackwasp.co.uk/SpeedTestIfElseSwitch.aspx
@@ -10,59 +10,58 @@
 #define mpSerial Serial3
 
 
-int loopDelta=1000;  //in microseconds
-int cueDuration=2000;
-int pulseDur=40;
-int delayDur_1=200;
-int delayDur_2=20;
+int loopDelta = 1000; //in microseconds
+int pulseDur = 40;
+int delayDur_1 = 200;
+int delayDur_2 = 20;
 int cueDelay=500;
 int toneDelay=1000;
-int toneTime=2000;
+int toneTime=5000;
+int toneLow=900;
+int toneHigh=1400;
 int toneTimer;
 int toneOffset;
-int lickValues_a=0;
-int lickValues_b=0;
-int rewardLatch=0;  // not bool so we can count if needed later
-int rewardTime=500; //in ms
-int punishTime=5000;
+int lickValues_a = 0;
+int lickValues_b = 0;
+int rewardLatch = 0; // not bool so we can count if needed later
+int rewardTime = 100; //in ms
+//int punishTime=5000;
 
 unsigned long msOffset;
 unsigned long s1Offset;
 unsigned long msCorrected;
 unsigned long msInTrial;
-
 unsigned long cueTime;
 unsigned long pulseTime;
 unsigned long delayTime;
-unsigned long ofs1;
-unsigned long ofs2;
-unsigned long ofs3;
+unsigned long pulseOffset;
+unsigned long delayOffset;
 unsigned long rewardTimer;
 unsigned long punishTimer;
 unsigned long rewardOffset;
 unsigned long punishOffset;
 
-int currentPosDelta=128;
-long lastPosition=0;
+int currentPosDelta = 128;
+long lastPosition = 0;
 long absolutePosition;
 
 int lastState;
 int curState;
 
-bool stateChange=0;
-bool cueFired=0;
-bool toneFired=0;
-bool inPulse=1;
-bool cueInit=0;
-bool bef=0;
+bool stateChange = 0;
+bool cueFired = 0;
+bool toneFired = 0;
+bool inPulse = 1;
+bool cueInit = 0;
+bool bef = 0;
 
-const int posPin=3;       // Engage Postive Reinforcment
-const int negPin=4;       // Engage Aversive Reinforcment
-const int waterPin=13;     // Engage Water
-const int cueLED=13;
-const int tonePin=22;
-const int posSensPin_a=0;
-const int posSensPin_b=2;
+const int posPin = 3;     // Engage Postive Reinforcment
+const int negPin = 4;     // Engage Aversive Reinforcment
+const int waterPin = 13;   // Engage Water
+const int cueLED = 13;
+const int tonePin = 22;
+const int posSensPin_a = 0;
+const int posSensPin_b = 2;
 
 
 void setup() {
@@ -78,323 +77,246 @@ void setup() {
   while (!Serial);    // wait for the serial port to open
   Serial.println("Start");
   delay(500);
-  msOffset=micros();
-  s1Offset=micros();
+  digitalWrite(cueLED, LOW);
+  msOffset = micros();
+  s1Offset = micros();
   establishOrder();
 }
 
 void loop() {
-  // SO: Initialization State
-  // This is just a state that ensures that the arduino lets python know 
-  // it is ready to spit out real data and not garbage
-  if(curState==0){
-    // This toggles a bit to reset time at start.
-    while(bef==0){
-      msOffset=micros();
-      s1Offset=micros();
-      digitalWrite(cueLED,HIGH);
-      bef=1;
-    }
-    msCorrected=micros()-msOffset;  // total time
-    msInTrial=micros()-s1Offset;    // trial time
-    pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
-
-
-  // S1: Trial wait state.
-  else if(curState==1){
-    curState=1;
+//////////
+  //s3
+  if (curState == 3) {
     establishOrder();
-    while(bef==1){
-      s1Offset=micros();
-      bef=0;
-      digitalWrite(cueLED,LOW);
+    bef = 0;
+    while (bef == 0) {
+      msOffset = micros();
+      s1Offset = micros();
+      pulseOffset = millis();
+      delayOffset = millis();
+      inPulse = 0;
+      bef = 1;
+
     }
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
+    while (bef == 1) {
+      msCorrected = micros() - msOffset;
+      msInTrial = micros() - s1Offset;
+      pulseTime = millis() - pulseOffset;
+      delayTime = millis() - delayOffset;
+      
+      if (inPulse==0) {
+        if (delayTime > delayDur_1) {
+          inPulse = 1;
+        }
+        digitalWrite(cueLED, LOW);
+        pulseOffset=millis();
+      }
+
+      else if (inPulse==1) {
+        if (pulseTime > pulseDur) {
+          inPulse = 0;
+        }
+        digitalWrite(cueLED, HIGH);
+        delayOffset=millis();
+      }
+      pollOpticalMouse();
+      spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
+      delayMicroseconds(loopDelta);
+      curState = lookForSerialState();
+    }
   }
 
-  // S2: Trial initiation state.
-  else if(curState==2){
+//////////
+  //s4
+  if (curState == 4) {
     establishOrder();
-    cueFired=0;
-    cueInit=0;
-    bef=1;
-    noTone(tonePin);
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
+    bef = 0;
+    while (bef == 0) {
+      msOffset = micros();
+      s1Offset = micros();
+      pulseOffset = millis();
+      delayOffset = millis();
+      inPulse = 0;
+      bef = 1;
+
+    }
+    while (bef == 1) {
+      msCorrected = micros() - msOffset;
+      msInTrial = micros() - s1Offset;
+      pulseTime = millis() - pulseOffset;
+      delayTime = millis() - delayOffset;
+      
+      if (inPulse==0) {
+        if (delayTime > delayDur_2) {
+          inPulse = 1;
+        }
+        digitalWrite(cueLED, LOW);
+        pulseOffset=millis();
+      }
+
+      else if (inPulse==1) {
+        if (pulseTime > pulseDur) {
+          inPulse = 0;
+        }
+        digitalWrite(cueLED, HIGH);
+        delayOffset=millis();
+      }
+      pollOpticalMouse();
+      spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
+      delayMicroseconds(loopDelta);
+      curState = lookForSerialState();
+    }
   }
 
-  // S3: Sensory Task #1 Cue
-  else if(curState==3){
-    bef=1;
-    // timestamp, dump data, check state
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    if(cueFired==0){
-      if(cueInit==0){
-        ofs1=millis();
-        ofs2=millis();
-        ofs3=millis();
-        cueInit=1;
-      }
-      cueTime=millis()-ofs1;
-      pulseTime=millis()-ofs2;
-      delayTime=millis()-ofs3;
-      if(cueTime<cueDuration){
-        if(inPulse==1){
-          pulseTime=millis()-ofs2;
-          if(pulseTime<=pulseDur){
-            inPulse=1;
-            digitalWrite(cueLED,HIGH);
-          }
-          else if(pulseTime>pulseDur){
-            inPulse=0;
-            ofs3=millis();
-          }
-        }
-        else if(inPulse==0){
-          if(delayTime<=delayDur_1){
-            inPulse=0;
-            digitalWrite(cueLED,LOW);
-          }
-          else if(delayTime>delayDur_1){
-            inPulse=1;
-            ofs2=millis();
-          }
-        }
-      }
-      else if(cueTime>=cueDuration){
-        digitalWrite(cueLED,LOW);
-        cueFired=1;
-        inPulse=1;
-      }
+// S5: Sensory Low
+else if (curState == 5) {
+  establishOrder();
+    bef = 0;
+    while (bef == 0) {
+      msOffset = micros();
+      s1Offset = micros();
+      pulseOffset = millis();
+      delayOffset = millis();
+      inPulse = 0;
+      bef = 1;
+      
+      tone(tonePin, toneLow);
+      toneOffset = millis();
     }
-    pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
-  
-  // S4: Sensory Task #2 Cue
-  else if(curState==4){
-    bef=1;
-    // timestamp, dump data, check state
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    if(cueFired==0){
-      if(cueInit==0){
-        ofs1=millis();
-        ofs2=millis();
-        ofs3=millis();
-        cueInit=1;
-      }
-      cueTime=millis()-ofs1;
-      pulseTime=millis()-ofs2;
-      delayTime=millis()-ofs3;
-      if(cueTime<cueDuration){
-        if(inPulse==1){
-          pulseTime=millis()-ofs2;
-          if(pulseTime<=pulseDur){
-            inPulse=1;
-            digitalWrite(cueLED,HIGH);
-          }
-          else if(pulseTime>pulseDur){
-            inPulse=0;
-            ofs3=millis();
-          }
-        }
-        else if(inPulse==0){
-          if(delayTime<=delayDur_2){
-            inPulse=0;
-            digitalWrite(cueLED,LOW);
-          }
-          else if(delayTime>delayDur_2){
-            inPulse=1;
-            ofs2=millis();
-          }
-        }
-      }
-      else if(cueTime>=cueDuration){
-        digitalWrite(cueLED,LOW);
-        cueFired=1;
-        inPulse=1;
-      }
-    }
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    pollOpticalMouse();
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
-  
-  // S5: Sensory High
-  else if(curState==5){
     while(bef==1){
-      tone(tonePin, 900);
-      toneOffset=millis();
-      bef=0;
+      toneTimer = millis() - toneOffset;
+      if (toneTimer > toneTime) {
+        noTone(tonePin);
+      }
+      msCorrected = micros() - msOffset;
+      msInTrial = micros() - s1Offset;
+      spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
+      pollOpticalMouse();
+      delayMicroseconds(loopDelta);
+      curState = lookForSerialState();
     }
-    toneTimer=millis()-toneOffset;
-    if(toneTimer>toneTime){
-      noTone(tonePin);
-    }
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    pollOpticalMouse();
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
+}
+///
 
-  // S6: Sensory Low
-  else if(curState==6){
-    while(bef==1){
-      tone(tonePin, 100);
-      toneOffset=millis();
-      bef=0;
-    }
-    toneTimer=millis()-toneOffset;
-    if(toneTimer>toneTime){
-      noTone(tonePin);
-    }
-    // timestamp, dump data, check state
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
+// S6: Sensory High
+else if (curState == 6) {
+  establishOrder();
+    bef = 0;
+    while (bef == 0) {
+      msOffset = micros();
+      s1Offset = micros();
+      pulseOffset = millis();
+      delayOffset = millis();
+      inPulse = 0;
+      bef = 1;
 
-  // S7: Sensory High
-  else if(curState==7){
-    establishOrder();
+      tone(tonePin, toneHigh);
+      toneOffset = millis();
+    }
     while(bef==1){
-      tone(tonePin, 900);
-      toneOffset=millis();
-      bef=0;
+      toneTimer = millis() - toneOffset;
+      if (toneTimer > toneTime) {
+        noTone(tonePin);
+      }
+      msCorrected = micros() - msOffset;
+      msInTrial = micros() - s1Offset;
+      spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
+      pollOpticalMouse();
+      delayMicroseconds(loopDelta);
+      curState = lookForSerialState();
     }
-    toneTimer=millis()-toneOffset;
-    if(toneTimer>toneTime){
-      noTone(tonePin);
-    }
-    // timestamp, dump data, check state
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
+}
+///
 
-  // S8: Sensory Low
-  else if(curState==8){
-    establishOrder();
-    while(bef==1){
-      tone(tonePin, 100);
-      toneOffset=millis();
-      bef=0;
-    };
-    toneTimer=millis()-toneOffset;
-    if(toneTimer>toneTime){
-      noTone(tonePin);
-    };
-    // timestamp, dump data, check state
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
+
+
+// S21: Reward State
+else if (curState == 21) {
+  establishOrder();
+    bef = 0;
+    while (bef == 0) {
+      msOffset = micros();
+      s1Offset = micros();
+      rewardOffset = millis();
+      inPulse = 0;
+      bef = 1;
+    }
+ 
+    rewardTimer = millis() - rewardOffset;
+    msCorrected = micros() - msOffset;
+    msInTrial = micros() - s1Offset;
+    spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
     pollOpticalMouse();
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
     delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
-  }
-  
-  // S21: Reward State
-  else if(curState==21){
-    while(bef==1){    // local timers need bef
-      establishOrder();
-      rewardOffset=millis();
-      bef=0;
-    };
-    rewardTimer=millis()-rewardOffset;
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
+    if (rewardLatch==0){
+      curState = lookForSerialState();
+    }
     
-    pollOpticalMouse();
-    
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
-    
-    delayMicroseconds(loopDelta);
-    
-    if(rewardTimer<rewardTime){
-      digitalWrite(waterPin,HIGH);
-      curState=lookForSerialState();
-      rewardLatch=1;
+    if (rewardTimer < rewardTime) {
+      digitalWrite(waterPin, HIGH);
+      curState = lookForSerialState();
+      rewardLatch = 1;
     }
     else {
-      digitalWrite(waterPin,LOW);
-      rewardLatch=0;
-      curState=13;
-    }
+      digitalWrite(waterPin, LOW);
+    rewardLatch = 0;
   }
-  
-  
-  
-  else {
-    bef=1;  // was zero may have been importatn
-    establishOrder();
-    msCorrected=micros()-msOffset;
-    msInTrial=micros()-s1Offset;
-    pollOpticalMouse(); 
-    spitData(msCorrected,msInTrial,currentPosDelta,curState,lickValues_a,lickValues_b);
+}
+
+else {
+  establishOrder();
+  bef = 0;
+  while (bef == 0) {
+    msOffset = micros();
+    s1Offset = micros();
+    bef = 1;
+  }
+  while (bef == 1) {
+    msCorrected = micros() - msOffset; // total time
+    msInTrial = micros() - s1Offset; // trial time
+    pollOpticalMouse();
+    spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
     delayMicroseconds(loopDelta);
-    curState=lookForSerialState();
+    curState = lookForSerialState();
   }
+}
 }
 
 // ---------- Helper Functions
 
 
-int lookForSerialState(){
+int lookForSerialState() {
   int pyState;
-  if(Serial.available()>0){
-    pyState=Serial.read();
-    lastState=pyState;
-    stateChange=1;
+  if (Serial.available() > 0) {
+    pyState = Serial.read();
+    lastState = pyState;
+    stateChange = 1;
   }
-  else if(Serial.available()<=0){
-    pyState=lastState;
-    stateChange=0;
+  else if (Serial.available() <= 0) {
+    pyState = lastState;
+    stateChange = 0;
   }
   return pyState;
 }
 
 int pollOpticalMouse() {
-//  currentPosDelta=128;
-  if(mpSerial.available()>0){
-    currentPosDelta=mpSerial.parseInt();
+  //  currentPosDelta=128;
+  if (mpSerial.available() > 0) {
+    currentPosDelta = mpSerial.parseInt();
   }
-  else if(mpSerial.available()<=0){
-    currentPosDelta=128;
-  }  
+  else if (mpSerial.available() <= 0) {
+    currentPosDelta = 128;
+  }
 }
 
 void establishOrder() {
   noTone(tonePin);
-  digitalWrite(waterPin,LOW);
+  digitalWrite(waterPin, LOW);
+  digitalWrite(cueLED, LOW);
 }
 
-int spitData(unsigned long d1,unsigned long d2,int d3, int d4, int d5, int d6){
+
+int spitData(unsigned long d1, unsigned long d2, int d3, int d4, int d5, int d6) {
   Serial.print("data,");
   Serial.print(d1);
   Serial.print(',');
@@ -410,7 +332,7 @@ int spitData(unsigned long d1,unsigned long d2,int d3, int d4, int d5, int d6){
   Serial.println();
 }
 
-//----------------------- 
+//-----------------------
 
 
 
