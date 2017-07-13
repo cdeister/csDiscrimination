@@ -62,6 +62,8 @@ const int cueLED = 13;
 const int tonePin = 22;
 const int posSensPin_a = 0;
 const int posSensPin_b = 2;
+const int capSensPin_a=15;
+const int capSensPin_b=16;
 
 
 void setup() {
@@ -120,6 +122,7 @@ void loop() {
         delayOffset=millis();
       }
       pollOpticalMouse();
+      checkLicks();
       spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
       delayMicroseconds(loopDelta);
       curState = lookForSerialState();
@@ -162,6 +165,7 @@ void loop() {
         delayOffset=millis();
       }
       pollOpticalMouse();
+      checkLicks();
       spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
       delayMicroseconds(loopDelta);
       curState = lookForSerialState();
@@ -192,6 +196,7 @@ else if (curState == 5) {
       msInTrial = micros() - s1Offset;
       spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
       pollOpticalMouse();
+      checkLicks();
       delayMicroseconds(loopDelta);
       curState = lookForSerialState();
     }
@@ -222,6 +227,7 @@ else if (curState == 6) {
       msInTrial = micros() - s1Offset;
       spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
       pollOpticalMouse();
+      checkLicks();
       delayMicroseconds(loopDelta);
       curState = lookForSerialState();
     }
@@ -247,6 +253,7 @@ else if (curState == 21) {
     msInTrial = micros() - s1Offset;
     spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
     pollOpticalMouse();
+    checkLicks();
     delayMicroseconds(loopDelta);
     if (rewardLatch==0){
       curState = lookForSerialState();
@@ -275,6 +282,7 @@ else {
     msCorrected = micros() - msOffset; // total time
     msInTrial = micros() - s1Offset; // trial time
     pollOpticalMouse();
+    checkLicks();
     spitData(msCorrected, msInTrial, currentPosDelta, curState, lickValues_a, lickValues_b);
     delayMicroseconds(loopDelta);
     curState = lookForSerialState();
@@ -307,6 +315,11 @@ int pollOpticalMouse() {
   else if (mpSerial.available() <= 0) {
     currentPosDelta = 128;
   }
+}
+
+void checkLicks() {
+  lickValues_a = touchRead(15);
+  lickValues_b = touchRead(16);
 }
 
 void establishOrder() {
