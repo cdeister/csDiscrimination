@@ -1,0 +1,28 @@
+Shaping Variables of Note
+
+Each trial leads to target reward contigency, which are logged:
+self.rewardContingency
+
+code:
+10: stim 1 selected, cue means left (0) spout is rewarded
+11: stim 1 selected, cue means right (1) spout is rewarded
+20: stim 2 selected, cue means left (0) spout is rewarded
+21: stim 2 selected, cue means right (1) spout is rewarded
+
+Each trial leads to a choice outcome, which are logged:
+self.trialOutcome
+
+code:
+0 = timed out
+1 = target choice -> normal reward
+2 = off target choice -> punish
+3 = ambiguous (chose both) -> punish
+
+all are preceded by a 1 or a 2 for stim 1 or stim 2, so 10 is timed out for a stim 1 trial
+
+The choice comparitors are:
+self.minStimTime: the amount of time you won't believe a choice
+self.minTargetLicks: the number of licks you require for a true report
+self.maxOffTargetLicks: the number of licks you will tollerate for an offtarget report
+self.minOffTargetLicks: the number of licks the animal needs to be off target to beleive choice is bad
+self.reportMaxTime: this is a timeout for the choice
