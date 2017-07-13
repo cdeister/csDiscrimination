@@ -2,7 +2,8 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.4 -- Default Choices and Shaping Variables All Implemented
+# Version 3.45 -- Default Choices and Shaping Variables All Implemented
+# fixed a problematic plotting between trials issue
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -115,8 +116,8 @@ class pyDiscrim_mainGUI:
                 print('### S1 --> S2')
                 self.switchState(self.initiationState)
 
-    
     def custHeader_initiationState(self):
+
         self.task_switch=random.random()
 
     def callback_initiationState(self):
@@ -172,7 +173,6 @@ class pyDiscrim_mainGUI:
             if self.dPos<=self.movThr and self.stillLatch==1:
                 self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-                #print('result={}'.format(self.outcomeSwitch<=trP))
                 print('Still!')
                 if self.outcomeSwitch<=0.5:
                     print('stim 1 reward right')
@@ -192,10 +192,7 @@ class pyDiscrim_mainGUI:
         self.minOffTarget1Licks=1
         self.reportMax1Time=10
 
-        print('set var 1')
-
         if self.arduinoTime[-1]-self.entryTime>self.minStim1Time:
-            print('time cond met') #debug
             if self.arduinoTime[-1]-self.entryTime<self.reportMax1Time:
                 if self.rewardContingency[-1] == 10 and \
                 self.stateLickCountA[-1]>=self.minTarget1Licks and \
@@ -245,7 +242,6 @@ class pyDiscrim_mainGUI:
                 self.switchState(self.neutralState)      #5
 
     def callback_stim2State(self):
-        print('may set var 2')
         # conditions < -- training vars
         self.minStim2Time=0.2
         self.minTarget2Licks=2
@@ -253,11 +249,7 @@ class pyDiscrim_mainGUI:
         self.minOffTarget2Licks=1
         self.reportMax2Time=10
 
-        print('set var 2')
-        print('some shiz')
         if self.arduinoTime[-1]-self.entryTime>self.minStim2Time:
-            print('some shiz')
-            print('time cond met') #debug
             if self.arduinoTime[-1]-self.entryTime<self.reportMax2Time:
                 if self.rewardContingency[-1] == 20 and \
                 self.stateLickCountA[-1]>=self.minTarget2Licks and \
@@ -306,7 +298,6 @@ class pyDiscrim_mainGUI:
                 print('timed out: did not report')
                 self.switchState(self.neutralState)   #6
 
-    
     def callback_rewardState(self):
         self.rewardTime=1
         if self.arduinoTime[-1]-self.entryTime<self.rewardTime:
@@ -333,8 +324,8 @@ class pyDiscrim_mainGUI:
         self.frame = Frame(self.master)
         self.setSessionVars()
         self.mainWindowPopulate()
-        print(self.currentTrial)
-        print(self.currentSession)
+        print('starting. curTrial={}'.format(self.currentTrial))
+        print('starting. curSession={}'.format(self.currentSession))
         self.setStateNames()
         self.setTaskProbs()
         self.setStateVars()
@@ -350,6 +341,8 @@ class pyDiscrim_mainGUI:
         self.ranTask=self.ranTask+1
         self.shouldRun=1
         self.trialTimes=[]
+        self.rcCol=[]
+        self.toCol=[]
 
     def task(self):
         self.taskHeader()
@@ -359,14 +352,14 @@ class pyDiscrim_mainGUI:
             try:
                 #S0 -----> hand shake (initialization state)
                 if self.currentState==self.bootState:
-                    # self.updateStateMap=1
+                    self.serial_readDataFlush()
                     print('in state 0: boot state')
                     self.lastPos=0 
                     while self.currentState==self.bootState:
                         self.serial_readDataFlush()
                         if self.dataAvail==1:
                             self.data_parseData()
-                            self.switchState(self.initiationState)
+                            self.switchState(self.waitState)
                 
                 #S1 -----> trial wait state
                 elif self.currentState==self.waitState:
@@ -375,6 +368,7 @@ class pyDiscrim_mainGUI:
                         self.coreState()
                         if self.fireCallback:
                             self.callback_waitState()
+
                 
                 #S2 -----> trial initiation state
                 elif self.currentState==self.initiationState:
@@ -440,17 +434,31 @@ class pyDiscrim_mainGUI:
 
                 #S13: save state
                 elif self.currentState==self.saveState:
-                    bb=time.time()
-                    self.trialTimes.append(bb-aa)
-                    print('last trial took: {} seconds'.format(bb-aa))
-                    self.data_saveData()
-                    self.data_cleanContainers()
-                    self.currentTrial=self.currentTrial+1
-                    self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
-                    print('trial {} done, saved its data'.format(self.currentTrial-1))
-                    aa=time.time()
-                    self.comObj.write(struct.pack('>B', self.waitState))
-                    self.exitState(self.saveState)
+                    enter=1
+                    while enter==1:
+                        self.updatePerfPlot()
+                        self.data_saveData()
+                        bb=time.time()
+                        self.trialTimes.append(bb-aa)
+                        print('last trial took: {} seconds'.format(bb-aa))
+                        # if self.pf_frame.winfo_exists():
+                        self.currentTrial=self.currentTrial+1
+                        self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
+                        print('trial {} done, saved its data'.format(self.currentTrial-1))
+                        aa=time.time()
+                        enter=0
+                        self.plot_cache(0)
+                        self.data_cleanContainers()
+                    while enter==0:
+                        self.comObj.write(struct.pack('>B', 0))
+                        self.serial_readDataFlush()
+                        if self.dataAvail==1:
+                            self.currentState=int(self.sR[self.stID_state])
+                            print(self.currentState)
+                            if self.currentState == 0:
+                                self.data_cleanContainers()
+                                enter=3
+
                 #S25: end session state
                 elif self.currentState==self.endState:
                     print('About to end the session ...')
@@ -468,7 +476,8 @@ class pyDiscrim_mainGUI:
         self.exportAnimalMeta()
         self.endBtn.config(state=DISABLED)
         self.startBtn.config(state=NORMAL)
-        self.stateBindings.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        self.stateBindings.to_csv('{}{}_stateMap.csv'\
+            .format(self.dirPath.get() + '/',self.animalIDStr.get()))
         print('I completed {} trials.'.format(self.currentTrial-1))
         print('!!!!!!! --> Session #:{} Finished'.format(self.ranTask))
         self.updateDispTime()
@@ -589,7 +598,6 @@ class pyDiscrim_mainGUI:
             exec('sesVarVals.append(self.{})'.format(self.saveVars_session_ids[x]))
 
         self.sessionDF=pd.DataFrame([sesVarVals],columns=self.saveVars_session_ids)
-        # print(self.sessionDF)
 
     def updateMetaFrame(self):
         # updates are series
@@ -625,8 +633,8 @@ class pyDiscrim_mainGUI:
 
     def stateHeader(self,upSt):
         self.upSt=upSt
+        self.tp_frame.title('Task Feedback: S={}'.format(self.currentState))
         ranHeader=0 # set the latch, the header runs once per entry.
-        # self.updateStateMap=upSt
         while ranHeader==0:
             self.cycleCount=1
             self.lastPos=0 # reset where we think the animal is
@@ -814,6 +822,11 @@ class pyDiscrim_mainGUI:
         self.debugWindowBtn.grid(row=startRow+3, column=2)
         self.debugWindowBtn.config(state=NORMAL)
 
+        self.perfWindowBtn=Button(self.master,text = 'Perf Window',width=self.col2BW,\
+            command=self.performanceWindow)
+        self.perfWindowBtn.grid(row=startRow+4, column=2)
+        self.perfWindowBtn.config(state=NORMAL)
+
 
         self.xVarsToPlot=StringVar(self.master)
         self.yVarsToPlot=StringVar(self.master)
@@ -901,9 +914,7 @@ class pyDiscrim_mainGUI:
 
         # look in whatever it thinks the working dir is and look for metadata to populate
         self.dirAnimalMetaExists=os.path.isfile(self.dirPath.get() + '.lastMeta.csv')
-        print(self.dirAnimalMetaExists) 
 
-    
     def mwQuitBtn(self):
         if self.ranTask==0 or self.comObjectExists==0:  
             print('*** bye: closed without saving ***')
@@ -966,7 +977,6 @@ class pyDiscrim_mainGUI:
             varVals.append(tempMeta.iloc[0][x])
         self.mapAssignStringEntries(varNames,varVals)
 
-
     #######################
     ###  Window: Debug  ###
     #######################
@@ -1014,7 +1024,7 @@ class pyDiscrim_mainGUI:
   
     def taskPlotWindow(self):
         tp_frame = Toplevel()
-        tp_frame.title('Task Feedback')
+        tp_frame.title('Task Feedback: S={}'.format(self.currentState))
         self.tp_frame=tp_frame
 
         self.fig2 = Figure()
@@ -1036,7 +1046,21 @@ class pyDiscrim_mainGUI:
     
     def updatePlot(self):
         splt=int(self.sampsToPlot.get())
-        if len(self.arduinoTrialTime)>(splt+10):
+        if len(self.arduinoTrialTime)<(splt+1) and self.currentTrial>1:
+            x0=self.cache_arduinoTrialTime[-splt:-1]
+            y0=self.cache_arStates[-splt:-1]
+            y1=self.cache_absolutePosition[-splt:-1]
+            y2=self.cache_lickValsA[-splt:-1]
+            y3=self.cache_lickValsB[-splt:-1]
+            y4=self.cache_thrLicksA[-splt:-1]
+            y5=self.cache_thrLicksB[-splt:-1]
+            for x in range(0,4):
+                exec('self.line{}.set_data(x0,y{})'.format(x,x,x))
+                exec('self.ax{}.relim()'.format(x))
+                exec('self.ax{}.autoscale_view()'.format(x))
+            self.plot_cache(1)
+
+        elif len(self.arduinoTrialTime)>(splt+10):
             x0=self.arduinoTrialTime[-splt:-1]
             y0=self.arStates[-splt:-1]
             y1=self.absolutePosition[-splt:-1]
@@ -1069,6 +1093,40 @@ class pyDiscrim_mainGUI:
     def setPlotVariables(self):
 
         self.plotVarIDs=['arStates','arduinoTime','lickValsA','lickValsB']
+
+    #####################################
+    ###  Window: Basic Task Feedback  ###
+    #####################################
+  
+    def performanceWindow(self):
+        pf_frame = Toplevel()
+        pf_frame.title('Last Trial# {}'.format(self.currentTrial-1))
+        self.pf_frame=pf_frame
+
+        self.fig3 = Figure()
+        self.axP1=self.fig3.add_subplot(111)
+        self.lineP1,=self.axP1.plot(0,0,'ro')
+
+        self.canvas2 = FigureCanvasTkAgg(self.fig3, master=pf_frame)
+        self.canvas2.get_tk_widget().grid(row=0,column=0)
+
+        self.figButton1=Button(master=pf_frame,text="Stuff",width=10, \
+        command=self.updatePerfPlot) #ver notes added perf
+        self.figButton1.grid(row=1, column=0) #todo: clean up this hacky var crap
+        self.figButton1.config(state=NORMAL)
+
+    def updatePerfPlot(self):
+        print('yup')
+        self.rcCol.append(self.rewardContingency[-1])
+        print(self.rcCol)
+        print(type(self.rcCol))
+        self.toCol.append(self.trialOutcome[-1])
+        print(self.toCol)
+        print(type(self.rcCol))
+        self.lineP1.set_data(self.rcCol,self.toCol)
+        self.axP1.relim()
+        self.axP1.autoscale_view()
+        self.canvas2.draw()
 
     #############################
     ##  Window: State Toggles  ##
@@ -1185,9 +1243,9 @@ class pyDiscrim_mainGUI:
         self.refreshVars(self.t1ProbLabels,self.t1ProbValues,1)
         self.refreshVars(self.t2ProbLabels,self.t2ProbValues,1)
 
-    ###############################
+    #######################
     ##  State Variables  ##
-    ###############################
+    #######################
 
     def stateVarWindow(self):
         frame_sv = Toplevel()
@@ -1231,7 +1289,9 @@ class pyDiscrim_mainGUI:
             self.syncSerial()
             self.comObjectExists=1
 
+
             # update the GUI
+            self.comPathLabel.config(text="COM Object Connected ***",justify=LEFT,fg="green",bg="black") 
             self.comPathEntry.config(state=DISABLED)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
@@ -1251,6 +1311,7 @@ class pyDiscrim_mainGUI:
             print('> i closed the COM object')
             
             # update the GUI
+            self.comPathLabel.config(text="COM Port Location:",justify=LEFT,fg="black",bg="white")
             self.comPathEntry.config(state=NORMAL)
             self.baudPick.config(state=NORMAL)
             self.createCom_button.config(state=NORMAL)
@@ -1290,7 +1351,6 @@ class pyDiscrim_mainGUI:
         str.isnumeric(self.sR[6])!=1 :
             self.dataAvail=0
 
-        #print(self.sR)
 
     ###############################
     ##  Data Handling Functions  ##
@@ -1349,6 +1409,38 @@ class pyDiscrim_mainGUI:
         self.rewardContingency=[]
         self.trialOutcome=[]    
 
+    def plot_cache(self,newOrUpdate):
+        splt=int(self.sampsToPlot.get())
+        if newOrUpdate==0:
+            self.cache_arStates=self.arStates[-splt:-1]         
+            self.cache_arduinoTime=self.arduinoTime[-splt:-1]
+            self.cache_arduinoTrialTime=self.arduinoTrialTime[-splt:-1]  
+            self.cache_absolutePosition=self.absolutePosition[-splt:-1]
+            self.cache_posDelta=self.posDelta[-splt:-1]       
+            self.cache_lickValsA=self.lickValsA[-splt:-1]
+            self.cache_lickValsB=self.lickValsB[-splt:-1]
+            self.cache_thrLicksA=self.thrLicksA[-splt:-1]
+            self.cache_thrLicksB=self.thrLicksB[-splt:-1]
+            self.cache_stateLickCountA=self.stateLickCountA[-splt:-1]
+            self.cache_stateLickCountB=self.stateLickCountB[-splt:-1]
+        elif newOrUpdate==1 and len(self.arduinoTime)>=1:
+            self.cache_arStates.append(self.arStates[-1])         
+            self.cache_arduinoTime.append(self.arduinoTime[-1])
+            self.cache_arduinoTrialTime.append(self.arduinoTrialTime[-1])  
+            self.cache_absolutePosition.append(self.absolutePosition[-1])
+            self.cache_posDelta.append(self.posDelta[-1])     
+            self.cache_lickValsA.append(self.lickValsA[-1])
+            self.cache_lickValsB.append(self.lickValsB[-1])
+            self.cache_thrLicksA.append(self.thrLicksA[-1])
+            self.cache_thrLicksB.append(self.thrLicksB[-1])
+            self.cache_stateLickCountA.append(self.stateLickCountA[-1])
+            self.cache_stateLickCountB.append(self.stateLickCountB[-1])
+
+
+        splt=int(self.sampsToPlot.get())
+        if len(self.arduinoTrialTime)>(splt+10):
+            x0=self.arduinoTrialTime[-splt:-1]   
+
     def data_parseData(self):
         self.arduinoTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.arduinoTrialTime.append(float(int(self.sR[self.stID_trialTime])/\
@@ -1364,8 +1456,6 @@ class pyDiscrim_mainGUI:
         self.dataExists=1
 
     def data_saveData(self):
-        print(len(self.stateLickCountA))
-        print(len(self.stateLickCountB))
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
         saveStreams='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
@@ -1448,8 +1538,6 @@ class pyDiscrim_mainGUI:
         elif self.lickValsB[-1]<=int(self.lickThresholdStrValB.get()):
             self.thrLicksB.append(0)
             self.stateLickCountB.append(self.lastLickCountB)
-
-
 
 root = Tk()
 app = pyDiscrim_mainGUI(root)
