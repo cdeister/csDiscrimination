@@ -2,8 +2,8 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.45 -- Default Choices and Shaping Variables All Implemented
-# fixed a problematic plotting between trials issue
+# Version 3.5 -- Default Choices and Shaping Variables All Implemented
+# reimplemented figure based plotting (long story)
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -20,10 +20,10 @@ import numpy as np
 
 import matplotlib
 matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg 
+from matplotlib.lines import Line2D
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
-# import matplotlib.animation as animation
+
 
 import time
 import datetime
@@ -98,22 +98,21 @@ class pyDiscrim_mainGUI:
     ##############################
 
     def callback_waitState(self):
-        if self.arduinoTime[-1]-self.entryTime>2:  #todo: make this a variable
+        if self.mcTrialTime[-1]-self.entryTime>2:  #todo: make this a variable
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
 
             if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillTimeStart=self.mcTrialTime[-1]
                 self.stillLatch=1
 
             if self.dPos<self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+                self.stillTime=self.mcTrialTime[-1]-self.stillTimeStart
 
             if self.stillLatch==1 and self.stillTime>1:
-                print('Still! ==> Out of wait')
-                print('### S1 --> S2')
+                print('Still! ==> S1 --> S2')
                 self.switchState(self.initiationState)
 
     def custHeader_initiationState(self):
@@ -141,37 +140,36 @@ class pyDiscrim_mainGUI:
 
     def callback_cue1State(self):
         #trP=float(self.sTask1_target_prob.get())
-        if self.arduinoTime[-1]-self.entryTime>4:
+        if self.mcTrialTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
             if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillTimeStart=self.mcTrialTime[-1]
                 self.stillLatch=1
             if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+                self.stillTime=self.mcTrialTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
-                print('Still!')
                 if self.outcomeSwitch<=0.5:
-                    print('stim 1 reward left')
+                    print('Still: Task 1 --> Stim 1: Rwd Left; Stim 2: Rwd Right')
                     self.switchState(self.stim1State)
                     self.rewardContingency.append(10)   # stim bit: correct spout bit --> 1 is stim 1 and 0 is left spout
                 elif self.outcomeSwitch>0.5:
-                    print('stim 2 reward right')
+                    print('Still: Task 1 --> Stim 2: Rwd Left; Stim 1: Rwd Right')
                     self.switchState(self.stim2State)
                     self.rewardContingency.append(21) # stim bit: correct spout bit --> 2 is stim 2 and 1 is reward right spout
 
     def callback_cue2State(self): 
         #trP=float(self.sTask2_target_prob.get())
-        if self.arduinoTime[-1]-self.entryTime>4:
+        if self.mcTrialTime[-1]-self.entryTime>4:
             self.dPos=abs(self.absolutePosition[-1]-self.absolutePosition[-2])
             if self.dPos>self.movThr and self.stillLatch==1:
                 self.stillLatch=0
             if self.dPos<=self.movThr and self.stillLatch==0:
-                self.stillTimeStart=self.arduinoTime[-1]
+                self.stillTimeStart=self.mcTrialTime[-1]
                 self.stillLatch=1
             if self.dPos<=self.movThr and self.stillLatch==1:
-                self.stillTime=self.arduinoTime[-1]-self.stillTimeStart
+                self.stillTime=self.mcTrialTime[-1]-self.stillTimeStart
             if self.stillLatch==1 and self.stillTime>1:
                 print('Still!')
                 if self.outcomeSwitch<=0.5:
@@ -192,8 +190,8 @@ class pyDiscrim_mainGUI:
         self.minOffTarget1Licks=1
         self.reportMax1Time=10
 
-        if self.arduinoTime[-1]-self.entryTime>self.minStim1Time:
-            if self.arduinoTime[-1]-self.entryTime<self.reportMax1Time:
+        if self.mcTrialTime[-1]-self.entryTime>self.minStim1Time:
+            if self.mcTrialTime[-1]-self.entryTime<self.reportMax1Time:
                 if self.rewardContingency[-1] == 10 and \
                 self.stateLickCountA[-1]>=self.minTarget1Licks and \
                 self.stateLickCountB[-1]<self.maxOffTarget1Licks: # target left; licked left
@@ -236,7 +234,7 @@ class pyDiscrim_mainGUI:
                     self.trialOutcome.append(13)
                     self.switchState(self.punishState)
             
-            elif self.arduinoTime[-1]-self.entryTime>=self.reportMax1Time:
+            elif self.mcTrialTime[-1]-self.entryTime>=self.reportMax1Time:
                 self.trialOutcome.append(10)
                 print('timed out: did not report')
                 self.switchState(self.neutralState)      #5
@@ -249,8 +247,8 @@ class pyDiscrim_mainGUI:
         self.minOffTarget2Licks=1
         self.reportMax2Time=10
 
-        if self.arduinoTime[-1]-self.entryTime>self.minStim2Time:
-            if self.arduinoTime[-1]-self.entryTime<self.reportMax2Time:
+        if self.mcTrialTime[-1]-self.entryTime>self.minStim2Time:
+            if self.mcTrialTime[-1]-self.entryTime<self.reportMax2Time:
                 if self.rewardContingency[-1] == 20 and \
                 self.stateLickCountA[-1]>=self.minTarget2Licks and \
                 self.stateLickCountB[-1]<self.maxOffTarget2Licks: # target left; licked left
@@ -293,14 +291,14 @@ class pyDiscrim_mainGUI:
                     self.trialOutcome.append(13)
                     self.switchState(self.punishState)
             
-            elif self.arduinoTime[-1]-self.entryTime>=self.reportMax2Time:
+            elif self.mcTrialTime[-1]-self.entryTime>=self.reportMax2Time:
                 self.trialOutcome.append(10)
                 print('timed out: did not report')
                 self.switchState(self.neutralState)   #6
 
     def callback_rewardState(self):
         self.rewardTime=1
-        if self.arduinoTime[-1]-self.entryTime<self.rewardTime:
+        if self.mcTrialTime[-1]-self.entryTime<self.rewardTime:
             print('rewarding')
             self.switchState(self.saveState)
 
@@ -311,7 +309,7 @@ class pyDiscrim_mainGUI:
             self.switchState(self.saveState)
 
     def callback_punishState(self):
-        if self.arduinoTime[-1]-self.entryTime>=self.timeOutDuration:
+        if self.mcTrialTime[-1]-self.entryTime>=self.timeOutDuration:
             print('timeout of {} seconds is over'.format(self.timeOutDuration))
             self.switchState(self.saveState)
     
@@ -447,7 +445,6 @@ class pyDiscrim_mainGUI:
                         print('trial {} done, saved its data'.format(self.currentTrial-1))
                         aa=time.time()
                         enter=0
-                        self.plot_cache(0)
                         self.data_cleanContainers()
                     while enter==0:
                         self.comObj.write(struct.pack('>B', 0))
@@ -616,7 +613,7 @@ class pyDiscrim_mainGUI:
         self.targetState=targetState
         if self.dataExists==1:
             self.pyStatesRS.append(self.targetState)
-            self.pyStatesRT.append(self.arduinoTime[-1])
+            self.pyStatesRT.append(self.mcTrialTime[-1])
         print('pushing: s{} -> s{}'.format(self.currentState,targetState))
         self.comObj.write(struct.pack('>B', targetState))
         self.exitState(self.currentState)
@@ -629,18 +626,18 @@ class pyDiscrim_mainGUI:
                 self.data_parseData()
                 self.currentState=int(self.sR[self.stID_state])
         self.pyStatesTS.append(self.currentState)
-        self.pyStatesTT.append(self.arduinoTime[-1])
+        self.pyStatesTT.append(self.mcTrialTime[-1])
 
     def stateHeader(self,upSt):
         self.upSt=upSt
-        self.tp_frame.title('Task Feedback: S={}'.format(self.currentState))
+        # self.tp_frame.title('Task Feedback: S={}'.format(self.currentState))
         ranHeader=0 # set the latch, the header runs once per entry.
         while ranHeader==0:
             self.cycleCount=1
             self.lastPos=0 # reset where we think the animal is
             self.lastLickCountA=0
             self.lastLickCountB=0
-            self.entryTime=self.arduinoTime[-1] # log state entry time
+            self.entryTime=self.mcTrialTime[-1] # log state entry time
             print('in state # {}'.format(self.currentState))
             ranHeader=1 # fire the latch
         
@@ -1021,112 +1018,78 @@ class pyDiscrim_mainGUI:
     #####################################
     ###  Window: Basic Task Feedback  ###
     #####################################
-  
+    # def makeLines(self):
+
     def taskPlotWindow(self):
-        tp_frame = Toplevel()
-        tp_frame.title('Task Feedback: S={}'.format(self.currentState))
-        self.tp_frame=tp_frame
-
-        self.fig2 = Figure()
-        splt=int(self.sampsToPlot.get())
-        sbIDs=[221,222,223,224]
-        
+        self.fig1 = plt.figure(100)
+        subIds=[221,222,223,224]
+    
         for x in range(0,4):
-            exec('self.initX{}=np.arange(0,{},1)'.format(x,splt))
-            exec('self.initY{}=np.zeros({})'.format(x,splt))
-            exec('self.ax{}=self.fig2.add_subplot({})'.format(x,sbIDs[x]))
-            exec('self.line{},=self.ax{}.plot(self.initX{},self.initY{})'.format(x,x,x,x))
+            # exec('self.fig{}=Figure(figsize=(1, 1), dpi=100)'.format(x))
+            exec('self.initX{}=[]'.format(x))
+            exec('self.initY{}=[]'.format(x))
+            exec('self.ax{}=self.fig1.add_subplot({})'.format(x,subIds[x]))
+            exec('self.line{}=Line2D(self.initX{},self.initY{})'.format(x,x,x))
+            exec('self.ax{}.add_line(self.line{})'.format(x,x))
 
-        self.canvas = FigureCanvasTkAgg(self.fig2, master=tp_frame)
-        self.canvas.get_tk_widget().grid(row=0,column=0)
-
-        self.figButton=Button(master=tp_frame,text="Stuff",width=10, command=self.updatePlot)
-        self.figButton.grid(row=1, column=0)
-        self.figButton.config(state=NORMAL)
+        plt.tight_layout()
+        plt.show()
     
     def updatePlot(self):
         splt=int(self.sampsToPlot.get())
-        if len(self.arduinoTrialTime)<(splt+1) and self.currentTrial>1:
-            x0=self.cache_arduinoTrialTime[-splt:-1]
-            y0=self.cache_arStates[-splt:-1]
-            y1=self.cache_absolutePosition[-splt:-1]
-            y2=self.cache_lickValsA[-splt:-1]
-            y3=self.cache_lickValsB[-splt:-1]
-            y4=self.cache_thrLicksA[-splt:-1]
-            y5=self.cache_thrLicksB[-splt:-1]
-            for x in range(0,4):
-                exec('self.line{}.set_data(x0,y{})'.format(x,x,x))
-                exec('self.ax{}.relim()'.format(x))
-                exec('self.ax{}.autoscale_view()'.format(x))
-            self.plot_cache(1)
+        y0=self.arStates[-splt:]
+        x0=self.mcTrialTime[-splt:]
+        y1=self.absolutePosition[-splt:]
+        y2=self.lickValsA[-splt:]
+        y3=self.lickValsB[-splt:]
+        y4=self.thrLicksA[-splt:]
+        y5=self.thrLicksB[-splt:]
 
-        elif len(self.arduinoTrialTime)>(splt+10):
-            x0=self.arduinoTrialTime[-splt:-1]
-            y0=self.arStates[-splt:-1]
-            y1=self.absolutePosition[-splt:-1]
-            y2=self.lickValsA[-splt:-1]
-            y3=self.lickValsB[-splt:-1]
-            y4=self.thrLicksA[-splt:-1]
-            y5=self.thrLicksB[-splt:-1]
-            for x in range(0,4):
-                exec('self.line{}.set_data(x0,y{})'.format(x,x,x))
-                exec('self.ax{}.relim()'.format(x))
-                exec('self.ax{}.autoscale_view()'.format(x))
+        for x in range(0,4):
+            exec('self.line{}.set_xdata(x0)'.format(x))
+            exec('self.line{}.set_ydata(y{})'.format(x,x))
+            exec('self.ax{}.relim()'.format(x))
+            exec('self.ax{}.autoscale_view()'.format(x))
+        plt.draw()
+        plt.pause(self.pltDelay)
 
-        self.canvas.draw()
+
 
     def updatePlotCheck(self):
         self.analysis_updateLickThresholds()
-        self.updatePosPlot()
-        if self.tp_frame.winfo_exists():
+        self.master
+        time.sleep(0.00001)
+        if plt.fignum_exists(100):
             self.updatePlot()
-            self.tp_frame
+
         self.cycleCount=0
 
-    def updatePosPlot(self):
-        plt.subplot(2,2,1)
-        self.lA=plt.plot([],[],'k-')
 
-        plt.pause(self.pltDelay)
-        self.lA.pop(0).remove()
 
     def setPlotVariables(self):
 
-        self.plotVarIDs=['arStates','arduinoTime','lickValsA','lickValsB']
+        self.plotVarIDs=['arStates','mcTrialTime','lickValsA','lickValsB']
 
     #####################################
     ###  Window: Basic Task Feedback  ###
     #####################################
   
     def performanceWindow(self):
-        pf_frame = Toplevel()
-        pf_frame.title('Last Trial# {}'.format(self.currentTrial-1))
-        self.pf_frame=pf_frame
 
-        self.fig3 = Figure()
+        self.fig3 = plt.figure(103)
         self.axP1=self.fig3.add_subplot(111)
         self.lineP1,=self.axP1.plot(0,0,'ro')
-
-        self.canvas2 = FigureCanvasTkAgg(self.fig3, master=pf_frame)
-        self.canvas2.get_tk_widget().grid(row=0,column=0)
-
-        self.figButton1=Button(master=pf_frame,text="Stuff",width=10, \
-        command=self.updatePerfPlot) #ver notes added perf
-        self.figButton1.grid(row=1, column=0) #todo: clean up this hacky var crap
-        self.figButton1.config(state=NORMAL)
+        plt.draw()
 
     def updatePerfPlot(self):
-        print('yup')
         self.rcCol.append(self.rewardContingency[-1])
-        print(self.rcCol)
-        print(type(self.rcCol))
         self.toCol.append(self.trialOutcome[-1])
-        print(self.toCol)
-        print(type(self.rcCol))
-        self.lineP1.set_data(self.rcCol,self.toCol)
-        self.axP1.relim()
-        self.axP1.autoscale_view()
-        self.canvas2.draw()
+        if plt.fignum_exists(103): #todo: make variable
+            self.lineP1.set_data(self.rcCol,self.toCol)
+            self.axP1.relim()
+            self.axP1.autoscale_view()
+        plt.draw()
+        plt.pause(self.pltDelay)
 
     #############################
     ##  Window: State Toggles  ##
@@ -1369,8 +1332,8 @@ class pyDiscrim_mainGUI:
 
     def data_makeContainers(self):
         self.arStates=[]          
-        self.arduinoTime=[]
-        self.arduinoTrialTime=[]  
+        self.mcTrialTime=[]
+        self.mcStateTime=[]  
         self.absolutePosition=[]
         self.posDelta=[]        
         self.lickValsA=[]
@@ -1390,8 +1353,8 @@ class pyDiscrim_mainGUI:
 
     def data_cleanContainers(self):
         self.arStates=[]          
-        self.arduinoTime=[]
-        self.arduinoTrialTime=[]  
+        self.mcTrialTime=[]
+        self.mcStateTime=[]  
         self.absolutePosition=[]
         self.posDelta=[]        
         self.lickValsA=[]
@@ -1413,8 +1376,8 @@ class pyDiscrim_mainGUI:
         splt=int(self.sampsToPlot.get())
         if newOrUpdate==0:
             self.cache_arStates=self.arStates[-splt:-1]         
-            self.cache_arduinoTime=self.arduinoTime[-splt:-1]
-            self.cache_arduinoTrialTime=self.arduinoTrialTime[-splt:-1]  
+            self.cache_mcTrialTime=self.mcTrialTime[-splt:-1]
+            self.cache_mcStateTime=self.mcStateTime[-splt:-1]  
             self.cache_absolutePosition=self.absolutePosition[-splt:-1]
             self.cache_posDelta=self.posDelta[-splt:-1]       
             self.cache_lickValsA=self.lickValsA[-splt:-1]
@@ -1423,27 +1386,44 @@ class pyDiscrim_mainGUI:
             self.cache_thrLicksB=self.thrLicksB[-splt:-1]
             self.cache_stateLickCountA=self.stateLickCountA[-splt:-1]
             self.cache_stateLickCountB=self.stateLickCountB[-splt:-1]
-        elif newOrUpdate==1 and len(self.arduinoTime)>=1:
-            self.cache_arStates.append(self.arStates[-1])         
-            self.cache_arduinoTime.append(self.arduinoTime[-1])
-            self.cache_arduinoTrialTime.append(self.arduinoTrialTime[-1])  
-            self.cache_absolutePosition.append(self.absolutePosition[-1])
-            self.cache_posDelta.append(self.posDelta[-1])     
-            self.cache_lickValsA.append(self.lickValsA[-1])
-            self.cache_lickValsB.append(self.lickValsB[-1])
-            self.cache_thrLicksA.append(self.thrLicksA[-1])
-            self.cache_thrLicksB.append(self.thrLicksB[-1])
-            self.cache_stateLickCountA.append(self.stateLickCountA[-1])
-            self.cache_stateLickCountB.append(self.stateLickCountB[-1])
+        elif newOrUpdate==1 and len(self.mcTrialTime)>=1:
+            # [lst[-1]] + lst[:-1]
+            # or 
+            # lst[1:] + [lst[0]]
+            self.cache_arStates[1]=self.arStates[-1]       
+            self.cache_mcTrialTime[1]=self.mcTrialTime[-1]
+            self.cache_mcStateTime[1]=self.mcStateTime[-1]
+            self.cache_absolutePosition[1]=self.absolutePosition[-1]
+            self.cache_posDelta[1]=self.posDelta[-1]   
+            self.cache_lickValsA[1]=self.lickValsA[-1]
+            self.cache_lickValsB[1]=self.lickValsB[-1]
+            self.cache_thrLicksA[1]=self.thrLicksA[-1]
+            self.cache_thrLicksB[1]=self.thrLicksB[-1]
+            self.cache_stateLickCountA[1]=self.stateLickCountA[-1]
+            self.cache_stateLickCountB[1]=self.stateLickCountB[-1]
+
+            self.cache_arStates[1:]+[[self.cache_arStates[0]]]
+            self.cache_mcTrialTime[1:]+[[self.cache_mcTrialTime[0]]]
+            self.cache_absolutePosition[1:]+[[self.cache_absolutePosition[0]]]
+            self.cache_posDelta[1:]+[[self.cache_posDelta[0]]]
+            self.cache_lickValsA[1:]+[[self.cache_lickValsA[0]]]
+            self.cache_lickValsB[1:]+[[self.cache_lickValsB[0]]]
+            self.cache_thrLicksA[1:]+[[self.cache_thrLicksA[0]]]
+            self.cache_thrLicksB[1:]+[[self.cache_thrLicksB[0]]]
+            self.cache_stateLickCountA[1:]+[[self.cache_stateLickCountA[0]]]
+            self.cache_stateLickCountB[1:]+[[self.cache_stateLickCountB[0]]]
+
+
+
 
 
         splt=int(self.sampsToPlot.get())
-        if len(self.arduinoTrialTime)>(splt+10):
-            x0=self.arduinoTrialTime[-splt:-1]   
+        if len(self.mcStateTime)>(splt+10):
+            x0=self.mcStateTime[-splt:-1]    #todo: archive, unused
 
     def data_parseData(self):
-        self.arduinoTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
-        self.arduinoTrialTime.append(float(int(self.sR[self.stID_trialTime])/\
+        self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
+        self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/\
             self.timeBase))
         self.posDelta.append(int(self.sR[self.stID_pos])-128)
         self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
@@ -1458,7 +1438,7 @@ class pyDiscrim_mainGUI:
     def data_saveData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
-        saveStreams='arduinoTime','arduinoTrialTime','absolutePosition','arStates',\
+        saveStreams='mcTrialTime','mcStateTime','absolutePosition','arStates',\
         'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCountA','stateLickCountB','pyStatesRS',\
         'pyStatesRT','pyStatesTS','pyStatesTT'
 
