@@ -9,11 +9,8 @@
 
 #define mpSerial Serial3
 
-
 int loopDelta = 1000; //in microseconds
 
-int toneDelay=1000;
-int toneTime=5000;
 int toneLow=900;
 int toneHigh=1400;
 int rewardTime = 100;  // in millis!
@@ -74,7 +71,7 @@ void setup() {
 
 
   Serial.begin(9600); // initialize Serial communication
-  mpSerial.begin(19200);
+  mpSerial.begin(115200);
   while (!Serial);    // wait for the serial port to open
   Serial.println("Start");
   delay(500);
@@ -104,12 +101,22 @@ void loop() {
     nonBlockBlink(10,500,1,cueLED);
   }
 
+  if (curState==5){
+    s1Offset=micros();
+    toneState(tonePin,toneLow);
+  }
+
+ if (curState==6){
+    s1Offset=micros();
+    toneState(tonePin,toneHigh);
+  }
+  
   else if (curState==21){
     s1Offset=micros();
     nonBlockBlink(rewardTime,rewardBlockTime,1,waterPin);
   }
 
-  else if (curState!=21 || curState!=3 || curState!=4 || curState!=0){
+  else if (curState!=21 || curState!=3 || curState!=4 || curState!=5 || curState!=6 || curState!=0){
     s1Offset=micros();
     genericState();
   }
@@ -135,6 +142,8 @@ int lookForSerialState() {
   return pyState;
 }
 
+
+
 int pollOpticalMouse() {
   //  currentPosDelta=128;
   if (mpSerial.available() > 0) {
@@ -158,6 +167,23 @@ int spitData(unsigned long d1, unsigned long d2, int d3, int d4, int d5, int d6)
   Serial.print(','); Serial.print(d5); Serial.print(','); Serial.print(d6); 
   Serial.println();
 }
+
+void toneState(int tPin,int tFreq){
+  establishOrder();
+  tone(tPin, tFreq);
+  headerFired=0;
+  pulseOffset=millis();
+  delayOffset=millis();
+  headerState=curState;
+  headerFired=1;
+  
+  while(headerFired==1 and headerState==curState){
+    headerFired=1;
+    genericReport();
+  }
+}
+
+
 
 void genericState(){
   // header component
@@ -226,8 +252,8 @@ void genericReport(){
     spitData(trialTimeMicro,stateTimeMicro,currentPosDelta,curState,lickSensorA,lickSensorB);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
-    Serial.print("meta,");
-    Serial.println(curState);
+//    Serial.print("meta,");
+//    Serial.println(curState);
 }
 
 
