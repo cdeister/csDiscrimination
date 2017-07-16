@@ -255,8 +255,3 @@ void genericReport(){
 //    Serial.print("meta,");
 //    Serial.println(curState);
 }
-
-
-
-
-//-----------------------
