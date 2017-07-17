@@ -1,0 +1,2 @@
+The GUI is done in Tkinter
+http://effbot.org/tkinterbook/grid.htm

@@ -1,0 +1,27 @@
+Python High:
+
+-Prevent same state transitions!
+
+_log transition times
+
+
+_ user config windowState
+
+_ user config variables
+
+	_ log time of variable changes
+
+	-reward state doubles trials too
+
+
+
+_ make variables dynamic: varCalibrationState
+
+	> variables should have a clamp and float state
+
+_ save path and toggle
+
+	_ use win vs. mac vs. linux flag to chose default
+
+Teensey High:
+_ integrate Jay's teensey stuff

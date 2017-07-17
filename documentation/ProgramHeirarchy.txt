@@ -1,0 +1,28 @@
+Program Heirarchy
+
+* pyDiscrim
+	* Animal
+		* Animal Variables
+		* Animal Metadata
+			* Task
+				* Task Variables
+				* Task Metadata
+					* Session
+						* Session Variables
+						* Session Metadata
+						* Trials
+							* Trial Variables
+							* Trial Data
+							* Trial Metadata
+						* States
+							* State Variables
+							* State Callbacks
+								* State Data
+								* State Outputs
+							* State Metadata
+						* Devices
+							* Device Variables
+								> Inputs/Updates From States
+							* Device Data
+							* Device Metadata
+

@@ -1,0 +1,29 @@
+
+stateVarsRefreshed
+taskProbsRefreshed
+currentTrial
+currentState
+currentSession
+sessonTrialCount
+
+
+housekeeping:
+comObjectExists
+ranTask
+
+_ranTask can be replaced with current session >0
+
+self.stateNames
+self.stateIDs
+self.stateBindings
+
+stateBindings is a dataFrame
+
+getFilePath
+
+log comPath
+
+on load:
+last num trials
+last com path
+last state set
