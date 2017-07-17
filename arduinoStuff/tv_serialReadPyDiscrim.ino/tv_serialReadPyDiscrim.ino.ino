@@ -60,6 +60,8 @@ const int cueLED = 13;
 const int tonePin = 22;
 const int posSensPin_a = 0;
 const int posSensPin_b = 2;
+const int capSensPin_a = 15;
+const int capSensPin_b = 16;
 
 
 void setup() {
@@ -152,6 +154,11 @@ int pollOpticalMouse() {
   else if (mpSerial.available() <= 0) {
     currentPosDelta = 128;
   }
+}
+
+void checkLicks ()  {
+  lickSensorA = touchRead(capSensPin_a);
+  lickSensorB = touchRead(capSensPin_b);
 }
 
 void establishOrder() {
@@ -249,6 +256,7 @@ void genericReport(){
     trialTimeMicro=micros()-msOffset;
     stateTimeMicro=micros()-s1Offset;
     pollOpticalMouse();
+    checkLicks();
     spitData(trialTimeMicro,stateTimeMicro,currentPosDelta,curState,lickSensorA,lickSensorB);
     delayMicroseconds(loopDelta);
     curState=lookForSerialState();
