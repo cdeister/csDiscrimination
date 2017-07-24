@@ -148,8 +148,8 @@ class taskFeedbackFigure:
 
         self.ax0.set_ylim([0,25])
         self.ax1.set_ylim([-20000,20000])
-        self.ax2.set_ylim([0,66000])
-        self.ax3.set_ylim([0,66000])
+        self.ax2.set_ylim([0,70000])
+        self.ax3.set_ylim([0,70000])
         plt.tight_layout()
         plt.show()
     
@@ -244,28 +244,43 @@ class analysis:
             print(int(self.lickThresholdStrValB))
             tA=np.abs(np.array(dataSpan))
             print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
-            self.lickThresholdStrValA.set(str(np.percentile(tA[np.where(tA != 0)[0]],quantileCut)))
+            self.lickThresholdStrValB.set(str(np.percentile(tA[np.where(tA != 0)[0]],quantileCut)))
             self.lickMinMaxB=[min(dataSpan),max(dataSpan)]
 
     def lickDetection(self):
+        
 
-        if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()):
+        if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()) and self.lickThresholdLatchA==0:
             self.thrLicksA.append(1)
             self.lastLickCountA+1
             self.stateLickCount0.append(self.lastLickCountA)
+            self.lickThresholdLatchA=1
+            self.lastLickA=self.mcTrialTime[-1]
+            
 
-        elif self.lickValsA[-1]<=int(self.lickThresholdStrValA.get()):
+        elif self.lickValsA[-1]<=int(self.lickThresholdStrValA.get()) or self.lickThresholdLatchA==1:
             self.thrLicksA.append(0)
             self.stateLickCount0.append(self.lastLickCountA)
+            self.lickThresholdLatchA=1;
+            
 
-        if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()):
+        if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()) and self.lickThresholdLatchB==0:
             self.thrLicksB.append(1)
             self.lastLickCountB+1
             self.stateLickCount1.append(self.lastLickCountB)
+            self.lickThresholdLatchA=1
+            self.lastLickA=self.mcTrialTime[-1]
 
-        elif self.lickValsB[-1]<=int(self.lickThresholdStrValB.get()):
+        elif self.lickValsB[-1]<=int(self.lickThresholdStrValB.get()) or self.lickThresholdLatchA==1:
             self.thrLicksB.append(0)
             self.stateLickCount1.append(self.lastLickCountB)
+
+        if self.mcTrialTime[-1]-self.lastLickA>0.01:
+            self.lickThresholdLatchA=0;
+
+        if self.mcTrialTime[-1]-self.lastLickB>0.01:
+            self.lickThresholdLatchB=0;
+
 
     def lickDetectionDebug(self):
 
@@ -699,11 +714,15 @@ class mainWindow:
 
         self.aThrEntry=Entry(self.master,width=6,textvariable=self.lickThresholdStrValA)
         self.aThrEntry.grid(row=startRow+2, column=0,sticky=E,padx=5)
-        self.bThrEntry=Entry(self.master,width=6,textvariable=self.lickThresholdStrValA)
+        self.bThrEntry=Entry(self.master,width=6,textvariable=self.lickThresholdStrValB)
         self.bThrEntry.grid(row=startRow+3, column=0,sticky=E,padx=5)
         
         self.lickThresholdStrValA.set(12)
         self.lickThresholdStrValB.set(12)
+        self.lickThresholdLatchA=0;
+        self.lickThresholdLatchB=0;
+        self.lastLickA=0;
+        self.lastLickB=0;
 
         # plot stuff
         self.lickMax_label = Label(self.master, text="Lick Max:")
@@ -1038,12 +1057,12 @@ class pyDiscrim_mainGUI:
 
     def exportAnimalMeta(self):
         self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot',\
-        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThresholdStrValA','lickPlotMax']
+        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThresholdStrValA','lickThresholdStrValB','lickPlotMax']
         sesVarVals=[self.comPath.get(),self.dirPath.get(),self.animalIDStr.get(),\
         self.totalTrials.get(),\
         self.sampsToPlot.get(),self.uiUpdateSamps.get(),self.ux_adaptThresh.get(),\
         self.lickValuesOrDeltas.get(),\
-        self.lickThresholdStrValA.get(),self.lickPlotMax.get()]
+        self.lickThresholdStrValA.get(),self.lickThresholdStrValB.get(),self.lickPlotMax.get()]
         self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
         self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',\
             self.animalIDStr.get()))

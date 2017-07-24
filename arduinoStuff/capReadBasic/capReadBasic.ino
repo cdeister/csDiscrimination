@@ -71,14 +71,18 @@ void loop() {
     }
     stateCount++;
   }
-  //  Serial.print(lastA);
-  //  Serial.print(',');
-  //  Serial.println(lastB);
+    Serial.print(lastA);
+    Serial.print(',');
+    Serial.println(lastB);
   Serial.println(micros() - lastTime);
   lastTime = micros();
   delayMicroseconds(delayTime);
 }
 
+
+void parseRemoteSensors(){
+  
+}
 
 
 

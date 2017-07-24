@@ -27,22 +27,22 @@ void setup() {
 void loop() {
 
   digitalWrite(ledPin, LOW);
-  lickValA = touchRead(capSensA) * 0.1;
+  lickValA = touchRead(capSensA);
   digitalWrite(ledPin, LOW);
-  lickValB = touchRead(capSensB) * 0.1;
+  lickValB = touchRead(capSensB);
 
   lickAStr = String(lickValA);
   lickBStr = String(lickValB);
-
-  int padL = (4 - lickAStr.length());
-  for (int i = 0; i < padL; i++) {
-    lickAStr = String(0 + lickAStr);
-  }
-
-  padL = (4 - lickBStr.length());
-  for (int i = 0; i < padL; i++) {
-    lickBStr = String(0 + lickBStr);
-  }
+  
+    int padL = (5 - lickAStr.length());
+    for (int i = 0; i < padL; i++) {
+      lickAStr = String(0 + lickAStr);
+    }
+  
+    padL = (5 - lickBStr.length());
+    for (int i = 0; i < padL; i++) {
+      lickBStr = String(0 + lickBStr);
+    }
 
   sendAString = String('a' + lickAStr);
   sendBString = String('b' + lickBStr);
@@ -57,7 +57,8 @@ void loop() {
 
 
   digitalWrite(ledPin, HIGH);
-  delay(1);
+  delayMicroseconds(100);
+//  capSerial.flush();
 
 }
 

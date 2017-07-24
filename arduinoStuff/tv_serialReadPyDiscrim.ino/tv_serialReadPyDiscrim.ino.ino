@@ -11,13 +11,21 @@
 #define motionSerial Serial3
 
 // lick vars
-const char aStartDelim = 'a';
-const char aEndDelim   = ',';
-const char bStartDelim = 'b';
-const char bEndDelim   = '>';
-
+char ri;
+char cBuf[1];
 int lickSensorA = 0;
 int lickSensorB = 0;
+int lastA = 0;
+int lastB = 0;
+bool startA = 0;
+String tStr = "";
+bool inA = 0;
+bool inB = 0;
+bool strAvail = 0;
+bool rNewLine = 0;
+int charCount = 0;
+char lastSerState;
+
 
 
 int loopDelta = 1000; //in microseconds
@@ -159,24 +167,24 @@ int lookForSerialState() {
 }
 
 
-int poll9dof() {
-  if (motionSerial.available() > 0) {
-    cur9dof = motionSerial.parseInt() + 180;
-  }
-  //  dif9dof = (cur9dof - last9dof)/(millis()-lastTime);
-  //  last9dof=cur9dof;
-  //  lastTime=millis();
-}
-
-//int pollOpticalMouse() {
-//  currentPosDelta = 128;
-//  if (mpSerial.available() > 0) {
-//    currentPosDelta = mpSerial.parseInt();
+//int poll9dof() {
+//  if (motionSerial.available() > 0) {
+//    cur9dof = motionSerial.parseInt() + 180;
 //  }
-//  else if (mpSerial.available() <= 0) {
-//    currentPosDelta = 128;
-//  }
+//  //  dif9dof = (cur9dof - last9dof)/(millis()-lastTime);
+//  //  last9dof=cur9dof;
+//  //  lastTime=millis();
 //}
+
+int pollOpticalMouse() {
+  currentPosDelta = 128;
+  if (motionSerial.available() > 0) {
+    currentPosDelta = motionSerial.parseInt();
+  }
+  else if (motionSerial.available() <= 0) {
+    currentPosDelta = 128;
+  }
+}
 
 void establishOrder() {
   noTone(tonePin);
@@ -270,60 +278,52 @@ void nonBlockBlink(int pT, int dT, int startOnOrOff, int pinNum) {
 void genericReport() {
   trialTimeMicro = micros() - msOffset;
   stateTimeMicro = micros() - s1Offset;
-  //  pollOpticalMouse();
-  spitData(trialTimeMicro, stateTimeMicro, cur9dof, curState, lickSensorA, lickSensorB);
-  if (lickSerial.available()) {
-    pollLickSensors();
+//  pollOpticalMouse();
+  pollLickSensors();
+  if (lickSensorA>4000){
+    digitalWrite(cueLED,HIGH);
   }
+
+  spitData(trialTimeMicro, stateTimeMicro, cur9dof, curState, lickSensorA, lickSensorB);
+
   delayMicroseconds(loopDelta);
+  digitalWrite(cueLED,LOW);
   curState = lookForSerialState();
 }
 
 
 void pollLickSensors() {
-  static int receivedNumber = 0;
-  static boolean negative=0;
-
-  byte c = lickSerial.read();
-
-  switch (c) {
-    case aEndDelim:
-      if (negative == 1) {
-        lickSensorA = (-receivedNumber);
-
+  if (lickSerial.available() > 0) {
+    ri = lickSerial.read();
+  }
+  // new line case
+  if (ri == '\n') {
+    rNewLine = 1;
+    charCount = 0;
+    tStr = "";
+  }
+  else if (ri == 'a') {
+    lastSerState = 'a';
+    charCount = 0;
+    tStr = "";
+  }
+  else if (ri == 'b') {
+    lastSerState = 'b';
+    charCount = 0;
+    tStr = "";
+  }
+  else if (isDigit(ri)) {
+    tStr = String(tStr + ri);
+    charCount++;
+    if (charCount == 5) {
+      if (lastSerState == 'a') {
+        lickSensorA = int(tStr.toInt());
       }
-      else if (negative == 0) {
-        lickSensorA = receivedNumber;
-
+      else if (lastSerState == 'b') {
+        lickSensorB = int(tStr.toInt());
       }
-
-    case bEndDelim:
-      if (negative == 1) {
-        lickSensorB = (-receivedNumber);
-      }
-      else if (negative == 0) {
-        lickSensorB = receivedNumber;
-      }
-
-
-    case aStartDelim:
-      receivedNumber = 0;
-      negative = 0;
-      break;
-
-    case bStartDelim:
-      receivedNumber = 0;
-      negative = 0;
-      break;
-
-    case '0' ... '9':
-      receivedNumber *= 10;
-      receivedNumber += c - '0';
-      break;
-
-    case '-':
-      negative = 1;
-      break;
+      tStr = "";
+    }
   }
 }
 
