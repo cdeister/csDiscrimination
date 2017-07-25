@@ -1,0 +1,28 @@
+We will use the Teensy 3.6 built in hardware capacitive sensing using the touchRead library. This call is blocking, so we can’t run it on the acquisition teensy. Currently, we have a teensy 3.5 doing data collection and relay, and a 3.6 for cap sensing. Both the 3.5 and 3.6 have built-in DACs. These are not PWM analog out that most micro-controllers do, but instead is an actual DAC. 
+
+If you want some background on PWM vs DAC analog outs (they are related):
+https://courses.cs.washington.edu/courses/cse466/14au/labs/l5/l5.html
+
+As PJRC puts it simply:
+“Teensy 3.2 & 3.1 have a proper analog output. You can always filter PWM, but true analog output responds rapidly. The output is created by the stable reference voltage, so it's doesn't vary if your power supply voltage changes slightly.”
+
+But, this is a somewhat hidden pjrc page on the DACs:
+https://www.pjrc.com/teensy/teensy31.html
+
+Also, the Teensy can do two analog reads, and the resolution is beyond the standard Arduino
+https://www.pjrc.com/teensy/adc.html
+
+But, for now, I simply use the standard Arduino analogRead and assume 10 bit. 
+
+You need to load “twoChanTeensyCapToAnalog” onto the 3.6. This is in the ArduinoStuff folder. The wiring is as follows:
+
+3.6				3.5			Nomenclature
+A22		———>	A9			Left Sensor
+A21		———>	A5			Right Sensor
+
+29 (left cap connect to left spout) 
+20 (right cap connect to right spout) 
+
+
+Next, upload the latest tv_serialReadPyDiscrim.ino to the teensy 3.5.
+
