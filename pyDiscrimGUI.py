@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.6 -- Speed Improvements
+# Version 3.7 -- Analog Lick Sensing; Start of Refactor
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -69,6 +69,7 @@ class serialFunctions:
             self.comObjectExists=1
 
 
+
             # update the GUI
             self.comPathLabel.config(text="COM Object Connected ***",justify=LEFT,fg="green",bg="black") 
             self.comPathEntry.config(state=DISABLED)
@@ -117,6 +118,8 @@ class serialFunctions:
 # class positionTracking:
 
 #     def opticalMouseParse(self):
+
+
 #     def nineDOFParse(self,positions,revolutions):
 #         if len(positions>2):
 #         currentPosition=positions[-1]
@@ -130,12 +133,13 @@ class serialFunctions:
 #             revolutions=revolutions-1
 #         return posDelta
 
-#     def quadratureParse(self,resolution):
+#     # def quadratureParse(self,resolution):
 
 class taskFeedbackFigure:
 
     def taskPlotWindow(self):
         self.fig1 = plt.figure(100)
+        self.fig1.suptitle('state 0', fontsize=10)
         subIds=[221,222,223,224]
     
         for x in range(0,4):
@@ -147,9 +151,9 @@ class taskFeedbackFigure:
             exec('self.ax{}.add_line(self.line{})'.format(x,x))
 
         self.ax0.set_ylim([0,25])
-        self.ax1.set_ylim([-20000,20000])
-        self.ax2.set_ylim([0,70000])
-        self.ax3.set_ylim([0,70000])
+        self.ax1.set_ylim([-5000,10000])
+        self.ax2.set_ylim([0,1100])
+        self.ax3.set_ylim([0,1100])
         plt.tight_layout()
         plt.show()
     
@@ -174,13 +178,13 @@ class setUserVars:
     def setStateNames(self):
         self.stateNames=\
         ['bootState','waitState','initiationState','cue1State','cue2State',\
-        'stim1State','stim2State','catchState','saveState','rewardState',\
+        'stim1State','stim2State','catchState','saveState','rewardState','rewardState2',\
         'neutralState','punishState','endState','defaultState']
 
         self.stateIDs=\
         [0,1,2,3,4,\
-        5,6,7,13,21,\
-        22,23,25,29]
+        5,6,7,13,21,22,\
+        23,24,25,29]
         
         self.mapAssign(self.stateNames,self.stateIDs)
         
@@ -248,12 +252,12 @@ class analysis:
             self.lickMinMaxB=[min(dataSpan),max(dataSpan)]
 
     def lickDetection(self):
-        
-
+    
         if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()) and self.lickThresholdLatchA==0:
             self.thrLicksA.append(1)
-            self.lastLickCountA+1
+            self.lastLickCountA=self.lastLickCountA+1
             self.stateLickCount0.append(self.lastLickCountA)
+            
             self.lickThresholdLatchA=1
             self.lastLickA=self.mcTrialTime[-1]
             
@@ -266,8 +270,9 @@ class analysis:
 
         if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()) and self.lickThresholdLatchB==0:
             self.thrLicksB.append(1)
-            self.lastLickCountB+1
+            self.lastLickCountB=self.lastLickCountB+1
             self.stateLickCount1.append(self.lastLickCountB)
+            
             self.lickThresholdLatchA=1
             self.lastLickA=self.mcTrialTime[-1]
 
@@ -299,15 +304,25 @@ class stateCallbacks:
 
     def checkMotion(self,acelThr,sampThr):
         if len(self.posDelta)>sampThr:
+            print ("c motion")
             runAcel=np.mean(np.array(self.posDelta[-sampThr:]))
+            print ("c motion2")
             if runAcel<acelThr:
+                print ("c motion3")
                 lastLatch=self.stillLatch
                 self.stillLatch=1
                 latchDelta=self.stillLatch-lastLatch
+                print ("c motion3a")
                 if latchDelta!=0:
+                    print ("c motion3b")
                     self.stillTimeStart=self.mcTrialTime[-1]
+                    print ("c motion3c")
                 self.stillTime=self.mcTrialTime[-1]-self.stillTimeStart
+                print ("c motion3d")
+                print(runAcel)
+                print(acelThr)
             elif runAcel>=acelThr:
+                print ("c motion4")
                 self.stillLatch=0
                 self.stillTime=0
 
@@ -323,9 +338,14 @@ class stateCallbacks:
         distractMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(offSpout,sPres))
 
         if targetMinLicked==1 and targetMaxLicked == 0 and distractMinLicked == 0:
+
             print('licked spout {}: on target -> reward'.format(rwdSpout))
             exec('self.trialOutcome.append({}1)'.format(sPres))
-            stateFunctions.switchState(self,self.rewardState)
+            if rwdSpout==0:
+                stateFunctions.switchState(self,self.rewardState)
+            elif rwdSpout==1:
+                stateFunctions.switchState(self,self.rewardState2)
+        
             print(self.trialOutcome[-1])
 
         elif targetMinLicked==0 and distractMinLicked == 1:
@@ -342,6 +362,9 @@ class stateCallbacks:
 
     def waitStateCB(self):       
         stateCallbacks.checkMotion(self,1,10)
+        print('what')
+        print(self.stillLatch)
+        print(self.stillTime)
         if self.stillLatch==1 and self.stillTime>0.75:  #var todo minStill
             print('Still! ==> S1 --> S2')
             stateFunctions.switchState(self,self.initiationState)
@@ -370,7 +393,8 @@ class stateCallbacks:
     def cue1StateCB(self):
         trP=0.5
         stateCallbacks.checkMotion(self,1,10)
-        if self.stillLatch==1 and self.stillTime>0.75:
+        if self.stillLatch==1 and self.stillTime>1.5:
+            self.cuePresented=1;
             print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
             eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
             exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
@@ -385,9 +409,9 @@ class stateCallbacks:
             self.stimSelected=1
 
     def cue2StateCB(self): 
-        trP=0.5
         stateCallbacks.checkMotion(self,1,10)
-        if self.stillLatch==1 and self.stillTime>0.75:
+        if self.stillLatch==1 and self.stillTime>1.5:
+            self.cuePresented=2;
             print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
             eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
             exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
@@ -399,7 +423,7 @@ class stateCallbacks:
         self.maxTarget1Licks=100
         self.maxOffTarget1Licks=1
         self.minOffTarget1Licks=1
-        self.reportMax1Time=10
+        self.reportMax1Time=20
 
         if self.mcStateTime[-1]>self.minStim1Time:
             if self.mcStateTime[-1]<self.reportMax1Time:
@@ -421,7 +445,6 @@ class stateCallbacks:
         if self.mcStateTime[-1]>self.minStim2Time:
             if self.mcStateTime[-1]<self.reportMax2Time:
                 stateCallbacks.defineOutcome(self,self.rewardContingency)
-
             elif self.mcStateTime[-1]>=self.reportMax2Time:
                 self.trialOutcome.append(20)
                 print('timed out: did not report')
@@ -433,9 +456,15 @@ class stateCallbacks:
             print('rewarding')
             stateFunctions.switchState(self,self.saveState)
 
+    def rewardState2CB(self):
+        self.rewardTime2=1
+        if self.mcStateTime[-1]<self.rewardTime2:
+            print('rewarding')
+            stateFunctions.switchState(self,self.saveState)
+
     def neutralStateCB(self):
         self.neutralTime=1
-        if self.absolutePosition[-1]>self.distThr:
+        if self.mcStateTime[-1]<0.1:
             print('no reward')
             stateFunctions.switchState(self,self.saveState)
 
@@ -717,8 +746,8 @@ class mainWindow:
         self.bThrEntry=Entry(self.master,width=6,textvariable=self.lickThresholdStrValB)
         self.bThrEntry.grid(row=startRow+3, column=0,sticky=E,padx=5)
         
-        self.lickThresholdStrValA.set(12)
-        self.lickThresholdStrValB.set(12)
+        self.lickThresholdStrValA.set(400)
+        self.lickThresholdStrValB.set(400)
         self.lickThresholdLatchA=0;
         self.lickThresholdLatchB=0;
         self.lastLickA=0;
@@ -908,8 +937,15 @@ class mainTask:
                         stateFunctions.coreState(self)
                         if self.fireCallback:
                             stateCallbacks.rewardStateCB(self)
+                #S22 -----> reward state
+                elif self.currentState==self.rewardState2:
+                    stateFunctions.stateHeader(self,0)
+                    while self.currentState==self.rewardState2:
+                        stateFunctions.coreState(self)
+                        if self.fireCallback:
+                            stateCallbacks.rewardStateCB(self)
 
-                #S22 -----> neutral state
+                #S23 -----> neutral state
                 elif self.currentState==self.neutralState:
                     stateFunctions.stateHeader(self,0)
                     while self.currentState==self.neutralState:
@@ -917,7 +953,7 @@ class mainTask:
                         if self.fireCallback:
                             stateCallbacks.neutralStateCB(self)
 
-                #S23 -----> punish state
+                #S24 -----> punish state
                 elif self.currentState==self.punishState:
                     stateFunctions.stateHeader(self,0)
                     while self.currentState==self.punishState:
@@ -1151,6 +1187,7 @@ class pyDiscrim_mainGUI:
         self.rcCol.append(tRC)
         self.toCol.append(tTO)
 
+        
         if tRC ==10 or tRC ==21 :
             tTskType=1
         elif tRC ==11 or tRC ==20 :
@@ -1231,19 +1268,24 @@ class pyDiscrim_mainGUI:
         self.sBtn_catch.grid(row=sRw, column=sCl+3)
         self.sBtn_catch.config(state=NORMAL)
 
-        self.sBtn_reward = Button(st_frame, text="SR: Reward", \
+        self.sBtn_reward = Button(st_frame, text="SR1: Reward1", \
             command=lambda: stateFunctions.switchState(self,self.rewardState),width=btWdth)
         self.sBtn_reward.grid(row=sRw-1, column=sCl+4)
         self.sBtn_reward.config(state=NORMAL)
 
+        self.sBtn_reward2 = Button(st_frame, text="SR2: Reward 2", \
+            command=lambda: stateFunctions.switchState(self,self.rewardState2),width=btWdth)
+        self.sBtn_reward2.grid(row=sRw+1, column=sCl+4)
+        self.sBtn_reward2.config(state=NORMAL)
+
         self.sBtn_neutral = Button(st_frame, text="SN: Neutral", \
             command=lambda: stateFunctions.switchState(self,self.neutralState),width=btWdth)
-        self.sBtn_neutral.grid(row=sRw, column=sCl+4)
+        self.sBtn_neutral.grid(row=sRw, column=sCl+5)
         self.sBtn_neutral.config(state=NORMAL)
 
         self.sBtn_punish = Button(st_frame, text="SP: Punish", \
             command=lambda: stateFunctions.switchState(self,self.punishState),width=btWdth)
-        self.sBtn_punish.grid(row=sRw+1, column=sCl+4)
+        self.sBtn_punish.grid(row=sRw+0, column=sCl+4)
         self.sBtn_punish.config(state=NORMAL)
 
     def stateEditWindow(self):
@@ -1325,6 +1367,9 @@ class pyDiscrim_mainGUI:
         self.stID_lickSensor_a=5
         self.stID_lickSensor_b=6
 
+
+
+
     def data_makeContainers(self):
         self.arStates=[]          
         self.mcTrialTime=[]
@@ -1347,7 +1392,12 @@ class pyDiscrim_mainGUI:
         self.trialOutcome=[]
         self.PooledTasks=[]
         self.stillLatch=1
-        self.stillTime=0   
+        self.stillTime=0
+        self.sCues=[];
+        self.sStims=[];
+        self.sRewardTarget=[];
+        self.sPunishTarget=[];
+        self.sOutcome=[];   
 
     def data_cleanContainers(self):
         self.arStates=[]          
