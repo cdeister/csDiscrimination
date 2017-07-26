@@ -13,7 +13,7 @@
 int lickSensorL = 0;
 int lickSensorR = 0;
 
-
+bool useThermal=0;
 
 
 int loopDelta = 1000; //in microseconds

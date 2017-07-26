@@ -1,0 +1,8 @@
+scratch led code
+
+// first is rows for feather shield
+    if (blinkLights) {
+      matrix.drawPixel(random(0, 4), random(0, 9), matrix.Color(random(-1, 256), random(-1, 256), random(-1, 256)));
+      matrix.setBrightness(1);
+      matrix.show();
+      delay(23 + random(10, 333));
