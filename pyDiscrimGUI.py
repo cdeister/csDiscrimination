@@ -1412,8 +1412,13 @@ class pyDiscrim_mainGUI:
     def data_parseData(self):
         self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
-        self.posDelta.append(int(self.sR[self.stID_pos]))
-        self.absolutePosition.append(int(self.posDelta[-1]));
+        tMotion=int(self.sR[self.stID_pos]);
+        if (tMotion-self.lastPos<-140):
+            tMotion+=360
+        elif(tMotion-self.lastPos>140):
+            tMotion-=360
+        self.posDelta.append(tMotion-self.lastPos)
+        self.absolutePosition.append(int(self.lastPos+tMotion))
         self.lastPos=int(self.absolutePosition[-1])
         self.currentState=int(self.sR[self.stID_state])
         self.arStates.append(self.currentState)
