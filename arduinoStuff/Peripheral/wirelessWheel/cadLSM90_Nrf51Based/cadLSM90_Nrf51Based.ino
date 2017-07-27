@@ -12,7 +12,8 @@ Adafruit_Simple_AHRS ahrs(&lsm.getAccel(), &lsm.getMag());
 #include "Adafruit_BluefruitLE_UART.h"
 #include "BluefruitConfig.h"
 
-
+int readOrient;
+int lastOrient = 0;
 int curRoll = 0;
 int lastRoll = 0;
 
@@ -41,14 +42,12 @@ void configureLSM9DS0() {
 
 void setup()
 {
-
   Serial.begin(115200);
   if (!lsm.begin())
   {
     Serial.print(F("Ooops, no LSM9DS0 detected ... Check your wiring or I2C ADDR!"));
     while (1);
   }
-
   if ( !ble.begin(VERBOSE_MODE) )
   {
     //    Serial.println(F("Couldn't find Bluefruit"));
@@ -59,16 +58,11 @@ void setup()
   delay(100);
   ble.setMode(BLUEFRUIT_MODE_DATA);
   ble.verbose(false);  // debug info is a little annoying after this point!
-
-
 }
 
-void loop(void)
-{
+void loop(void){
   while (ble.isConnected() == 0) {
-
     sensors_vec_t   orientation;
-
     if (ahrs.getOrientation(&orientation)) {
       curRoll = int(orientation.roll);
     }
@@ -79,13 +73,11 @@ void loop(void)
     Serial.print(curRoll);
     Serial.println('>');
     lastRoll = curRoll;
-
     delayMicroseconds(500);
   }
 
   while (ble.isConnected()) {
     sensors_vec_t   orientation;
-
     if (ahrs.getOrientation(&orientation)) {
       curRoll = int(orientation.roll);
     }
@@ -101,8 +93,7 @@ void loop(void)
     Serial.println('>');
 
     lastRoll = curRoll;
-
-    delayMicroseconds(100);
+    delayMicroseconds(500);
   }
 }
 

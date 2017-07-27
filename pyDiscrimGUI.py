@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.7 -- Analog Lick Sensing; Start of Refactor
+# Version 3.75 -- Speed/Sync Fixes; Uses wireless 9DOF for motion.
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -18,7 +18,7 @@ from threading import Thread
 import serial
 import numpy as np
 
-import matplotlib
+import matplotlib 
 matplotlib.use("TkAgg")
 from matplotlib.lines import Line2D
 from matplotlib import pyplot as plt
@@ -151,7 +151,7 @@ class taskFeedbackFigure:
             exec('self.ax{}.add_line(self.line{})'.format(x,x))
 
         self.ax0.set_ylim([0,25])
-        self.ax1.set_ylim([-5000,10000])
+        self.ax1.set_ylim([-500,500])
         self.ax2.set_ylim([0,1100])
         self.ax3.set_ylim([0,1100])
         plt.tight_layout()
@@ -231,23 +231,23 @@ class analysis:
 
     def getQunat(self,pyList,quantileCut):
         tA=np.abs(np.array(pyList))
-        print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
+        # print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
 
     def updateLickThresholdA(self,dataSpan):  #todo: should be one function for all
 
         if self.ux_adaptThresh.get()==1:
-            print(int(self.lickThresholdStrValA))
+            # print(int(self.lickThresholdStrValA))
             tA=np.abs(np.array(dataSpan))
-            print(int(np.percentile(aaa[np.where(aaa != 0)[0]],75)))
+            # print(int(np.percentile(aaa[np.where(aaa != 0)[0]],75)))
             self.lickThresholdStrValA.set(str(np.percentile(tA[np.where(tA != 0)[0]],75)))
             self.lickMinMaxA=[min(dataSpan),max(dataSpan)]
 
     def updateLickThresholdB(self,dataSpan,quantileCut):
 
         if self.ux_adaptThresh.get()==1:
-            print(int(self.lickThresholdStrValB))
+            # print(int(self.lickThresholdStrValB))
             tA=np.abs(np.array(dataSpan))
-            print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
+            # print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
             self.lickThresholdStrValB.set(str(np.percentile(tA[np.where(tA != 0)[0]],quantileCut)))
             self.lickMinMaxB=[min(dataSpan),max(dataSpan)]
 
@@ -304,25 +304,15 @@ class stateCallbacks:
 
     def checkMotion(self,acelThr,sampThr):
         if len(self.posDelta)>sampThr:
-            print ("c motion")
             runAcel=np.mean(np.array(self.posDelta[-sampThr:]))
-            print ("c motion2")
             if runAcel<acelThr:
-                print ("c motion3")
                 lastLatch=self.stillLatch
                 self.stillLatch=1
                 latchDelta=self.stillLatch-lastLatch
-                print ("c motion3a")
                 if latchDelta!=0:
-                    print ("c motion3b")
                     self.stillTimeStart=self.mcTrialTime[-1]
-                    print ("c motion3c")
                 self.stillTime=self.mcTrialTime[-1]-self.stillTimeStart
-                print ("c motion3d")
-                print(runAcel)
-                print(acelThr)
             elif runAcel>=acelThr:
-                print ("c motion4")
                 self.stillLatch=0
                 self.stillTime=0
 
@@ -362,9 +352,6 @@ class stateCallbacks:
 
     def waitStateCB(self):       
         stateCallbacks.checkMotion(self,1,10)
-        print('what')
-        print(self.stillLatch)
-        print(self.stillTime)
         if self.stillLatch==1 and self.stillTime>0.75:  #var todo minStill
             print('Still! ==> S1 --> S2')
             stateFunctions.switchState(self,self.initiationState)
@@ -700,7 +687,7 @@ class mainWindow:
 
         self.lickMinMaxA=[-5,10]
         self.initPltRng=2.5
-        self.pltDelay=0.0000001 
+        self.pltDelay=0.000001 
         self.segPlot=10000
         self.lastPos=0
 
@@ -1161,10 +1148,9 @@ class pyDiscrim_mainGUI:
     def updatePlotCheck(self):
         # analysis.updateLickThresholds(self)
         self.master
-        time.sleep(0.00001)
+        # time.sleep(0.00001)
         if plt.fignum_exists(100):
             taskFeedbackFigure.updateTaskPlot(self)
-
         self.cycleCount=0
 
     def setPlotVariables(self):
@@ -1427,7 +1413,7 @@ class pyDiscrim_mainGUI:
         self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
         self.posDelta.append(int(self.sR[self.stID_pos]))
-        self.absolutePosition.append(int(self.lastPos+self.posDelta[-1]))
+        self.absolutePosition.append(int(self.posDelta[-1]));
         self.lastPos=int(self.absolutePosition[-1])
         self.currentState=int(self.sR[self.stID_state])
         self.arStates.append(self.currentState)

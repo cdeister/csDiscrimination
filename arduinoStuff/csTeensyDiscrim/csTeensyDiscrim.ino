@@ -1,13 +1,17 @@
 /*
-   See how they run
-   Three blind mice
+csTeensyDiscrim
+Main Teensy Script For Discrim Task. Assumes a 3.5/6 teensy for speed sake. 
+Will work with any MC with a hardware serial port. 
+v1.0 -- cdeister@brown.edu
+
 */
 
 // I could do states with switch, but seems unecessary.
 // I assume switch is more efficient http://www.blackwasp.co.uk/SpeedTestIfElseSwitch.aspx
 // However, seems like it is negligible
 
-#define motionSerial Serial4
+#define motionSerial Serial3
+int motionBaud=9600;
 
 // lick vars
 int lickSensorL = 0;
@@ -72,6 +76,18 @@ const int tonePin = 22;
 const int lickPinL = A9;
 const int lickPinR = A5;
 
+/* vars for split read */
+
+const byte numChars = 32;
+char receivedChars[numChars];
+boolean newData = false;
+int lastOrient = 0;
+int readOrient = 0;;
+int orientDelta = 0;
+char ff;
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 
 void setup() {
   pinMode(posPin, OUTPUT);
@@ -82,8 +98,8 @@ void setup() {
   pinMode(cueLED, OUTPUT);
 
 
-  Serial.begin(9600); // initialize Serial communication
-  motionSerial.begin(19200);
+  Serial.begin(115200); // initialize Serial communication
+  motionSerial.begin(motionBaud);
   while (!Serial);    // wait for the serial port to open
   Serial.println("Start");
   delay(500);
@@ -153,15 +169,6 @@ int lookForSerialState() {
   return pyState;
 }
 
-
-//int poll9dof() {
-//  if (motionSerial.available() > 0) {
-//    cur9dof = motionSerial.parseInt() + 180;
-//  }
-//  //  dif9dof = (cur9dof - last9dof)/(millis()-lastTime);
-//  //  last9dof=cur9dof;
-//  //  lastTime=millis();
-//}
 
 int pollOpticalMouse() {
   currentPosDelta = 128;
@@ -267,7 +274,9 @@ void genericReport() {
   stateTimeMicro = micros() - s1Offset;
   //  pollOpticalMouse();
   pollLickSensors();
-  spitData(trialTimeMicro, stateTimeMicro, cur9dof, curState, lickSensorL, lickSensorR);
+  flagReceive('o','>');
+  showNewData();
+  spitData(trialTimeMicro, stateTimeMicro, readOrient, curState, lickSensorL, lickSensorR);
 
   delayMicroseconds(loopDelta);
   digitalWrite(cueLED, LOW);
@@ -275,8 +284,48 @@ void genericReport() {
 }
 
 void pollLickSensors(){
-  lickSensorR=analogRead(lickPinR);
-  lickSensorL=analogRead(lickPinL);
+//  lickSensorR=analogRead(lickPinR);
+//  lickSensorL=analogRead(lickPinL);
+  lickSensorR=map(analogRead(lickPinR),0,1024,1000,0);
+  lickSensorL=map(analogRead(lickPinL),0,1024,1000,0);
 }
 
+
+
+void flagReceive(char startChars, char endChars) {
+  static boolean recvInProgress = false;
+  static byte ndx = 0; char startMarker = startChars;
+  char endMarker = endChars; char rc;
+
+  while (motionSerial.available() > 0 && newData == false) {
+    rc = motionSerial.read();
+
+    if (recvInProgress == true) {
+      if (rc != endMarker) {
+        receivedChars[ndx] = rc;
+        ndx++;
+        if (ndx >= numChars) {
+          ndx = numChars - 1;
+        }
+      }
+      else if (rc == endMarker ) {
+        receivedChars[ndx] = '\0'; // terminate the string
+        recvInProgress = false;
+        ndx = 0;
+        newData = true;
+      }
+    }
+    else if (rc == startMarker) {
+      recvInProgress = true;
+    }
+  }
+}
+
+void showNewData() {
+  if (newData == true) {
+    readOrient = int(String(receivedChars).toInt());
+    lastOrient = readOrient;
+    newData = false;
+  }
+}
 

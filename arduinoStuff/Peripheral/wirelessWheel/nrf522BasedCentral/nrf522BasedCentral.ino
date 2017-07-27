@@ -9,6 +9,8 @@
 #include <Adafruit_FeatherOLED.h>
 Adafruit_FeatherOLED oled = Adafruit_FeatherOLED();
 
+#define mserial Serial
+
 #define PIN             30   /* Pin used to drive the NeoPixels */
 
 #define MATRIX_WIDTH    4
@@ -29,6 +31,7 @@ int orientDelta=0;
 int numRevs=0;
 bool blinkLights = 0;
 bool useOLED = 1;
+int uptCntr=0;
 
 const byte numChars = 32;
 char receivedChars[numChars];
@@ -42,7 +45,7 @@ const uint16_t colors[] = {
 
 void setup()
 {
-  Serial.begin(115200);
+  mserial.begin(115200);
   oled.init();
   oled.setBatteryVisible(true);
 
@@ -92,43 +95,43 @@ void scan_callback(ble_gap_evt_adv_report_t* report)
 */
 void connect_callback(uint16_t conn_handle)
 {
-  Serial.println("Connected");
+  mserial.println("Connected");
   // Config Neopixels Matrix
 
   //  Serial.print("Dicovering DIS ... ");
   if ( clientDis.discover(conn_handle) )
   {
-    Serial.println("Found it");
+    mserial.println("Found it");
     char buffer[32 + 1];
 
     // read and print out Manufacturer
     memset(buffer, 0, sizeof(buffer));
     if ( clientDis.getManufacturer(buffer, sizeof(buffer)) )
     {
-      Serial.print("Manufacturer: ");
-      Serial.println(buffer);
+      mserial.print("Manufacturer: ");
+      mserial.println(buffer);
     }
 
     // read and print out Model Number
     memset(buffer, 0, sizeof(buffer));
     if ( clientDis.getModel(buffer, sizeof(buffer)) )
     {
-      Serial.print("Model: ");
-      Serial.println(buffer);
+      mserial.print("Model: ");
+      mserial.println(buffer);
     }
 
-    Serial.println();
+    mserial.println();
   }
 
-  Serial.print("Discovering BLE Uart Service ... ");
+  mserial.print("Discovering BLE Uart Service ... ");
 
   if (clientUart.discover(conn_handle)) {
-    Serial.println("Found it");
-    Serial.println("Enable TXD's notify");
+    mserial.println("Found it");
+    mserial.println("Enable TXD's notify");
     clientUart.enableTXD();
-    Serial.println("Ready to receive from peripheral");
+    mserial.println("Ready to receive from peripheral");
   } else {
-    Serial.println("Found NONE");
+    mserial.println("Found NONE");
   }
 }
 
@@ -138,8 +141,8 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   (void) conn_handle;
   (void) reason;
 
-  Serial.println("Disconnected");
-  Serial.println("Bluefruit will auto start scanning (default)");
+  mserial.println("Disconnected");
+  mserial.println("Bluefruit will auto start scanning (default)");
 }
 
 void uart_rx_callback(void) {
@@ -158,21 +161,27 @@ void loop() {
     oled.print(((millis() - lastTime) * 0.001) * 0.017);
     oled.println(" min");
     oled.display();
-
+    
+    mserial.print(101);
+    mserial.print(',');
+    mserial.print(-10);
     delay(100);
 
   }
 
 
   while ( Bluefruit.Central.connected()) {
-//    oled.clearDisplay();
-//    oled.setBattery(0.00);
-//    oled.renderBattery();
-//    oled.print("connected! ");
-//    oled.display();
+    if (uptCntr>100){
+      oled.clearDisplay();
+      oled.setBattery(0.00);
+      oled.renderBattery();
+      oled.print(readOrient);
+      oled.display();
+      uptCntr=0;
+    }
     flagReceive('o', '>');
     showNewData();
-
+    uptCntr++;
     delayMicroseconds(100);
   }
 }
@@ -214,17 +223,11 @@ void showNewData() {
   if (newData == true) {
     readOrient=int(String(receivedChars).toInt())+180;
     orientDelta=readOrient-lastOrient;
-//    if (orientDelta<-90){
-//      numRevs=numRevs-1;
-//    }
-//    else if (orientDelta>90){
-//      numRevs=numRevs++;
-//    }
     lastOrient=readOrient;
-    Serial.print(readOrient);
-    Serial.print(',');
-    Serial.println(orientDelta);
-    
+    mserial.write(readOrient);
+    mserial.write(',');
+    mserial.write(orientDelta);
+    mserial.write('\n');
     newData = false;
   }
 }
