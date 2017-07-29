@@ -1,7 +1,7 @@
 /*
 csTeensyDiscrim
 Main Teensy Script For Discrim Task. Assumes a 3.5/6 teensy for speed sake. 
-Will work with any MC with a hardware serial port. 
+Will work with any MC swith a hardware serial port. 
 v1.0 -- cdeister@brown.edu
 
 */
@@ -10,7 +10,7 @@ v1.0 -- cdeister@brown.edu
 // I assume switch is more efficient http://www.blackwasp.co.uk/SpeedTestIfElseSwitch.aspx
 // However, seems like it is negligible
 
-#define motionSerial Serial3
+#define motionSerial Serial1
 int motionBaud=9600;
 
 // lick vars
@@ -72,7 +72,7 @@ const int negPin = 4;     // Engage Aversive Reinforcment
 const int waterLPin = 15;   // Engage Water
 const int waterRPin = 16;   // Engage Water
 const int cueLED = 13;
-const int tonePin = 22;
+const int tonePin = 6;
 const int lickPinL = A9;
 const int lickPinR = A5;
 
@@ -284,10 +284,10 @@ void genericReport() {
 }
 
 void pollLickSensors(){
-//  lickSensorR=analogRead(lickPinR);
-//  lickSensorL=analogRead(lickPinL);
-  lickSensorR=map(analogRead(lickPinR),0,1024,1000,0);
-  lickSensorL=map(analogRead(lickPinL),0,1024,1000,0);
+  lickSensorR=analogRead(lickPinR);
+  lickSensorL=analogRead(lickPinL);
+//  lickSensorR=map(analogRead(lickPinR),0,1024,1000,0);
+//  lickSensorL=map(analogRead(lickPinL),0,1024,1000,0);
 }
 
 

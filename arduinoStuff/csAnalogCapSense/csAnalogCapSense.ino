@@ -14,6 +14,7 @@ const int capSensPinR = 30;
 const int dacPinL=A22;
 const int dacPinR=A21;
 
+
 int lickValA = 0;
 int lickValB = 0;
 int writeValA = 0;
@@ -30,6 +31,7 @@ int maxDACVal=2999;
 
 void setup() {
   analogWriteResolution(12);
+//  pinMode(ledPin,OUTPUT);
 }
 
 void loop() {

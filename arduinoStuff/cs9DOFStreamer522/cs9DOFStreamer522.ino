@@ -1,17 +1,17 @@
-/* 
- cs9DOFStreamer
- Wireless orientation tracking.
- Configured here for tracking one orientation for a mouse wheel tracker.
- Makes use of adafruit's i2c and blueart libraries. Also, as all BLE, makes use of nordic semis API. 
- This script is loaded onto a nrf522 based board. 
- It has to be an nrf522 board and not 521 so it can act as a client and connect to a uart target.
- I place an adafruit nrf522 feather in the underside of a wheel. This is connected to a 9DOF sensor. 
- I like the LSM9DS0 9DOF, this script uses adafruit's AHRS library that fuses the 9DOFs together. 
- There are other chips that do on chip fusion.
- 
- v1.0
- cdeister@brown.edu
- 
+/*
+  cs9DOFStreamer
+  Wireless orientation tracking.
+  Configured here for tracking one orientation for a mouse wheel tracker.
+  Makes use of adafruit's i2c and blueart libraries. Also, as all BLE, makes use of nordic semis API.
+  This script is loaded onto a nrf522 based board.
+  It has to be an nrf522 board and not 521 so it can act as a client and connect to a uart target.
+  I place an adafruit nrf522 feather in the underside of a wheel. This is connected to a 9DOF sensor.
+  I like the LSM9DS0 9DOF, this script uses adafruit's AHRS library that fuses the 9DOFs together.
+  There are other chips that do on chip fusion.
+
+  v1.0
+  cdeister@brown.edu
+
 */
 
 #include <SPI.h>
@@ -77,7 +77,7 @@ void setup() {
   clientDis.begin();
   clientUart.begin();
   Bluefruit.setConnLedInterval(5);
-Bluefruit.autoConnLed(1);
+  Bluefruit.autoConnLed(1);
 
   Bluefruit.Central.setConnectCallback(connect_callback);
   Bluefruit.Central.setDisconnectCallback(disconnect_callback);
@@ -95,7 +95,7 @@ void scan_callback(ble_gap_evt_adv_report_t* report) {
 }
 
 
-void connect_callback(uint16_t conn_handle){
+void connect_callback(uint16_t conn_handle) {
   Serial.println("Connected");
   if ( clientDis.discover(conn_handle)) {
     Serial.println("Found it");
@@ -155,8 +155,8 @@ void loop() {
     Serial.print('o');
     Serial.print(curRoll);
     Serial.println('>');
-    delayMicroseconds(100);
     
+
     clientUart.print('o');
     clientUart.print(curRoll);
     clientUart.println('>');
@@ -168,18 +168,18 @@ void loop() {
 void pollMotion() {
   sensors_vec_t   orientation;
   if (ahrs.getOrientation(&orientation)) {
-    curRoll=orientation.roll;
-    curPitch=orientation.pitch;
-    curHead=orientation.heading;
-    
-    lastRoll=curRoll;
-    lastPitch=curPitch;
-    lastHead=curHead;
+    curRoll = orientation.roll;
+    curPitch = orientation.pitch;
+    curHead = orientation.heading;
+
+    lastRoll = curRoll;
+    lastPitch = curPitch;
+    lastHead = curHead;
   }
   else if (ahrs.getOrientation(&orientation) == 0) {
-    curRoll=lastRoll;
-    curPitch=lastPitch;
-    curHead=lastHead;
+    curRoll = lastRoll;
+    curPitch = lastPitch;
+    curHead = lastHead;
   }
 }
 

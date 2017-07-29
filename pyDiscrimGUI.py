@@ -2,7 +2,7 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.75 -- Speed/Sync Fixes; Uses wireless 9DOF for motion.
+# Version 3.79 -- Corrects 9DOF rollover.
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -115,25 +115,6 @@ class serialFunctions:
         elif len(self.sR)!=7 or self.sR[self.stID_header] != header or str.isnumeric(self.sR[1])!=1 or str.isnumeric(self.sR[2])!=1:
             self.dataAvail=0
 
-# class positionTracking:
-
-#     def opticalMouseParse(self):
-
-
-#     def nineDOFParse(self,positions,revolutions):
-#         if len(positions>2):
-#         currentPosition=positions[-1]
-#         pastPosition=positions[-2]
-#         posDelta=currentPosition-pastPosition
-#         if posDelta>180: # circular boundary forward
-#             posDelta=posDelta-360
-#             revolutions=revolutions+1
-#         elif posDelta<-180: # boundary backwards
-#             posDelta=posDelta+360
-#             revolutions=revolutions-1
-#         return posDelta
-
-#     # def quadratureParse(self,resolution):
 
 class taskFeedbackFigure:
 
@@ -151,7 +132,7 @@ class taskFeedbackFigure:
             exec('self.ax{}.add_line(self.line{})'.format(x,x))
 
         self.ax0.set_ylim([0,25])
-        self.ax1.set_ylim([-500,500])
+        self.ax1.set_ylim([-500,2000])
         self.ax2.set_ylim([0,1100])
         self.ax3.set_ylim([0,1100])
         plt.tight_layout()
@@ -231,7 +212,6 @@ class analysis:
 
     def getQunat(self,pyList,quantileCut):
         tA=np.abs(np.array(pyList))
-        # print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
 
     def updateLickThresholdA(self,dataSpan):  #todo: should be one function for all
 
@@ -303,6 +283,7 @@ class analysis:
 class stateCallbacks:
 
     def checkMotion(self,acelThr,sampThr):
+        # pt=2+2
         if len(self.posDelta)>sampThr:
             runAcel=np.mean(np.array(self.posDelta[-sampThr:]))
             if runAcel<acelThr:
@@ -554,8 +535,8 @@ class mainWindow:
         self.baudEntry_label.grid(row=startRow+2, column=0,sticky=W)
 
         self.baudSelected=IntVar(self.master)
-        self.baudSelected.set(9600)
-        self.baudPick = OptionMenu(self.master,self.baudSelected,115200,9600,19200)
+        self.baudSelected.set(115200)
+        self.baudPick = OptionMenu(self.master,self.baudSelected,115200,19200,9600)
         self.baudPick.grid(row=startRow+2, column=0,sticky=E)
         self.baudPick.config(width=14)
 
@@ -690,6 +671,7 @@ class mainWindow:
         self.pltDelay=0.000001 
         self.segPlot=10000
         self.lastPos=0
+        self.lastOrientation=0
 
         # this can be changed, but doesn't need to be. 
         #We have to have a plot delay, but it can be tiny.
@@ -858,7 +840,9 @@ class mainTask:
                 if self.currentState==self.bootState:
                     serialFunctions.serial_readDataFlush(self)
                     print('in state 0: boot state')
-                    self.lastPos=0 
+                    self.lastPos=0
+                    self.lastOrientation=0
+
                     while self.currentState==self.bootState:
                         serialFunctions.serial_readDataFlush(self)
                         if self.dataAvail==1:
@@ -1255,12 +1239,12 @@ class pyDiscrim_mainGUI:
         self.sBtn_catch.config(state=NORMAL)
 
         self.sBtn_reward = Button(st_frame, text="SR1: Reward1", \
-            command=lambda: stateFunctions.switchState(self,self.rewardState),width=btWdth)
+            command=lambda: stateFunctions.switchState(self,21),width=btWdth)
         self.sBtn_reward.grid(row=sRw-1, column=sCl+4)
         self.sBtn_reward.config(state=NORMAL)
 
         self.sBtn_reward2 = Button(st_frame, text="SR2: Reward 2", \
-            command=lambda: stateFunctions.switchState(self,self.rewardState2),width=btWdth)
+            command=lambda: stateFunctions.switchState(self,22),width=btWdth)
         self.sBtn_reward2.grid(row=sRw+1, column=sCl+4)
         self.sBtn_reward2.config(state=NORMAL)
 
@@ -1335,12 +1319,6 @@ class pyDiscrim_mainGUI:
             exec('self.{}_tv.set({})'.format(varLabels[x],varValues[x]))
 
 
-    def correctDelta(self,delta):
-        if abs(delta)>=180:
-            corDelta=delta-360;
-        elif abs(delta)<180:
-            corDelta=delta;
-        return corDelta
 
     def data_serialInputIDs(self):
         # we name each stream from the main 
@@ -1384,6 +1362,10 @@ class pyDiscrim_mainGUI:
         self.sRewardTarget=[];
         self.sPunishTarget=[];
         self.sOutcome=[];   
+        self.lastPos=0
+        self.lastOrientation=0
+        self.orientation=[]
+         
 
     def data_cleanContainers(self):
         self.arStates=[]          
@@ -1407,19 +1389,40 @@ class pyDiscrim_mainGUI:
         self.trialOutcome=[] 
         self.PooledTasks=[]
         self.stillLatch=1
-        self.stillTime=0      
+        self.stillTime=0 
+        self.lastOrientation=0
+        self.lastPos=0
+        self.orientation=[]
+            
 
     def data_parseData(self):
         self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
-        tMotion=int(self.sR[self.stID_pos]);
-        if (tMotion-self.lastPos<-140):
-            tMotion+=360
-        elif(tMotion-self.lastPos>140):
-            tMotion-=360
-        self.posDelta.append(tMotion-self.lastPos)
-        self.absolutePosition.append(int(self.lastPos+tMotion))
-        self.lastPos=int(self.absolutePosition[-1])
+
+        
+        cOr=int(self.sR[self.stID_pos])
+
+        cTheta=cOr-self.lastOrientation
+        
+        rollCorrectTheta=cTheta
+        
+        if cTheta>250: # rolled from 180 to -180 (pos to neg)
+            
+            rollCorrectTheta=(cTheta-180)*-1
+        elif cTheta<-250: # rolled -180 over to positive
+            
+            rollCorrectTheta=(cTheta+180)*-1
+        
+        self.orientation.append(cOr)
+        
+        self.lastOrientation=self.orientation[-1]
+        
+        self.posDelta.append(rollCorrectTheta)
+        
+        self.absolutePosition.append(self.lastPos+rollCorrectTheta)
+        self.lastPos=self.absolutePosition[-1]
+
+
         self.currentState=int(self.sR[self.stID_state])
         self.arStates.append(self.currentState)
         self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
@@ -1431,7 +1434,7 @@ class pyDiscrim_mainGUI:
     def data_saveData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
-        saveStreams='mcTrialTime','mcStateTime','absolutePosition','arStates',\
+        saveStreams='mcTrialTime','mcStateTime','absolutePosition','posDelta','orientation','arStates',\
         'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCount0','stateLickCount1','pyStatesRS',\
         'pyStatesRT','pyStatesTS','pyStatesTT'
 
