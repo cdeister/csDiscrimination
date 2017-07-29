@@ -33,6 +33,8 @@ import struct
 import sys
 import os
 import pandas as pd
+import threading
+import queue
 
 class serialFunctions:
 
@@ -114,7 +116,6 @@ class serialFunctions:
             self.dataAvail=1
         elif len(self.sR)!=7 or self.sR[self.stID_header] != header or str.isnumeric(self.sR[1])!=1 or str.isnumeric(self.sR[2])!=1:
             self.dataAvail=0
-
 
 class taskFeedbackFigure:
 
@@ -503,7 +504,7 @@ class mainWindow:
         self.quitBtn.grid(row=startRow+1, column=2)
 
         self.startBtn = Button(self.master, text="Start Task",\
-            width=10, command=lambda: mainTask.task(self) ,state=DISABLED)
+            width=10, command=lambda: mainTask.runSession(self) ,state=DISABLED)
         self.startBtn.grid(row=startRow+1, column=0,sticky=W,padx=10)
 
         self.endBtn = Button(self.master, text="End Task",width=self.col2BW, \
@@ -830,158 +831,169 @@ class mainTask:
         self.toCol=[]
         self.t1RCPairs=[10,21] # stim 1, reward left; stim 2 reward right
         self.t2RCPairs=[11,20]
-    def task(self):
+
+    def runSession(self):
         mainTask.taskHeader(self)
-        aa=time.time()
-        while self.currentTrial <=int(self.totalTrials.get()) \
-        and self.shouldRun==1:
-            try:
-                #S0 -----> hand shake (initialization state)
-                if self.currentState==self.bootState:
-                    serialFunctions.serial_readDataFlush(self)
-                    print('in state 0: boot state')
-                    self.lastPos=0
-                    self.lastOrientation=0
-
-                    while self.currentState==self.bootState:
-                        serialFunctions.serial_readDataFlush(self)
-                        if self.dataAvail==1:
-                            pyDiscrim_mainGUI.data_parseData(self)
-                            stateFunctions.switchState(self,self.waitState)
-                
-                #S1 -----> trial wait state
-                elif self.currentState==self.waitState:
-                    stateFunctions.stateHeader(self,1)
-                    while self.currentState==self.waitState:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.waitStateCB(self)
-
-                
-                #S2 -----> trial initiation state
-                elif self.currentState==self.initiationState:
-                    stateFunctions.stateHeader(self,1)
-                    stateCallbacks.initiationStateHead(self)
-                    while self.currentState==self.initiationState:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.initiationStateCB(self)
-                
-                #S3 -----> cue #1
-                elif self.currentState==self.cue1State:
-                    stateFunctions.stateHeader(self,1)
-                    stateCallbacks.cue1StateHead(self)
-                    while self.currentState==self.cue1State:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.cue1StateCB(self)
-
-                #S4 -----> cue #2
-                elif self.currentState==self.cue2State:
-                    stateFunctions.stateHeader(self,1)
-                    stateCallbacks.cue2StateHead(self)
-                    while self.currentState==self.cue2State:    
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.cue2StateCB(self)
-
-                #S5 -----> stim tone #1
-                elif self.currentState==self.stim1State:
-                    stateFunctions.stateHeader(self,1)
-                    while self.currentState==self.stim1State:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.stim1StateCB(self)
-
-                #S6 -----> stim tone #2
-                elif self.currentState==self.stim2State:
-                    stateFunctions.stateHeader(self,1)
-                    while self.currentState==self.stim2State:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.stim2StateCB(self)
-                
-                #S21 -----> reward state
-                elif self.currentState==self.rewardState:
-                    stateFunctions.stateHeader(self,0)
-                    while self.currentState==self.rewardState:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.rewardStateCB(self)
-                #S22 -----> reward state
-                elif self.currentState==self.rewardState2:
-                    stateFunctions.stateHeader(self,0)
-                    while self.currentState==self.rewardState2:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.rewardStateCB(self)
-
-                #S23 -----> neutral state
-                elif self.currentState==self.neutralState:
-                    stateFunctions.stateHeader(self,0)
-                    while self.currentState==self.neutralState:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.neutralStateCB(self)
-
-                #S24 -----> punish state
-                elif self.currentState==self.punishState:
-                    stateFunctions.stateHeader(self,0)
-                    while self.currentState==self.punishState:
-                        stateFunctions.coreState(self)
-                        if self.fireCallback:
-                            stateCallbacks.punishStateCB(self)
-
-                #S13: save state
-                elif self.currentState==self.saveState:
-                    enter=1
-                    while enter==1:
-                        self.updatePerfPlot()
-                        self.data_saveData()
-                        bb=time.time()
-                        self.trialTimes.append(bb-aa)
-                        print('last trial took: {} seconds'.format(bb-aa))
-                        # if self.pf_frame.winfo_exists():
-                        self.currentTrial=self.currentTrial+1
-                        self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
-                        print('trial {} done, saved its data'.format(self.currentTrial-1))
-                        aa=time.time()
-                        enter=0
-                        self.data_cleanContainers()
-
-                    while enter==0:
-                        self.comObj.write(struct.pack('>B', 0))
-                        serialFunctions.serial_readDataFlush(self)
-                        if self.dataAvail==1:
-                            self.currentState=int(self.sR[self.stID_state])
-                            if self.currentState == 0:
-                                self.data_cleanContainers()
-                                enter=3
-
-                #S25: end session state
-                elif self.currentState==self.endState:
-                    print('About to end the session ...')
-                    if self.dataExists==1:
-                        self.data_saveData()
-                        self.data_cleanContainers()
-                        self.currentTrial=self.currentTrial+1
-                        self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
-                    self.shouldRun=0
-
-            except:
-                self.exportAnimalMeta()
-                self.exceptionCallback()
-
+        self.sessionStartTime=time.time()
+        while self.currentTrial <=int(self.totalTrials.get()) and self.shouldRun==1:
+            self.trialStartTime=time.time()
+            mainTask.trial(self)
         self.currentSession=self.currentSession+1
         self.exportAnimalMeta()
         self.endBtn.config(state=DISABLED)
         self.startBtn.config(state=NORMAL)
-        self.stateBindings.to_csv('{}{}_stateMap.csv'\
-            .format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        self.stateBindings.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
         print('I completed {} trials.'.format(self.currentTrial-1))
         print('!!!!!!! --> Session #:{} Finished'.format(self.ranTask))
         self.updateDispTime()
         serialFunctions.syncSerial(self)
+    
+    def trial(self):
+        try:
+            #S0 -----> hand shake (initialization state)
+            if self.currentState==self.bootState:
+                serialFunctions.serial_readDataFlush(self)
+                print('in state 0: boot state')
+                self.lastPos=0
+                self.lastOrientation=0
+
+                while self.currentState==self.bootState:
+                    serialFunctions.serial_readDataFlush(self)
+                    if self.dataAvail==1:
+                        pyDiscrim_mainGUI.data_parseData(self)
+                        stateFunctions.switchState(self,self.waitState)
+            
+            #S1 -----> trial wait state
+            elif self.currentState==self.waitState:
+                stateFunctions.stateHeader(self,1)
+                while self.currentState==self.waitState:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.waitStateCB(self)
+
+            
+            #S2 -----> trial initiation state
+            elif self.currentState==self.initiationState:
+                stateFunctions.stateHeader(self,1)
+                stateCallbacks.initiationStateHead(self)
+                while self.currentState==self.initiationState:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.initiationStateCB(self)
+            
+            #S3 -----> cue #1
+            elif self.currentState==self.cue1State:
+                stateFunctions.stateHeader(self,1)
+                stateCallbacks.cue1StateHead(self)
+                while self.currentState==self.cue1State:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.cue1StateCB(self)
+
+            #S4 -----> cue #2
+            elif self.currentState==self.cue2State:
+                stateFunctions.stateHeader(self,1)
+                stateCallbacks.cue2StateHead(self)
+                while self.currentState==self.cue2State:    
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.cue2StateCB(self)
+
+            #S5 -----> stim tone #1
+            elif self.currentState==self.stim1State:
+                stateFunctions.stateHeader(self,1)
+                while self.currentState==self.stim1State:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.stim1StateCB(self)
+
+            #S6 -----> stim tone #2
+            elif self.currentState==self.stim2State:
+                stateFunctions.stateHeader(self,1)
+                while self.currentState==self.stim2State:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.stim2StateCB(self)
+            
+            #S21 -----> reward state
+            elif self.currentState==self.rewardState:
+                stateFunctions.stateHeader(self,0)
+                while self.currentState==self.rewardState:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.rewardStateCB(self)
+            #S22 -----> reward state
+            elif self.currentState==self.rewardState2:
+                stateFunctions.stateHeader(self,0)
+                while self.currentState==self.rewardState2:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.rewardStateCB(self)
+
+            #S23 -----> neutral state
+            elif self.currentState==self.neutralState:
+                stateFunctions.stateHeader(self,0)
+                while self.currentState==self.neutralState:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.neutralStateCB(self)
+
+            #S24 -----> punish state
+            elif self.currentState==self.punishState:
+                stateFunctions.stateHeader(self,0)
+                while self.currentState==self.punishState:
+                    stateFunctions.coreState(self)
+                    if self.fireCallback:
+                        stateCallbacks.punishStateCB(self)
+
+            #S13: save state
+            elif self.currentState==self.saveState:
+                print('debug: made it to 13')
+                enter=1
+                print('debug: ran header')
+                while enter==1:
+                    print('debug: entered main loop')
+                    self.updatePerfPlot()
+                    print('debug: updated performance')
+                    self.data_saveData()
+                    print('debug: saved data')
+                    self.trialEndTime=time.time()
+                    trialTime=self.trialEndTime-self.trialStartTime
+                    self.trialTimes.append(trialTime)
+                    print('debug: calculated trial time')
+                    print('last trial took: {} seconds'.format(trialTime))
+                    # if self.pf_frame.winfo_exists():
+                    self.currentTrial=self.currentTrial+1
+                    self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
+                    print('trial {} done, saved its data'.format(self.currentTrial-1))
+                    aa=time.time()
+                    enter=0
+                    self.data_cleanContainers()
+
+
+                while enter==0:
+                    self.comObj.write(struct.pack('>B', 0))
+                    serialFunctions.serial_readDataFlush(self)
+                    if self.dataAvail==1:
+                        self.currentState=int(self.sR[self.stID_state])
+                        if self.currentState == 0:
+                            self.data_cleanContainers()
+                            enter=3
+
+            #S25: end session state
+            elif self.currentState==self.endState:
+                print('About to end the session ...')
+                if self.dataExists==1:
+                    self.data_saveData()
+                    self.data_cleanContainers()
+                    self.currentTrial=self.currentTrial+1
+                    self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
+                self.shouldRun=0  # session interput
+
+        except:
+            self.exportAnimalMeta()
+            self.exceptionCallback()
+
 
 class pyDiscrim_mainGUI:
 
@@ -1131,8 +1143,7 @@ class pyDiscrim_mainGUI:
 
     def updatePlotCheck(self):
         # analysis.updateLickThresholds(self)
-        self.master
-        # time.sleep(0.00001)
+        Tk.Update()
         if plt.fignum_exists(100):
             taskFeedbackFigure.updateTaskPlot(self)
         self.cycleCount=0
