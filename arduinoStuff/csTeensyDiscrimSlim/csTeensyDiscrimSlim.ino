@@ -8,7 +8,7 @@
 
 // motion vars
 #define motionSerial Serial1
-int motionBaud = 9600;
+unsigned int motionBaud = 9600;
 
 // lick vars
 int lickSensorL = 0;
@@ -16,13 +16,12 @@ int lickSensorR = 0;
 
 bool useThermal = 0;
 
+unsigned int loopDelta = 500; //in microseconds
 
-int loopDelta = 1000; //in microseconds
-
-int toneLow = 100;
-int toneHigh = 1000;
-int rewardTime = 60000;  // micros
-int rewardBlockTime = 2000000;
+unsigned int toneLow = 100;
+unsigned int toneHigh = 1000;
+unsigned long rewardTime = 60000;  // micros
+unsigned long rewardBlockTime = 2000000;
 
 
 unsigned long msOffset;
@@ -33,6 +32,9 @@ unsigned long pulseTime;
 unsigned long delayTime;
 unsigned long pulseOffset;
 unsigned long delayOffset;
+unsigned long cue1Delay=100000;
+unsigned long cue2Delay=50000;
+unsigned long cuePulseSamps=20000;
 
 int lastState;
 int curState;
@@ -114,11 +116,11 @@ void loop() {
 
   else if (curState == 3) {
     s1Offset = micros();
-    nonBlockBlink(20000, 50000, 1, cue1LED);
+    nonBlockBlink(cuePulseSamps,cue1Delay, 1, cue1LED);
   }
   else if (curState == 4) {
     s1Offset = micros();
-    nonBlockBlink(20000, 200000, 1, cue2LED);
+    nonBlockBlink(cuePulseSamps,cue2Delay, 1, cue2LED);
   }
   else if (curState == 5) {
     s1Offset = micros();
@@ -180,7 +182,7 @@ void establishOrder() {
 }
 
 
-int spitData(unsigned long d1, unsigned long d2, int d3, int d4, int d5, int d6) {
+void spitData(unsigned long d1, unsigned long d2, int d3, int d4, int d5, int d6) {
   Serial.print("data,"); Serial.print(d1); Serial.print(','); Serial.print(d2);
   Serial.print(','); Serial.print(d3); Serial.print(','); Serial.print(d4);
   Serial.print(','); Serial.print(d5); Serial.print(','); Serial.print(d6);
@@ -217,7 +219,7 @@ void genericState() {
 
 }
 
-void nonBlockBlink(int pT, int dT, int startOnOrOff, int pinNum) {
+void nonBlockBlink(unsigned long pT, unsigned long dT, bool startOnOrOff, int pinNum) {
   // header component
   establishOrder();
   headerFired = 0;

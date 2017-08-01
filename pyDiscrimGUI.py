@@ -2,8 +2,8 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.8-- DRAMATIC improvement in plot speed.
-# Thanks to tips from http://bastibe.de/2013-05-30-speeding-up-matplotlib.html
+# Version 3.9 -- More control over shaping variables. 
+#
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
@@ -152,12 +152,12 @@ class taskFeedbackFigure:
             self.ax3.set_xlim([0,splt])
 
         self.lastSplit=splt
-        x0=self.mcTrialTime[-splt:]
+        x0=self.mcTrialTime[-int(splt):]
 
-        y0=np.array(self.arStates[-splt:])
-        y1=np.array(self.absolutePosition[-splt:])
-        y2=self.lickValsA[-splt:]
-        y3=self.lickValsB[-splt:]
+        y0=np.array(self.arStates[-int(splt):])
+        y1=np.array(self.absolutePosition[-int(splt):])
+        y2=self.lickValsA[-int(splt):]
+        y3=self.lickValsB[-int(splt):]
         x0=np.arange(len(y0))
         sampCount=len(y0)
         np.random.seed()
@@ -190,13 +190,12 @@ class setUserVars:
         self.mapAssign(self.sessionVarIDs,self.sessionVarVals)
 
     def setStateVars(self):
-        self.stateVarLabels=['dPos','movThr','movTimeThr','stillTime','stillLatch',\
-        'stillTimeStart','distThr','timeOutDuration']
-        self.stateVarValues=[0,40,2,0,0,0,1000,2]
+        self.stateVarLabels=['acelValThr','acelSamps','distThr','timeOutDuration','waitStillTime','genStillTime',\
+        'cue1Dur','cue2Dur']
+        self.stateVarValues=[10,100,1000,2,1,1,2,2]
         self.mapAssign(self.stateVarLabels,self.stateVarValues)
 
     def setTaskProbs(self):
-
         self.t1ProbLabels='sTask1_prob','sTask1_target_prob',\
             'sTask1_distract_prob','sTask1_target_reward_prob',\
             'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
@@ -219,18 +218,14 @@ class analysis:
     def updateLickThresholdA(self,dataSpan):  #todo: should be one function for all
 
         if self.ux_adaptThresh.get()==1:
-            # print(int(self.lickThresholdStrValA))
             tA=np.abs(np.array(dataSpan))
-            # print(int(np.percentile(aaa[np.where(aaa != 0)[0]],75)))
             self.lickThresholdStrValA.set(str(np.percentile(tA[np.where(tA != 0)[0]],75)))
             self.lickMinMaxA=[min(dataSpan),max(dataSpan)]
 
     def updateLickThresholdB(self,dataSpan,quantileCut):
 
         if self.ux_adaptThresh.get()==1:
-            # print(int(self.lickThresholdStrValB))
             tA=np.abs(np.array(dataSpan))
-            # print(int(np.percentile(aaa[np.where(aaa != 0)[0]],quantileCut)))
             self.lickThresholdStrValB.set(str(np.percentile(tA[np.where(tA != 0)[0]],quantileCut)))
             self.lickMinMaxB=[min(dataSpan),max(dataSpan)]
 
@@ -288,22 +283,28 @@ class analysis:
             self.lastLickCountB=self.lastLickCountB+1
             self.stateLickCount1[-1]=self.lastLickCountB+1
 
+    def checkMotion(self,acelThr,sampThr):
+        self.anState_acceleration.append(np.mean(np.array(self.posDelta[-int(sampThr):])))
+        self.analysis_acelThreshold.append(acelThr)
+        if self.anState_acceleration[-1]<acelThr:
+            lastLatch=self.stillLatch
+            self.stillLatch=1
+            latchDelta=self.stillLatch-lastLatch
+            if latchDelta!=0:
+                self.stillTimeStart=self.mcStateTime[-1]
+            self.stillTime.append(self.mcStateTime[-1]-self.stillTimeStart)
+            self.motionTime.append(0)
+        elif self.anState_acceleration[-1]>=acelThr:
+            lastLatch=self.stillLatch
+            self.stillLatch=0
+            latchDelta=lastLatch-self.stillLatch
+            if latchDelta!=0:
+                self.motionTimeStart=self.mcStateTime[-1]
+            self.stillTime.append(0)
+            self.motionTime.append(self.mcStateTime[-1]-self.motionTimeStart)
+
 class stateCallbacks:
 
-    def checkMotion(self,acelThr,sampThr):
-        # pt=2+2
-        if len(self.posDelta)>sampThr:
-            runAcel=np.mean(np.array(self.posDelta[-sampThr:]))
-            if runAcel<acelThr:
-                lastLatch=self.stillLatch
-                self.stillLatch=1
-                latchDelta=self.stillLatch-lastLatch
-                if latchDelta!=0:
-                    self.stillTimeStart=self.mcTrialTime[-1]
-                self.stillTime=self.mcTrialTime[-1]-self.stillTimeStart
-            elif runAcel>=acelThr:
-                self.stillLatch=0
-                self.stillTime=0
 
     def defineOutcome(self,rwCnt):
         tRCnt=str(self.rewardContingency[-1])
@@ -324,7 +325,6 @@ class stateCallbacks:
                 stateFunctions.switchState(self,self.rewardState)
             elif rwdSpout==1:
                 stateFunctions.switchState(self,self.rewardState2)
-        
             print(self.trialOutcome[-1])
 
         elif targetMinLicked==0 and distractMinLicked == 1:
@@ -339,47 +339,15 @@ class stateCallbacks:
             stateFunctions.switchState(self,self.neutralState)
             print(self.trialOutcome[-1])
 
-    def defineOutcomeShaping(self,rwCnt):
-        tRCnt=str(self.rewardContingency[-1])
-        sPres=int(tRCnt[0])
-        rwdSpout=int(tRCnt[1])
-        offSpout=abs(int(tRCnt[1])-1)
-
-        targetMinLicked=eval('self.stateLickCount{}[-1]>=self.minTarget{}Licks'.format(rwdSpout,sPres))
-        targetMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(rwdSpout,sPres))
-        distractMinLicked=eval('self.stateLickCount{}[-1]>=self.minOffTarget{}Licks'.format(offSpout,sPres))
-        distractMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(offSpout,sPres))
-
-        if targetMinLicked==1 and targetMaxLicked == 0 and distractMinLicked == 0:
-
-            print('licked spout {}: on target -> reward'.format(rwdSpout))
-            exec('self.trialOutcome.append({}1)'.format(sPres))
-            if rwdSpout==0:
-                stateFunctions.switchState(self,self.rewardState)
-            elif rwdSpout==1:
-                stateFunctions.switchState(self,self.rewardState2)
-        
-            print(self.trialOutcome[-1])
-
-        elif targetMinLicked==0 and distractMinLicked == 1:
-            print('licked spout {}: off target -> punish'.format(offSpout))
-            exec('self.trialOutcome.append({}2)'.format(sPres))
-            stateFunctions.switchState(self,self.punishState)
-            print(self.trialOutcome[-1])
-
-        elif targetMinLicked==1 and distractMinLicked == 1:
-            print('licked both spouts: ambiguous -> punish')
-            exec('self.trialOutcome.append({}3)'.format(sPres))
-            stateFunctions.switchState(self,self.neutralState)
-            print(self.trialOutcome[-1])
-
-    def waitStateCB(self):       
-        stateCallbacks.checkMotion(self,1,10)
-        if self.stillLatch==1 and self.stillTime>0.75:  #var todo minStill
-            print('Still! ==> S1 --> S2')
+    def waitStateCB(self):  
+        analysis.checkMotion(self,self.acelValThr,self.acelSamps)
+        if self.stillLatch==1 and self.stillTime[-1]>self.waitStillTime:  #var todo minStill
+            print('Still in wait state ==> S1 --> S2')
+            self.waitConditionMetTime.append(self.mcStateTime[-1])
             self.waitLicks0.append(self.stateLickCount0[-1])
             self.waitLicks1.append(self.stateLickCount1[-1])
             stateFunctions.switchState(self,self.initiationState)
+
 
     def initiationStateHead(self):
         t1P=self.sTask1_prob
@@ -390,11 +358,16 @@ class stateCallbacks:
             self.cueSelected=2
 
     def initiationStateCB(self):
+
+        aT=self.acelValThr  
+        aS=self.acelSamps   
+        analysis.checkMotion(self,aT,aS)
         if self.absolutePosition[-1]>self.distThr:
             print('moving spout; cue stim task #{}'.format(self.cueSelected))
             eval('stateFunctions.switchState(self,self.cue{}State)'.format(self.cueSelected))
 
     def cue1StateHead(self):
+        self.startCue1=self.mcStateTime[-1]
         self.outcomeSwitch=random.random()
         o1P=self.sTask1_target_prob
         if self.outcomeSwitch<=o1P:
@@ -405,18 +378,16 @@ class stateCallbacks:
             self.sStims.append(2)
 
     def cue1StateCB(self):
-        trP=0.5
-        self.cuePresented.append(1)
-        eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
-        exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
-        print(self.rewardContingency[-1])
-        print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
-        # stateCallbacks.checkMotion(self,1,10)
-        # if self.stillLatch==1 and self.stillTime>1.5:
-        #     self.cuePresented.append(1)
+        analysis.checkMotion(self,self.acelValThr,self.acelSamps)
+        if self.mcStateTime[-1]>self.cue1Dur:
+            self.cue1Time.append(self.mcStateTime[-1]-self.startCue1) 
+            self.cuePresented.append(1)
+            eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
+            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
+            print(self.rewardContingency[-1])
+            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
             
             
-
     def cue2StateHead(self):
         self.startCue2=self.mcTrialTime[-1]
         self.outcomeSwitch=random.random()
@@ -429,12 +400,17 @@ class stateCallbacks:
             self.sStims.append(1)
 
     def cue2StateCB(self): 
-        self.cue2Time=self.mcTrialTime[-1]-self.startCue2
-        self.cuePresented.append(2)
-        print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
-        eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
-        exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
-        print(self.rewardContingency[-1])
+        analysis.checkMotion(self,self.acelValThr ,self.acelSamps)
+        if self.mcStateTime[-1]>self.cue2Dur:
+            self.cue2Time.append(self.mcTrialTime[-1]-self.startCue2)
+            self.cuePresented.append(2)
+            print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.\
+                format(self.stimSelected,self.stimSelected-1))
+            eval('stateFunctions.switchState(self,self.stim{}State)'.\
+                format(self.stimSelected))
+            exec('self.rewardContingency.append({}{})'.\
+                format(self.stimSelected,self.stimSelected-1))
+            print(self.rewardContingency[-1])
     
     def stim1StateCB(self):
         self.minStim1Time=0
@@ -470,84 +446,63 @@ class stateCallbacks:
                 stateFunctions.switchState(self,self.neutralState) 
 
     def shaping_stim1StateHead(self):
-        print('debug: made it to s1')
         self.minStim1Time=1 #todo: variable shape time
-        self.minTarget1Licks=1
-        self.maxTarget1Licks=100
-        self.maxOffTarget1Licks=1
-        self.minOffTarget1Licks=1
-        self.reportMax1Time=20
         self.shapeCue1_LeftPortProb=0.5
-
         diceRoll=random.random()
         o1P=self.shapeCue1_LeftPortProb
-
         if diceRoll<=o1P:
             self.leftReward=1
             self.shapingReport.append(10)
         elif diceRoll>o1P:
             self.leftReward=0
             self.shapingReport.append(11)
-        print('debug: assigned data')
+
+    def shaping_stim1StateCB(self):
+        if self.mcStateTime[-1]>self.minStim1Time:
+            if self.leftReward:
+                self.stimLicks0.append(self.stateLickCount0[-1])
+                self.stimLicks1.append(self.stateLickCount1[-1])
+                stateFunctions.switchState(self,self.rewardState)
+            elif self.leftReward !=1:
+                self.stimLicks0.append(self.stateLickCount0[-1])
+                self.stimLicks1.append(self.stateLickCount1[-1])
+                stateFunctions.switchState(self,self.rewardState2)
 
     def shaping_stim2StateHead(self):
-        print('debug: made it to s2')
         self.minStim2Time=1
-        self.minTarget2Licks=1
-        self.maxTarget2Licks=100
-        self.maxOffTarget2Licks=1
-        self.minOffTarget2Licks=1
-        self.reportMax2Time=10
         self.shapeCue2_LeftPortProb=0.5
 
         diceRoll=random.random()
         o2P=self.shapeCue2_LeftPortProb
-        print('debug: rolled di in s2')
-
         if diceRoll<=o2P:
             self.leftReward=1
             self.shapingReport.append(20)
         elif diceRoll>o2P:
             self.leftReward=0
             self.shapingReport.append(21)
-        print('debug: assigned data')
 
-
-
-    def shaping_stim1StateCB(self):
-        if self.mcStateTime[-1]>self.minStim1Time:
-            if self.mcStateTime[-1]<self.reportMax1Time:
-                if self.leftReward:
-                    self.stimLicks0.append(self.stateLickCount0[-1])
-                    self.stimLicks1.append(self.stateLickCount1[-1])
-                    stateFunctions.switchState(self,self.rewardState)
-                elif self.leftReward !=1:
-                    self.stimLicks0.append(self.stateLickCount0[-1])
-                    self.stimLicks1.append(self.stateLickCount1[-1])
-                    stateFunctions.switchState(self,self.rewardState2)
 
     def shaping_stim2StateCB(self):
         if self.mcStateTime[-1]>self.minStim2Time:
-            if self.mcStateTime[-1]<self.reportMax2Time:
-                if self.leftReward:
-                    self.stimLicks0.append(self.stateLickCount0[-1])
-                    self.stimLicks1.append(self.stateLickCount1[-1])
-                    stateFunctions.switchState(self,self.rewardState)
-                elif self.leftReward !=1:
-                    self.stimLicks0.append(self.stateLickCount0[-1])
-                    self.stimLicks1.append(self.stateLickCount1[-1])
-                    stateFunctions.switchState(self,self.rewardState2)
+            if self.leftReward:
+                self.stimLicks0.append(self.stateLickCount0[-1])
+                self.stimLicks1.append(self.stateLickCount1[-1])
+                stateFunctions.switchState(self,self.rewardState)
+            elif self.leftReward !=1:
+                self.stimLicks0.append(self.stateLickCount0[-1])
+                self.stimLicks1.append(self.stateLickCount1[-1])
+                stateFunctions.switchState(self,self.rewardState2)
 
     def rewardStateCB(self):
         self.reward1Time=1
         if self.mcStateTime[-1]<self.reward1Time:
-            print('rewarding')
+            print('rewarding left port')
             stateFunctions.switchState(self,self.saveState)
 
     def rewardState2CB(self):
         self.reward2Time=1
         if self.mcStateTime[-1]<self.reward2Time:
-            print('rewarding')
+            print('rewarding right port')
             stateFunctions.switchState(self,self.saveState)
 
     def neutralStateCB(self):
@@ -564,9 +519,11 @@ class stateCallbacks:
 class stateFunctions:
 
     def switchState(self,targetState):
-        
+        if self.currentState==targetState:
+            print('no thanks; you chose the state you are in, no infinite loops for me :)')
+            return
         self.targetState=targetState
-        if self.sessionDataExists==1:
+        if self.trialDataExists==1:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.mcTrialTime[-1])
         print('pushing: s{} -> s{}'.format(self.currentState,targetState))
@@ -580,8 +537,9 @@ class stateFunctions:
             if self.serDataAvail==1:
                 pyDiscrim_mainGUI.data_parseData(self)
                 self.currentState=int(self.sR[self.stID_state])
-        self.pyStatesTS.append(self.currentState)
-        self.pyStatesTT.append(self.mcTrialTime[-1])
+        if self.trialDataExists==1:
+            self.pyStatesTS.append(self.currentState)
+            self.pyStatesTT.append(self.mcTrialTime[-1])
 
     def stateHeader(self,upSt):
         self.upSt=upSt
@@ -593,10 +551,10 @@ class stateFunctions:
             self.lastLickCountA=0
             self.lastLickCountB=0
             self.entryTime=self.mcTrialTime[-1] # log state entry time
-            self.stillLatch=0
-            self.stillTime=0
             self.stillTimeStart=0
+            self.stillLatch=0
             print('in state # {}'.format(self.currentState))
+            self.fig1.suptitle('trial # {}; state # {}'.format(self.currentTrial,self.currentState), fontsize=10)
             ranHeader=1 # fire the latch
         
     def coreState(self):
@@ -883,6 +841,8 @@ class mainWindow:
             print('!!!! going down')
             if self.trialDataExists==1:
                 self.data_saveTrialData()
+            if self.sessionDataExists==1:
+                self.data_saveSessionData()
                 print('... saved some remaining data')
             if self.comObjectExists==1:
                 serialFunctions.syncSerial(self)
@@ -983,11 +943,9 @@ class mainTask:
                 print('in state 0: boot state')
                 while self.currentState==self.bootState:
                     serialFunctions.serial_readDataFlush(self)
-                    print('debug:flushed')
                     if self.serDataAvail==1:
                         pyDiscrim_mainGUI.data_parseData(self)
                         stateFunctions.switchState(self,self.waitState)
-                        print('debug:switch called')
             
             #S1 -----> trial wait state
             elif self.currentState==self.waitState:
@@ -1080,11 +1038,8 @@ class mainTask:
                 # deal with trial data
 
                 self.data_saveTrialData()
-                print('debug: 3 invoked save')
                 self.data_trialContainers()
-                print('debug: 4 invoked containter')
                 self.trialEndTime=time.time()
-                print('debug: 5 timed')
 
                 # append to session data
                 trialTime=self.trialEndTime-self.trialStartTime
@@ -1105,8 +1060,6 @@ class mainTask:
                     self.currentTrial=self.currentTrial+1
                     self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
                     self.data_trialContainers()
-                if self.sessionDataExists==1:
-                    print('todo: add session data save')
                 self.shouldRun=0  # session interput
 
         except:
@@ -1163,7 +1116,6 @@ class pyDiscrim_mainGUI:
                 eval('self.{}_tv.set("{}")'.format(varLabels[x],str(a)))
                 varValues[x]=a
             self.mapAssign(varLabels,varValues)
-
         
         if refreshType==2: #write only
             for x in range(0,len(varLabels)):
@@ -1247,7 +1199,7 @@ class pyDiscrim_mainGUI:
             self.posDelta[-1]=delta
             self.lastPos=self.lastPos+delta
         elif len(self.absolutePosition)==0:
-            self.lastPos=delta
+            self.lastPos=int(delta)
 
     def dbLick(self,val,spout):
         if len(self.lickValsA)>0 and spout == 0:
@@ -1472,6 +1424,9 @@ class pyDiscrim_mainGUI:
         self.waitLicks1=[]
         self.stimLicks0=[]
         self.stimLicks1=[]
+        self.waitConditionMetTime=[]
+        self.cue1Time=[]
+        self.cue2Time=[]
 
 
     def data_trialContainers(self):
@@ -1483,13 +1438,16 @@ class pyDiscrim_mainGUI:
         self.mcStateTime=[]
 
         # motion
-        self.stillLatch=1
-        self.stillTime=0
+        self.stillTime=[]
+        self.motionTime=[]
         self.lastPos=0
         self.lastOrientation=0  
         self.absolutePosition=[]
         self.orientation=[]
         self.posDelta=[]
+        self.anState_acceleration=[]
+        self.analysis_acelThreshold=[]
+        self.analysis_distanceThreshold=[]
 
         # lick vars
         self.lickThresholdLatchA=0
@@ -1509,7 +1467,6 @@ class pyDiscrim_mainGUI:
         self.pyStatesTT = []
         self.pyStatesTS = []
         
-
 
             
     def data_parseData(self):
@@ -1551,8 +1508,9 @@ class pyDiscrim_mainGUI:
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
         saveStreams='mcTrialTime','mcStateTime','absolutePosition','posDelta','orientation','arStates',\
-        'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCount0','stateLickCount1','shapingReport',\
-        'pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
+        'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCount0','stateLickCount1','stillTime',\
+        'motionTime','anState_acceleration','analysis_acelThreshold','pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
+
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
@@ -1575,7 +1533,7 @@ class pyDiscrim_mainGUI:
         'cuePresented','sStims','sRewardTarget',\
         'sPunishTarget','sOutcome','trialTimes','rcCol',\
         'toCol','shapingReport','waitLicks0','waitLicks1',\
-        'stimLicks0','stimLicks1'
+        'stimLicks0','stimLicks1','waitConditionMetTime'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
