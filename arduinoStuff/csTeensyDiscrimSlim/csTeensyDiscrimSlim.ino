@@ -6,10 +6,7 @@
 
 */
 
-// I could do states with switch, but seems unecessary.
-// I assume switch is more efficient http://www.blackwasp.co.uk/SpeedTestIfElseSwitch.aspx
-// However, seems like it is negligible
-
+// motion vars
 #define motionSerial Serial1
 int motionBaud = 9600;
 
@@ -48,9 +45,9 @@ bool headerFired = 0;
 
 const int waterLPin = 15;   // Engage Water
 const int waterRPin = 16;   // Engage Water
-const int cue1LED = 12;
-const int cue2LED = 11;
-const int initLED = 10;
+const int cue1LED = 13;
+const int cue2LED = 13;
+const int initLED = 13;
 const int toLED = 9;
 
 const int tonePin = 6;
@@ -97,12 +94,8 @@ void setup() {
 }
 
 void loop() {
-  if (curState == 0) {
-    msOffset = micros();
-    genericState();
-  }
 
-  else if (curState == 2) {
+  if (curState == 2) {
     s1Offset = micros();
     establishOrder();
     digitalWrite(initLED, HIGH);
@@ -120,41 +113,17 @@ void loop() {
   }
 
   else if (curState == 3) {
-    
     s1Offset = micros();
-    establishOrder();
-    headerFired = 0;
-    pulseOffset = micros();
-    delayOffset = micros();
-    headerState = curState;
-    headerFired = 1;
-    while (headerFired == 1 and headerState == curState) {
-      headerFired = 1;
-      genericReport();
-    }
+    nonBlockBlink(20000, 50000, 1, cue1LED);
   }
-
   else if (curState == 4) {
     s1Offset = micros();
-    establishOrder();
-    headerFired = 0;
-    pulseOffset = micros();
-    delayOffset = micros();
-    headerState = curState;
-
-    headerFired = 1;
-
-    while (headerFired == 1 and headerState == curState) {
-      headerFired = 1;
-      genericReport();
-    }
+    nonBlockBlink(20000, 200000, 1, cue2LED);
   }
-
-  if (curState == 5) {
+  else if (curState == 5) {
     s1Offset = micros();
     toneState(tonePin, toneLow);
   }
-
   else if (curState == 6) {
     s1Offset = micros();
     toneState(tonePin, toneHigh);
@@ -172,17 +141,7 @@ void loop() {
 
   else if (curState == 24) {
     s1Offset = micros();
-    establishOrder();
-    headerFired = 0;
-    pulseOffset = micros();
-    delayOffset = micros();
-    headerState = curState;
-    headerFired = 1;
-
-    while (headerFired == 1 and headerState == curState) {
-      headerFired = 1;
-      genericReport();
-    }
+    nonBlockBlink(20000, 100000, 1, toLED);
   }
 
 
@@ -251,14 +210,12 @@ void genericState() {
   delayOffset = micros();
   headerState = curState;
   headerFired = 1;
-
   while (headerFired == 1 and headerState == curState) {
     headerFired = 1;
     genericReport();
   }
 
 }
-
 
 void nonBlockBlink(int pT, int dT, int startOnOrOff, int pinNum) {
   // header component
@@ -286,7 +243,6 @@ void nonBlockBlink(int pT, int dT, int startOnOrOff, int pinNum) {
         startOnOrOff = 0;
       }
     }
-    // deal with pulse
     if (startOnOrOff == 1) {
       if (pulseTime > pT) {
         digitalWrite(pinNum, LOW);
@@ -318,7 +274,7 @@ void genericReport() {
 void pollLickSensors() {
   lickSensorR = analogRead(lickPinR);
   lickSensorL = analogRead(lickPinL);
-  //  lickSensorR=map(analogRead(lickPinR),0,1024,1000,0);
+  //  lickSensorR=map(analogRead(lickPinR),0,1024,1000,0); uncomment for a cap breakout
   //  lickSensorL=map(analogRead(lickPinL),0,1024,1000,0);
 }
 

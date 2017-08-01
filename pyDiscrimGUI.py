@@ -2,29 +2,21 @@
 # A Python3 program that interacts with a microcontroller -
 # to perform state-based behavioral tasks.
 #
-# Version 3.79 -- Corrects 9DOF rollover.
+# Version 3.8-- DRAMATIC improvement in plot speed.
+# Thanks to tips from http://bastibe.de/2013-05-30-speeding-up-matplotlib.html
 #
 # questions? --> Chris Deister --> cdeister@brown.edu
 
-# bugs: must keep a benign matplotlib fig (Figure 1) open. Can be minmized, but has to be open.
-# bugs: have to keep task feedback opebn
-
-# todos: make outcome plot frequency
-# todos: make rewardState and do reward1State reward2State
 
 from tkinter import *
 from tkinter import filedialog
-from threading import Thread
 import serial
 import numpy as np
-
 import matplotlib 
 matplotlib.use("TkAgg")
-from matplotlib.lines import Line2D
 from matplotlib import pyplot as plt
+from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
-
-
 import time
 import datetime
 import random
@@ -33,14 +25,13 @@ import struct
 import sys
 import os
 import pandas as pd
-import threading
-import queue
+
 
 class serialFunctions:
 
     def syncSerial(self):
         ranHeader=0
-        self.dataExists=0
+        self.trialDataExists=0
         while ranHeader==0:
             gaveFeedback=0
             ranHeader=1
@@ -48,7 +39,7 @@ class serialFunctions:
         while ranHeader==1:
             self.comObj.write(struct.pack('>B', self.bootState))
             serialFunctions.serial_readDataFlush(self)
-            if self.dataAvail==1:
+            if self.serDataAvail==1:
                 self.currentState=int(self.sR[self.stID_state])
                 if self.currentState!=self.bootState:
                     if gaveFeedback==0:
@@ -71,7 +62,6 @@ class serialFunctions:
             self.comObjectExists=1
 
 
-
             # update the GUI
             self.comPathLabel.config(text="COM Object Connected ***",justify=LEFT,fg="green",bg="black") 
             self.comPathEntry.config(state=DISABLED)
@@ -85,8 +75,8 @@ class serialFunctions:
         
     def serial_closeComObj(self):
         if self.comObjectExists==1:
-            if self.dataExists==1:
-                self.data_saveData()
+            if self.trialDataExists==1:
+                self.data_saveTrialData()
             serialFunctions.syncSerial(self)
             self.comObj.close()
             self.comObjectExists=0
@@ -113,9 +103,9 @@ class serialFunctions:
         self.sR=self.sR.split(',')
         #todo: abstract length below:
         if len(self.sR)==7 and self.sR[self.stID_header]==header and str.isnumeric(self.sR[1])==1 and str.isnumeric(self.sR[2])==1 :
-            self.dataAvail=1
+            self.serDataAvail=1
         elif len(self.sR)!=7 or self.sR[self.stID_header] != header or str.isnumeric(self.sR[1])!=1 or str.isnumeric(self.sR[2])!=1:
-            self.dataAvail=0
+            self.serDataAvail=0
 
 class taskFeedbackFigure:
 
@@ -123,37 +113,61 @@ class taskFeedbackFigure:
         self.fig1 = plt.figure(100)
         self.fig1.suptitle('state 0', fontsize=10)
         subIds=[221,222,223,224]
-    
+
+
+
         for x in range(0,4):
-            # exec('self.fig{}=Figure(figsize=(1, 1), dpi=100)'.format(x))
-            exec('self.initX{}=[]'.format(x))
-            exec('self.initY{}=[]'.format(x))
-            exec('self.ax{}=self.fig1.add_subplot({})'.format(x,subIds[x]))
-            exec('self.line{}=Line2D(self.initX{},self.initY{})'.format(x,x,x))
-            exec('self.ax{}.add_line(self.line{})'.format(x,x))
+            # exec('self.initY{}=[]'.format(x))
+            # exec('self.initX{}=[]'.format(x))
+            exec('self.initX{}=np.arange(2000)'.format(x))
+            exec('self.initY{}=np.random.randint(20, size=2000)*np.random.randn(2000)'.format(x))
+            exec('self.ax{}=plt.subplot({})'.format(x,subIds[x]))
+            exec('self.line{},=self.ax{}.plot(self.initY{})'.format(x,x,x))
+
 
         self.ax0.set_ylim([0,25])
         self.ax1.set_ylim([-500,2000])
         self.ax2.set_ylim([0,1100])
         self.ax3.set_ylim([0,1100])
-        plt.tight_layout()
-        plt.show()
-    
+
+
+        plt.show(block=False)
+        # plt.tight_layout()
+
+        for x in range(0,4):
+            exec('self.ax{}.draw_artist(self.line{})'.format(x,x))
+            exec('self.ax{}.draw_artist(self.ax{}.patch)'.format(x,x))
+
+        self.fig1.canvas.flush_events()
+        self.lastSplit=2000
+
+
     def updateTaskPlot(self):
+
         splt=int(self.sampsToPlot.get())
-        y0=self.arStates[-splt:]
+        if splt != self.lastSplit:
+            self.ax0.set_xlim([0,splt])
+            self.ax1.set_xlim([0,splt])
+            self.ax2.set_xlim([0,splt])
+            self.ax3.set_xlim([0,splt])
+
+        self.lastSplit=splt
         x0=self.mcTrialTime[-splt:]
-        y1=self.absolutePosition[-splt:]
+
+        y0=np.array(self.arStates[-splt:])
+        y1=np.array(self.absolutePosition[-splt:])
         y2=self.lickValsA[-splt:]
         y3=self.lickValsB[-splt:]
-
+        x0=np.arange(len(y0))
+        sampCount=len(y0)
+        np.random.seed()
         for x in range(0,4):
             exec('self.line{}.set_xdata(x0)'.format(x))
             exec('self.line{}.set_ydata(y{})'.format(x,x))
-            exec('self.ax{}.relim()'.format(x))
-            exec('self.ax{}.autoscale_view()'.format(x))
-        plt.draw()
-        plt.pause(self.pltDelay)
+            exec('self.ax{}.draw_artist(self.ax{}.patch)'.format(x,x))
+            exec('self.ax{}.draw_artist(self.line{})'.format(x,x))
+        self.fig1.canvas.draw_idle()
+        self.fig1.canvas.flush_events()
 
 class setUserVars:
 
@@ -163,34 +177,22 @@ class setUserVars:
         'stim1State','stim2State','catchState','saveState','rewardState','rewardState2',\
         'neutralState','punishState','endState','defaultState']
 
-        self.stateIDs=\
-        [0,1,2,3,4,\
-        5,6,7,13,21,22,\
-        23,24,25,29]
-        
+        self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,24,25,29]
         self.mapAssign(self.stateNames,self.stateIDs)
-        
         self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)    
 
     def setSessionVars(self):
         # session vars
-        self.sessionVarIDs=['ranTask','dataExists','comObjectExists',\
+        self.sessionVarIDs=['ranTask','trialDataExists','sessionDataExists','comObjectExists',\
         'taskProbsRefreshed','stateVarsRefreshed','currentTrial',\
         'currentState','currentSession','sessionTrialCount']
-        self.sessionVarVals=\
-        [0,0,0,\
-         0,0,1,\
-         0,1,1]
+        self.sessionVarVals=[0,0,0,0,0,0,1,0,1,1]
         self.mapAssign(self.sessionVarIDs,self.sessionVarVals)
 
     def setStateVars(self):
-        self.stateVarLabels=\
-        ['dPos','movThr','movTimeThr','stillTime','stillLatch',\
+        self.stateVarLabels=['dPos','movThr','movTimeThr','stillTime','stillLatch',\
         'stillTimeStart','distThr','timeOutDuration']
-        self.stateVarValues=\
-        [0,40,2,0,0,\
-        0,1000,2]
-        
+        self.stateVarValues=[0,40,2,0,0,0,1000,2]
         self.mapAssign(self.stateVarLabels,self.stateVarValues)
 
     def setTaskProbs(self):
@@ -202,16 +204,16 @@ class setUserVars:
         self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
         self.mapAssign(self.t1ProbLabels,self.t1ProbValues)
 
-        self.t2ProbLabels='sTask2_prob','sTask2_target_prob',\
-                'sTask2_distract_prob','sTask2_target_reward_prob',\
-                'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
-                'sTask2_distract_punish_prob'
+        self.t2ProbLabels='sTask2_prob','sTask2_target_prob','sTask2_distract_prob',\
+        'sTask2_target_reward_prob','sTask2_target_punish_prob','sTask2_distract_reward_prob',\
+        'sTask2_distract_punish_prob'
         self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
         self.mapAssign(self.t2ProbLabels,self.t2ProbValues)
 
 class analysis:
 
     def getQunat(self,pyList,quantileCut):
+
         tA=np.abs(np.array(pyList))
 
     def updateLickThresholdA(self,dataSpan):  #todo: should be one function for all
@@ -233,38 +235,43 @@ class analysis:
             self.lickMinMaxB=[min(dataSpan),max(dataSpan)]
 
     def lickDetection(self):
-    
-        if self.lickValsA[-1]>int(self.lickThresholdStrValA.get()) and self.lickThresholdLatchA==0:
+        aThreshold=int(self.lickThresholdStrValA.get())
+        bThreshold=int(self.lickThresholdStrValB.get())
+            
+        if self.lickValsA[-1]>aThreshold and self.lickThresholdLatchA==0:
             self.thrLicksA.append(1)
             self.lastLickCountA=self.lastLickCountA+1
             self.stateLickCount0.append(self.lastLickCountA)
             
+            self.lastLickA=self.mcTrialTime[-1]    
             self.lickThresholdLatchA=1
-            self.lastLickA=self.mcTrialTime[-1]
+        
             
 
-        elif self.lickValsA[-1]<=int(self.lickThresholdStrValA.get()) or self.lickThresholdLatchA==1:
+        elif self.lickValsA[-1]<=aThreshold or self.lickThresholdLatchA==1:
             self.thrLicksA.append(0)
             self.stateLickCount0.append(self.lastLickCountA)
-            self.lickThresholdLatchA=1;
+            # self.lickThresholdLatchA=1;
             
 
-        if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()) and self.lickThresholdLatchB==0:
+        if self.lickValsB[-1]>bThreshold and self.lickThresholdLatchB==0:
             self.thrLicksB.append(1)
             self.lastLickCountB=self.lastLickCountB+1
             self.stateLickCount1.append(self.lastLickCountB)
             
-            self.lickThresholdLatchA=1
-            self.lastLickA=self.mcTrialTime[-1]
+            self.lastLickB=self.mcTrialTime[-1]
+            self.lickThresholdLatchB=1
+            
 
-        elif self.lickValsB[-1]<=int(self.lickThresholdStrValB.get()) or self.lickThresholdLatchA==1:
+        elif self.lickValsB[-1]<=bThreshold or self.lickThresholdLatchB==1:
             self.thrLicksB.append(0)
             self.stateLickCount1.append(self.lastLickCountB)
+            # self.lickThresholdLatchB=1;
 
-        if self.mcTrialTime[-1]-self.lastLickA>0.01:
+        if self.lickThresholdLatchA and self.lickValsA[-1]<=aThreshold:
             self.lickThresholdLatchA=0;
 
-        if self.mcTrialTime[-1]-self.lastLickB>0.01:
+        if self.lickThresholdLatchB and self.lickValsB[-1]<=bThreshold:
             self.lickThresholdLatchB=0;
 
 
@@ -332,10 +339,46 @@ class stateCallbacks:
             stateFunctions.switchState(self,self.neutralState)
             print(self.trialOutcome[-1])
 
+    def defineOutcomeShaping(self,rwCnt):
+        tRCnt=str(self.rewardContingency[-1])
+        sPres=int(tRCnt[0])
+        rwdSpout=int(tRCnt[1])
+        offSpout=abs(int(tRCnt[1])-1)
+
+        targetMinLicked=eval('self.stateLickCount{}[-1]>=self.minTarget{}Licks'.format(rwdSpout,sPres))
+        targetMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(rwdSpout,sPres))
+        distractMinLicked=eval('self.stateLickCount{}[-1]>=self.minOffTarget{}Licks'.format(offSpout,sPres))
+        distractMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(offSpout,sPres))
+
+        if targetMinLicked==1 and targetMaxLicked == 0 and distractMinLicked == 0:
+
+            print('licked spout {}: on target -> reward'.format(rwdSpout))
+            exec('self.trialOutcome.append({}1)'.format(sPres))
+            if rwdSpout==0:
+                stateFunctions.switchState(self,self.rewardState)
+            elif rwdSpout==1:
+                stateFunctions.switchState(self,self.rewardState2)
+        
+            print(self.trialOutcome[-1])
+
+        elif targetMinLicked==0 and distractMinLicked == 1:
+            print('licked spout {}: off target -> punish'.format(offSpout))
+            exec('self.trialOutcome.append({}2)'.format(sPres))
+            stateFunctions.switchState(self,self.punishState)
+            print(self.trialOutcome[-1])
+
+        elif targetMinLicked==1 and distractMinLicked == 1:
+            print('licked both spouts: ambiguous -> punish')
+            exec('self.trialOutcome.append({}3)'.format(sPres))
+            stateFunctions.switchState(self,self.neutralState)
+            print(self.trialOutcome[-1])
+
     def waitStateCB(self):       
         stateCallbacks.checkMotion(self,1,10)
         if self.stillLatch==1 and self.stillTime>0.75:  #var todo minStill
             print('Still! ==> S1 --> S2')
+            self.waitLicks0.append(self.stateLickCount0[-1])
+            self.waitLicks1.append(self.stateLickCount1[-1])
             stateFunctions.switchState(self,self.initiationState)
 
     def initiationStateHead(self):
@@ -356,35 +399,42 @@ class stateCallbacks:
         o1P=self.sTask1_target_prob
         if self.outcomeSwitch<=o1P:
             self.stimSelected=1
+            self.sStims.append(1)
         elif self.outcomeSwitch>o1P:
             self.stimSelected=2
+            self.sStims.append(2)
 
     def cue1StateCB(self):
         trP=0.5
-        stateCallbacks.checkMotion(self,1,10)
-        if self.stillLatch==1 and self.stillTime>1.5:
-            self.cuePresented=1;
-            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
-            eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
-            print(self.rewardContingency[-1])
+        self.cuePresented.append(1)
+        eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
+        exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
+        print(self.rewardContingency[-1])
+        print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
+        # stateCallbacks.checkMotion(self,1,10)
+        # if self.stillLatch==1 and self.stillTime>1.5:
+        #     self.cuePresented.append(1)
+            
+            
 
     def cue2StateHead(self):
+        self.startCue2=self.mcTrialTime[-1]
         self.outcomeSwitch=random.random()
         o2P=self.sTask2_target_prob
         if self.outcomeSwitch<=o2P:
             self.stimSelected=2
+            self.sStims.append(2)
         elif self.outcomeSwitch>o2P:
             self.stimSelected=1
+            self.sStims.append(1)
 
     def cue2StateCB(self): 
-        stateCallbacks.checkMotion(self,1,10)
-        if self.stillLatch==1 and self.stillTime>1.5:
-            self.cuePresented=2;
-            print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
-            eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
-            print(self.rewardContingency[-1])
+        self.cue2Time=self.mcTrialTime[-1]-self.startCue2
+        self.cuePresented.append(2)
+        print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
+        eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
+        exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
+        print(self.rewardContingency[-1])
     
     def stim1StateCB(self):
         self.minStim1Time=0
@@ -419,15 +469,84 @@ class stateCallbacks:
                 print('timed out: did not report')
                 stateFunctions.switchState(self,self.neutralState) 
 
+    def shaping_stim1StateHead(self):
+        print('debug: made it to s1')
+        self.minStim1Time=1 #todo: variable shape time
+        self.minTarget1Licks=1
+        self.maxTarget1Licks=100
+        self.maxOffTarget1Licks=1
+        self.minOffTarget1Licks=1
+        self.reportMax1Time=20
+        self.shapeCue1_LeftPortProb=0.5
+
+        diceRoll=random.random()
+        o1P=self.shapeCue1_LeftPortProb
+
+        if diceRoll<=o1P:
+            self.leftReward=1
+            self.shapingReport.append(10)
+        elif diceRoll>o1P:
+            self.leftReward=0
+            self.shapingReport.append(11)
+        print('debug: assigned data')
+
+    def shaping_stim2StateHead(self):
+        print('debug: made it to s2')
+        self.minStim2Time=1
+        self.minTarget2Licks=1
+        self.maxTarget2Licks=100
+        self.maxOffTarget2Licks=1
+        self.minOffTarget2Licks=1
+        self.reportMax2Time=10
+        self.shapeCue2_LeftPortProb=0.5
+
+        diceRoll=random.random()
+        o2P=self.shapeCue2_LeftPortProb
+        print('debug: rolled di in s2')
+
+        if diceRoll<=o2P:
+            self.leftReward=1
+            self.shapingReport.append(20)
+        elif diceRoll>o2P:
+            self.leftReward=0
+            self.shapingReport.append(21)
+        print('debug: assigned data')
+
+
+
+    def shaping_stim1StateCB(self):
+        if self.mcStateTime[-1]>self.minStim1Time:
+            if self.mcStateTime[-1]<self.reportMax1Time:
+                if self.leftReward:
+                    self.stimLicks0.append(self.stateLickCount0[-1])
+                    self.stimLicks1.append(self.stateLickCount1[-1])
+                    stateFunctions.switchState(self,self.rewardState)
+                elif self.leftReward !=1:
+                    self.stimLicks0.append(self.stateLickCount0[-1])
+                    self.stimLicks1.append(self.stateLickCount1[-1])
+                    stateFunctions.switchState(self,self.rewardState2)
+
+    def shaping_stim2StateCB(self):
+        if self.mcStateTime[-1]>self.minStim2Time:
+            if self.mcStateTime[-1]<self.reportMax2Time:
+                if self.leftReward:
+                    self.stimLicks0.append(self.stateLickCount0[-1])
+                    self.stimLicks1.append(self.stateLickCount1[-1])
+                    stateFunctions.switchState(self,self.rewardState)
+                elif self.leftReward !=1:
+                    self.stimLicks0.append(self.stateLickCount0[-1])
+                    self.stimLicks1.append(self.stateLickCount1[-1])
+                    stateFunctions.switchState(self,self.rewardState2)
+
     def rewardStateCB(self):
-        self.rewardTime=1
-        if self.mcStateTime[-1]<self.rewardTime:
+        self.reward1Time=1
+        if self.mcStateTime[-1]<self.reward1Time:
             print('rewarding')
             stateFunctions.switchState(self,self.saveState)
 
     def rewardState2CB(self):
-        self.rewardTime2=1
-        if self.mcStateTime[-1]<self.rewardTime2:
+        self.reward2Time=1
+        if self.mcStateTime[-1]<self.reward2Time:
             print('rewarding')
             stateFunctions.switchState(self,self.saveState)
 
@@ -443,11 +562,11 @@ class stateCallbacks:
             stateFunctions.switchState(self,self.saveState)
 
 class stateFunctions:
+
     def switchState(self,targetState):
         
         self.targetState=targetState
-        
-        if self.dataExists==1:
+        if self.sessionDataExists==1:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.mcTrialTime[-1])
         print('pushing: s{} -> s{}'.format(self.currentState,targetState))
@@ -458,7 +577,7 @@ class stateFunctions:
         self.cState=cState
         while self.currentState==self.cState:      
             serialFunctions.serial_readDataFlush(self)
-            if self.dataAvail==1:
+            if self.serDataAvail==1:
                 pyDiscrim_mainGUI.data_parseData(self)
                 self.currentState=int(self.sR[self.stID_state])
         self.pyStatesTS.append(self.currentState)
@@ -484,7 +603,7 @@ class stateFunctions:
         uiUp=int(self.uiUpdateSamps.get())
         self.fireCallback=0
         serialFunctions.serial_readDataFlush(self)
-        if self.dataAvail==1:
+        if self.serDataAvail==1:
             pyDiscrim_mainGUI.data_parseData(self)
             if self.cycleCount % uiUp == 0:
                 self.updatePlotCheck()
@@ -500,7 +619,8 @@ class mainWindow:
         self.mainCntrlLabel = Label(self.master, text="Main Controls:")\
         .grid(row=startRow,column=0,sticky=W)
 
-        self.quitBtn = Button(self.master,text="Exit Program",command = lambda: mainWindow.mwQuitBtn(self), width=self.col2BW)
+        self.quitBtn = \
+        Button(self.master,text="Exit Program",command = lambda: mainWindow.mwQuitBtn(self), width=self.col2BW)
         self.quitBtn.grid(row=startRow+1, column=2)
 
         self.startBtn = Button(self.master, text="Start Task",\
@@ -589,19 +709,16 @@ class mainWindow:
         self.totalTrials_label = Label(self.master,text="total trials:")\
         .grid(row=startRow+5,column=0,sticky=W)
         self.totalTrials=StringVar(self.master)
-        self.totalTrials_entry=Entry(self.master,textvariable=self.totalTrials)
-        self.totalTrials_entry.grid(row=startRow+5,column=0,sticky=E)
         self.totalTrials.set('100')
-        self.totalTrials_entry.config(width=10)
-
+        self.totalTrials_entry=Entry(self.master,textvariable=self.totalTrials,width=10).\
+        grid(row=startRow+5,column=0,sticky=E)
 
         self.curSession_label = Label(self.master,text="current session:")\
         .grid(row=startRow+6,column=0,sticky=W)
-        self.curSession=StringVar(self.master)
-        self.curSession_entry=Entry(self.master,textvariable=self.currentSession)
+        self.currentSessionTV=StringVar(self.master)
+        self.currentSessionTV.set(self.currentSession)
+        self.curSession_entry=Entry(self.master,textvariable=self.currentSessionTV,width=10)
         self.curSession_entry.grid(row=startRow+6,column=0,sticky=E)
-        self.curSession.set('1')
-        self.curSession_entry.config(width=10)
 
         self.taskProbsBtn = Button(self.master,text='Task Probs',width=self.col2BW,\
             command=self.taskProbWindow)
@@ -751,9 +868,12 @@ class mainWindow:
         mainWindow.addPlotBlock(self,plotStart)
         mainWindow.addLickDetectionBlock(self,lickStart)
         mainWindow.addMainBlock(self,mainStart)
+        mainWindow.mainWindowCallback(self)
 
+    def mainWindowCallback(self):
         # look in whatever it thinks the working dir is and look for metadata to populate
         self.dirAnimalMetaExists=os.path.isfile(self.dirPath.get() + '.lastMeta.csv')
+        taskFeedbackFigure.taskPlotWindow(pyDiscrim_mainGUI)
 
     def mwQuitBtn(self):
         if self.ranTask==0 or self.comObjectExists==0:  
@@ -761,8 +881,8 @@ class mainWindow:
             exit()
         else: 
             print('!!!! going down')
-            if self.dataExists==1:
-                self.data_saveData()
+            if self.trialDataExists==1:
+                self.data_saveTrialData()
                 print('... saved some remaining data')
             if self.comObjectExists==1:
                 serialFunctions.syncSerial(self)
@@ -822,29 +942,35 @@ class mainTask:
         self.endBtn.config(state=NORMAL)
         self.startBtn.config(state=DISABLED)
         print('started at state #: {}'.format(self.currentState))
-        self.data_makeContainers()
+        self.data_sessionContainers()
         self.uiUpdateDelta=int(self.uiUpdateSamps.get())
         self.ranTask=self.ranTask+1
         self.shouldRun=1
-        self.trialTimes=[]
-        self.rcCol=[]
-        self.toCol=[]
+        self.currentSession=self.currentSessionTV.get()
+
+        np.random.seed()
         self.t1RCPairs=[10,21] # stim 1, reward left; stim 2 reward right
         self.t2RCPairs=[11,20]
 
     def runSession(self):
         mainTask.taskHeader(self)
         self.sessionStartTime=time.time()
+        self.currentTrial=1
         while self.currentTrial <=int(self.totalTrials.get()) and self.shouldRun==1:
             self.trialStartTime=time.time()
             mainTask.trial(self)
-        self.currentSession=self.currentSession+1
+        self.data_saveSessionData()
+
+        self.currentSessionTV.set(int(self.currentSessionTV.get())+1)
+        self.currentSession=int(self.currentSessionTV.get())
         self.exportAnimalMeta()
+        
         self.endBtn.config(state=DISABLED)
         self.startBtn.config(state=NORMAL)
+        
         self.stateBindings.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
         print('I completed {} trials.'.format(self.currentTrial-1))
-        print('!!!!!!! --> Session #:{} Finished'.format(self.ranTask))
+        print('!!!!!!! --> Session #:{} Finished'.format(int(self.currentSessionTV.get())-1))
         self.updateDispTime()
         serialFunctions.syncSerial(self)
     
@@ -852,16 +978,16 @@ class mainTask:
         try:
             #S0 -----> hand shake (initialization state)
             if self.currentState==self.bootState:
+                self.data_trialContainers()
                 serialFunctions.serial_readDataFlush(self)
                 print('in state 0: boot state')
-                self.lastPos=0
-                self.lastOrientation=0
-
                 while self.currentState==self.bootState:
                     serialFunctions.serial_readDataFlush(self)
-                    if self.dataAvail==1:
+                    print('debug:flushed')
+                    if self.serDataAvail==1:
                         pyDiscrim_mainGUI.data_parseData(self)
                         stateFunctions.switchState(self,self.waitState)
+                        print('debug:switch called')
             
             #S1 -----> trial wait state
             elif self.currentState==self.waitState:
@@ -902,18 +1028,20 @@ class mainTask:
             #S5 -----> stim tone #1
             elif self.currentState==self.stim1State:
                 stateFunctions.stateHeader(self,1)
+                stateCallbacks.shaping_stim1StateHead(self)
                 while self.currentState==self.stim1State:
                     stateFunctions.coreState(self)
                     if self.fireCallback:
-                        stateCallbacks.stim1StateCB(self)
+                        stateCallbacks.shaping_stim1StateCB(self)
 
             #S6 -----> stim tone #2
             elif self.currentState==self.stim2State:
                 stateFunctions.stateHeader(self,1)
+                stateCallbacks.shaping_stim2StateHead(self)
                 while self.currentState==self.stim2State:
                     stateFunctions.coreState(self)
                     if self.fireCallback:
-                        stateCallbacks.stim2StateCB(self)
+                        stateCallbacks.shaping_stim2StateCB(self)
             
             #S21 -----> reward state
             elif self.currentState==self.rewardState:
@@ -948,52 +1076,42 @@ class mainTask:
 
             #S13: save state
             elif self.currentState==self.saveState:
-                print('debug: made it to 13')
-                enter=1
-                print('debug: ran header')
-                while enter==1:
-                    print('debug: entered main loop')
-                    self.updatePerfPlot()
-                    print('debug: updated performance')
-                    self.data_saveData()
-                    print('debug: saved data')
-                    self.trialEndTime=time.time()
-                    trialTime=self.trialEndTime-self.trialStartTime
-                    self.trialTimes.append(trialTime)
-                    print('debug: calculated trial time')
-                    print('last trial took: {} seconds'.format(trialTime))
-                    # if self.pf_frame.winfo_exists():
-                    self.currentTrial=self.currentTrial+1
-                    self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
-                    print('trial {} done, saved its data'.format(self.currentTrial-1))
-                    aa=time.time()
-                    enter=0
-                    self.data_cleanContainers()
+                # self.updatePerfPlot() # if self.pf_frame.winfo_exists():
+                # deal with trial data
 
+                self.data_saveTrialData()
+                print('debug: 3 invoked save')
+                self.data_trialContainers()
+                print('debug: 4 invoked containter')
+                self.trialEndTime=time.time()
+                print('debug: 5 timed')
 
-                while enter==0:
-                    self.comObj.write(struct.pack('>B', 0))
-                    serialFunctions.serial_readDataFlush(self)
-                    if self.dataAvail==1:
-                        self.currentState=int(self.sR[self.stID_state])
-                        if self.currentState == 0:
-                            self.data_cleanContainers()
-                            enter=3
+                # append to session data
+                trialTime=self.trialEndTime-self.trialStartTime
+                self.trialTimes.append(trialTime)
+                
+                print('last trial took: {} seconds'.format(trialTime))
+                self.currentTrial=self.currentTrial+1
+                self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
+                print('trial {} done, saved its data'.format(self.currentTrial-1))
+                stateFunctions.switchState(self,self.bootState)
+ 
 
             #S25: end session state
             elif self.currentState==self.endState:
                 print('About to end the session ...')
-                if self.dataExists==1:
-                    self.data_saveData()
-                    self.data_cleanContainers()
+                if self.trialDataExists==1:
+                    self.data_saveTrialData()
                     self.currentTrial=self.currentTrial+1
                     self.sessionTrialCount=self.sessionTrialCount+1 # in case you run a second session
+                    self.data_trialContainers()
+                if self.sessionDataExists==1:
+                    print('todo: add session data save')
                 self.shouldRun=0  # session interput
 
         except:
             self.exportAnimalMeta()
             self.exceptionCallback()
-
 
 class pyDiscrim_mainGUI:
 
@@ -1008,8 +1126,7 @@ class pyDiscrim_mainGUI:
         setUserVars.setTaskProbs(self)
         setUserVars.setStateVars(self)
         self.data_serialInputIDs()
-        self.data_makeContainers()
-
+        self.data_sessionContainers()
 
     def getPath(self):
 
@@ -1068,20 +1185,21 @@ class pyDiscrim_mainGUI:
     def updateDispTime(self):
         self.dateStr = datetime.datetime.\
         fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
-        self.timeDisp.config(text=' #{} started: '.format(self.currentSession) + self.dateStr)  
+        self.timeDisp.config(text=' #{} started: '.format(self.currentSession) + self.dateStr)
 
-    ############################### 
-    ##  Check For User Imports.  ## 
-    ###############################
+        
+        
+
 
     def exportAnimalMeta(self):
         self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot',\
-        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThresholdStrValA','lickThresholdStrValB','lickPlotMax']
+        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThresholdStrValA',\
+        'lickThresholdStrValB','lickPlotMax','currentSessionTV']
         sesVarVals=[self.comPath.get(),self.dirPath.get(),self.animalIDStr.get(),\
         self.totalTrials.get(),\
         self.sampsToPlot.get(),self.uiUpdateSamps.get(),self.ux_adaptThresh.get(),\
         self.lickValuesOrDeltas.get(),\
-        self.lickThresholdStrValA.get(),self.lickThresholdStrValB.get(),self.lickPlotMax.get()]
+        self.lickThresholdStrValA.get(),self.lickThresholdStrValB.get(),self.lickPlotMax.get(),self.currentSessionTV.get()]
         self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
         self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',\
             self.animalIDStr.get()))
@@ -1140,10 +1258,9 @@ class pyDiscrim_mainGUI:
             self.lickValsB[-1]=self.lickValsB[-1]+val
             analysis.lickDetectionDebug(self)
 
-
     def updatePlotCheck(self):
         # analysis.updateLickThresholds(self)
-        Tk.Update()
+        # Tk.Update(self.master)
         if plt.fignum_exists(100):
             taskFeedbackFigure.updateTaskPlot(self)
         self.cycleCount=0
@@ -1152,8 +1269,6 @@ class pyDiscrim_mainGUI:
 
         self.plotVarIDs=['arStates','mcTrialTime','lickValsA','lickValsB']
 
- 
-  
     def performanceWindow(self):
 
         self.fig3 = plt.figure(103)
@@ -1180,9 +1295,10 @@ class pyDiscrim_mainGUI:
             self.lineP1.set_data(self.rcCol,self.toCol)
             self.axP1.relim()
             self.axP1.autoscale_view()
-        plt.draw()
-        plt.pause(self.pltDelay)
-
+        # plt.draw()
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        # plt.pause(self.pltDelay)
 
     def stateToggleWindow(self):
         st_frame = Toplevel()
@@ -1280,10 +1396,6 @@ class pyDiscrim_mainGUI:
             width = 15, command = lambda: self.stateNumsRefreshBtnCB())
         self.setStatesBtn.grid(row=len(self.stateNames)+1, column=0)
 
-    #########################
-    ##  Task Prob Windows  ##
-    #########################
-
     def taskProbWindow(self):
         tb_frame = Toplevel()
         tb_frame.title('Task Probs')
@@ -1298,7 +1410,6 @@ class pyDiscrim_mainGUI:
     def taskProbRefreshBtnCB(self):
         self.refreshVars(self.t1ProbLabels,self.t1ProbValues,1)
         self.refreshVars(self.t2ProbLabels,self.t2ProbValues,1)
-
 
     def stateVarWindow(self):
         frame_sv = Toplevel()
@@ -1329,8 +1440,6 @@ class pyDiscrim_mainGUI:
             exec('self.{}_entries.grid(row=x, column=stCol)'.format(varLabels[x]))
             exec('self.{}_tv.set({})'.format(varLabels[x],varValues[x]))
 
-
-
     def data_serialInputIDs(self):
         # we name each stream from the main 
         # teensey's serial data packet
@@ -1342,70 +1451,67 @@ class pyDiscrim_mainGUI:
         self.stID_lickSensor_a=5
         self.stID_lickSensor_b=6
 
-
-
-
-    def data_makeContainers(self):
-        self.arStates=[]          
-        self.mcTrialTime=[]
-        self.mcStateTime=[]  
-        self.absolutePosition=[]
-        self.posDelta=[]        
-        self.lickValsA=[]
-        self.lickValsB=[]
-        self.thrLicksA=[]
-        self.thrLicksB=[]
-        self.stateLickCount0=[]
-        self.stateLickCount1=[]
-        self.pyStatesRS = []
-        self.pyStatesRT = []
-        self.pyStatesTT = []
-        self.pyStatesTS = []
-        self.lastLickCountA=0
-        self.lastLickCountB=0
+    def data_sessionContainers(self):
+        self.sessionDataExists=0
         self.rewardContingency=[] 
         self.trialOutcome=[]
         self.PooledTasks=[]
-        self.stillLatch=1
-        self.stillTime=0
-        self.sCues=[];
+
+
+        self.cuePresented=[];
         self.sStims=[];
         self.sRewardTarget=[];
         self.sPunishTarget=[];
-        self.sOutcome=[];   
-        self.lastPos=0
-        self.lastOrientation=0
-        self.orientation=[]
-         
+        self.sOutcome=[]; 
 
-    def data_cleanContainers(self):
+        self.trialTimes=[]
+        self.rcCol=[]
+        self.toCol=[]
+        self.shapingReport=[]
+        self.waitLicks0=[]
+        self.waitLicks1=[]
+        self.stimLicks0=[]
+        self.stimLicks1=[]
+
+
+    def data_trialContainers(self):
+        self.trialDataExists=0
+        print('debug: made containers')
+        # state & timing
         self.arStates=[]          
         self.mcTrialTime=[]
-        self.mcStateTime=[]  
+        self.mcStateTime=[]
+
+        # motion
+        self.stillLatch=1
+        self.stillTime=0
+        self.lastPos=0
+        self.lastOrientation=0  
         self.absolutePosition=[]
-        self.posDelta=[]        
+        self.orientation=[]
+        self.posDelta=[]
+
+        # lick vars
+        self.lickThresholdLatchA=0
+        self.lickThresholdLatchB=0
+        self.lastLickCountA=0
+        self.lastLickCountB=0
         self.lickValsA=[]
         self.lickValsB=[]
         self.thrLicksA=[]
         self.thrLicksB=[]
         self.stateLickCount0=[]
         self.stateLickCount1=[]
+        
+        # debug/time roundtrips
         self.pyStatesRS = []
         self.pyStatesRT = []
         self.pyStatesTT = []
         self.pyStatesTS = []
-        self.lastLickCountA=0
-        self.lastLickCountB=0
-        self.rewardContingency=[]
-        self.trialOutcome=[] 
-        self.PooledTasks=[]
-        self.stillLatch=1
-        self.stillTime=0 
-        self.lastOrientation=0
-        self.lastPos=0
-        self.orientation=[]
-            
+        
 
+
+            
     def data_parseData(self):
         self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
@@ -1439,15 +1545,14 @@ class pyDiscrim_mainGUI:
         self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
         self.lickValsB.append(int(self.sR[self.stID_lickSensor_b]))
         analysis.lickDetection(self)
-        self.dataExists=1
+        self.trialDataExists=1
 
-
-    def data_saveData(self):
+    def data_saveTrialData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
         saveStreams='mcTrialTime','mcStateTime','absolutePosition','posDelta','orientation','arStates',\
-        'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCount0','stateLickCount1','pyStatesRS',\
-        'pyStatesRT','pyStatesTS','pyStatesTT'
+        'lickValsA','lickValsB','thrLicksA','thrLicksB','stateLickCount0','stateLickCount1','shapingReport',\
+        'pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
@@ -1458,18 +1563,42 @@ class pyDiscrim_mainGUI:
                 self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
                 self.rf=pd.concat([self.rf,self.tf],axis=1)
 
-        self.rf.to_csv('{}{}_trial_{}_{}_s{}.csv'.\
+        self.rf.to_csv('{}{}_{}_s{}_trial_{}.csv'.\
             format(self.dirPath.get() + '/', self.animalIDStr.get(),\
-             self.currentTrial, self.dateSvStr, self.currentSession))
-        self.dataExists=0
+                self.dateSvStr, self.currentSession, self.currentTrial))
+        self.trialDataExists=0
+    
+    def data_saveSessionData(self):
+        self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
+
+        saveStreams='rewardContingency','trialOutcome','PooledTasks',\
+        'cuePresented','sStims','sRewardTarget',\
+        'sPunishTarget','sOutcome','trialTimes','rcCol',\
+        'toCol','shapingReport','waitLicks0','waitLicks1',\
+        'stimLicks0','stimLicks1'
+
+        self.tCo=[]
+        for x in range(0,len(saveStreams)):
+            exec('self.tCo=self.{}'.format(saveStreams[x]))
+            if x==0:
+                self.rf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
+            elif x != 0:
+                self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
+                self.rf=pd.concat([self.rf,self.tf],axis=1)
+
+        self.rf.to_csv('{}{}_{}_s{}_sessionData.csv'.\
+            format(self.dirPath.get() + '/', self.animalIDStr.get(),\
+                self.dateSvStr, self.currentSession))
+        self.sessionDataExists=0
+
+
 
     def exceptionCallback(self):
         print('EXCEPTION thrown: I am going down')
         print('last trial = {} and the last state was {}. \
             I will try to save last trial ...'\
             .format(self.currentTrial,self.currentState))
-        self.dataExists=0
-        self.data_saveData()
+        self.data_saveTrialData()
         print('save was a success; now \
             I will close com port and quit')
         print('I will try to reset the mc state \

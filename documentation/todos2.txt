@@ -1,0 +1,103 @@
+__ current session
+__ trials count properly
+-- can't select same session.
+__ express start
+__ save state vars with metas
+__serial timeout
+
+
+
+dataExists
+
+
+pyDiscrim_mainGUI.data_parseData
+stateFunctions.switchState
+
+bootState
+
+self.sessionDataExists=1
+data_sessionContainers
+self.trialDataExists=0
+data_trialContainers(self):
+
+
+stateFunctions.switchState(self,self.bootState)
+
+self.currentSessionTV.set(self.currentSessionTV.get()+1)
+        self.currentSession=int(self.currentSessionTV.get())
+
+
+Variables to make
+latchTime for lick detect
+
+!!!!!!! --> Session #:1 Finished  out of sync numnber
+
+left spout flaky detect
+
+Still: Task 2 --> Stim 1: Rwd On Spout 0
+pushing: s4 -> s5
+10
+in state # 5
+licked spout 0: on target -> reward
+ok 
+but 
+
+
+crasher 
+
+in state # 6
+debug: made it to s2
+debug: rolled di in s2
+debug: assigned data
+EXCEPTION thrown: I am going down
+last trial = 1 and the last state was 6.             I will try to save last trial ...
+save was a success; now             I will close com port and quit
+I will try to reset the mc state             before closing the port ...
+closed the com port cleanly
+[Finished in 41.0s]
+
+
+
+
+pushing: s2 -> s3
+in state # 3
+Still: Task 1 --> Stim 2: Rwd On Spout 1
+pushing: s3 -> s6
+21
+in state # 6
+debug: made it to s2
+debug: rolled di in s2
+debug: assigned data
+EXCEPTION thrown: I am going down
+last trial = 1 and the last state was 6.             I will try to save last trial ...
+save was a success; now             I will close com port and quit
+I will try to reset the mc state             before closing the port ...
+closed the com port cleanly
+[Finished in 57.2s]
+
+
+
+in state 0: boot state
+debug:flushed
+pushing: s0 -> s1
+debug:switch called
+in state # 1
+Still! ==> S1 --> S2
+pushing: s1 -> s2
+in state # 2
+moving spout; cue stim task #1
+pushing: s2 -> s3
+in state # 3
+Still: Task 1 --> Stim 2: Rwd On Spout 1
+pushing: s3 -> s6
+21
+in state # 6
+debug: made it to s2
+debug: rolled di in s2
+debug: assigned data
+EXCEPTION thrown: I am going down
+last trial = 1 and the last state was 6.             I will try to save last trial ...
+save was a success; now             I will close com port and quit
+I will try to reset the mc state             before closing the port ...
+closed the com port cleanly
+[Finished in 26.6s]
