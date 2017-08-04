@@ -15,32 +15,34 @@
 #endif
 
 #define PIN 6
-#define cue1Pin 12
-#define cue2Pin 11
+#define cue1Pin 13
+#define cue2Pin 12
 #define initPin 10
 #define toPin 5
 
 
-unsigned long msOffset;
-unsigned long s1Offset;
-unsigned long trialTimeMicro;
-unsigned long stateTimeMicro;
-unsigned long cueTime;
-unsigned long pulseTime;
-unsigned long delayTime;
-unsigned long pulseOffset;
-unsigned long delayOffset;
-unsigned long rewardTimer;
-unsigned long punishOffset;
-unsigned long lastTime;
 
-bool cue1_trig;
-bool cue2_trig;
-bool to_trig;
-bool canInitiate_trig;
-bool ranHeader = 0;
+
+bool iPinOn;
+bool c1PinOn;
+bool c2PinOn;
+bool toPinOn;
+
+
+int pulseDur = 10;
+int delayDur = 100;
+int inPulse = 1;
 int sC;
-int inPulse;
+
+
+bool blinkHeaderToggle = 0;
+unsigned long pulseTimer;
+unsigned long pulseOffset;
+
+
+
+
+
 
 // Example for NeoPixel Shield.  In this application we'd like to use it
 // as a 5x8 tall matrix, with the USB port positioned at the top of the
@@ -71,89 +73,76 @@ void setup() {
 
 
 void loop() {
-  cue1_trig = digitalRead(cue1Pin);
-  cue2_trig = digitalRead(cue2Pin);
-  canInitiate_trig = digitalRead(initPin);
-  to_trig = digitalRead(toPin);
+  c1PinOn = digitalRead(cue1Pin);
+  c2PinOn = digitalRead(cue2Pin);
+  iPinOn = digitalRead(initPin);
+  toPinOn = digitalRead(toPin);
 
 
-  if (cue1_trig) {
+  if (c1PinOn) {
     sC = 1;
+    nonBlockBlink(20, 300, matrix.Color(0, 0, 255));
   }
-  else if (cue2_trig) {
+  else if (c2PinOn) {
     sC = 2;
+    nonBlockBlink(20, 90, matrix.Color(0, 0, 255));
   }
-  else if (canInitiate_trig) {
+  else if (iPinOn) {
     sC = 3;
+    matrix.fillScreen(matrix.Color(0, 255, 0));
+    matrix.show();
   }
-  else if (to_trig) {
+  else if (toPinOn) {
     sC = 4;
+    nonBlockBlink(200, 200, matrix.Color(255, 0, 255));
   }
   else  {
-    sC = 5;
+    sC = 5; // off
+    matrix.fillScreen(matrix.Color(255, 0, 0));
+    matrix.show();
   }
+  Serial.println(sC);
 
-    Serial.print(sC);
-    Serial.print(',');
-    Serial.print(ranHeader);
-    Serial.print(',');
-    Serial.println(inPulse);
-
-  switch (sC) {
-    case 1:
-      nonBlockBlink(50000, 50000, 1, matrix.Color(255, 0, 255));
-      break;
-
-    case 2:
-      nonBlockBlink(50000, 50000, 1, matrix.Color(255, 0, 255));
-      break;
-    case 3:
-      matrix.fillScreen(matrix.Color(0, 255, 0));
-      matrix.show();
-      break;
-    case 4:
-      nonBlockBlink(50000, 50000, 1, matrix.Color(255, 0, 255));
-      break;
-    case 5:
-      matrix.fillScreen(0);
-      matrix.show();
-      break;
-
-    default:
-      matrix.fillScreen(0);
-      matrix.show();
-  }
 }
 
 
-void nonBlockBlink(int pT, int dT, int startOnOrOff, const uint16_t col) {
-  pulseTime = micros() - pulseOffset;
-  delayTime = micros() - delayOffset;
-  Serial.print(pulseTime);
-  Serial.print(',');
-  Serial.println(delayTime);
+
+
+
+void nonBlockBlink(int pDur, int dDur, const uint16_t col) {
   if (inPulse == 1) {
-    delayOffset = micros();
-    if (pulseTime <= pT) {
+    if (blinkHeaderToggle == 0) {
+      pulseOffset = millis();
       matrix.fillScreen(col);
       matrix.show();
+      pulseTimer = millis() - pulseOffset;
+      Serial.println("pulse header");
+      blinkHeaderToggle = 1;
     }
-    else if (pulseTime > pT) {
-      delayOffset = micros();
-      matrix.fillScreen(0);
-      matrix.show();
+    else if (pulseTimer <= pDur) {
+      pulseTimer = millis() - pulseOffset;
+      Serial.println("pulseTimer");
+    }
+    else {
+      blinkHeaderToggle = 0;
       inPulse = 0;
     }
   }
 
   else if (inPulse == 0) {
-    pulseOffset = micros();
-    if (delayTime <= dT) {
+    if (blinkHeaderToggle == 0) {
+      pulseOffset = millis();
       matrix.fillScreen(0);
       matrix.show();
+      pulseTimer = millis() - pulseOffset;
+      Serial.println("delay header");
+      blinkHeaderToggle = 1;
     }
-    else if (delayTime > dT) {
-      pulseOffset = micros();
+    else if (pulseTimer <= dDur) {
+      pulseTimer = millis() - pulseOffset;
+    }
+    else {
+      blinkHeaderToggle = 0;
       inPulse = 1;
     }
   }

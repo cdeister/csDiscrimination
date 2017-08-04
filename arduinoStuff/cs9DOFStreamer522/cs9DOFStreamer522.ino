@@ -161,7 +161,7 @@ void loop() {
     clientUart.print(curRoll);
     clientUart.println('>');
 
-    delayMicroseconds(100);
+    delayMicroseconds(200);
   }
 }
 

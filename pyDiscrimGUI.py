@@ -1,10 +1,7 @@
 # pyDiscrim:
-# A Python3 program that interacts with a microcontroller -
-# to perform state-based behavioral tasks.
+# A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 3.9 -- More control over shaping variables. 
-#
-#
+# Version 3.95 -- Window Layouts, Session and Trial Feedback Plots, Bias Example for Session
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -16,11 +13,9 @@ import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 from matplotlib.backend_bases import key_press_handler
-from matplotlib.figure import Figure
 import time
 import datetime
 import random
-import math
 import struct
 import sys
 import os
@@ -110,40 +105,48 @@ class serialFunctions:
 class taskFeedbackFigure:
 
     def taskPlotWindow(self):
-        self.fig1 = plt.figure(100)
+        self.trialFramePosition='+375+0' # can be specified elsewhere
+        self.statePlotMin=0
+        self.statePlotMax=25
+        self.distPlotMinVal=-500
+        self.distPlotMaxVal=2000
+        self.lickAMin=0
+        self.lickAMax=1100
+        self.lickBMin=0
+        self.lickBMax=1100
+        self.fig1 = plt.figure(100,figsize=(6,4.5), dpi=100)
         self.fig1.suptitle('state 0', fontsize=10)
         subIds=[221,222,223,224]
-
-
+        lineColors=['#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78']
 
         for x in range(0,4):
-            # exec('self.initY{}=[]'.format(x))
-            # exec('self.initX{}=[]'.format(x))
             exec('self.initX{}=np.arange(2000)'.format(x))
-            exec('self.initY{}=np.random.randint(20, size=2000)*np.random.randn(2000)'.format(x))
+            exec('self.initY{}=np.random.randint(20, size=2000)*\
+                np.random.randn(2000)'.format(x))
             exec('self.ax{}=plt.subplot({})'.format(x,subIds[x]))
-            exec('self.line{},=self.ax{}.plot(self.initY{})'.format(x,x,x))
+            exec('self.line{},=self.ax{}.plot(self.initY{},color="{}")'.format(x,x,x,lineColors[x]))
 
+        self.ax0.set_ylim([self.statePlotMin,self.statePlotMax])
+        self.ax1.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
+        self.ax2.set_ylim([self.lickAMin,self.lickAMax])
+        self.ax3.set_ylim([self.lickBMin,self.lickBMax])
 
-        self.ax0.set_ylim([0,25])
-        self.ax1.set_ylim([-500,2000])
-        self.ax2.set_ylim([0,1100])
-        self.ax3.set_ylim([0,1100])
-
+        self.ax0.set_ylabel('current state')
+        self.ax1.set_ylabel('animal position')
+        self.ax2.set_ylabel('lick sensor values')
+        
+        mng = plt.get_current_fig_manager()
+        eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
 
         plt.show(block=False)
-        # plt.tight_layout()
 
         for x in range(0,4):
             exec('self.ax{}.draw_artist(self.line{})'.format(x,x))
             exec('self.ax{}.draw_artist(self.ax{}.patch)'.format(x,x))
-
         self.fig1.canvas.flush_events()
         self.lastSplit=2000
 
-
     def updateTaskPlot(self):
-
         splt=int(self.sampsToPlot.get())
         if splt != self.lastSplit:
             self.ax0.set_xlim([0,splt])
@@ -153,7 +156,6 @@ class taskFeedbackFigure:
 
         self.lastSplit=splt
         x0=self.mcTrialTime[-int(splt):]
-
         y0=np.array(self.arStates[-int(splt):])
         y1=np.array(self.absolutePosition[-int(splt):])
         y2=self.lickValsA[-int(splt):]
@@ -169,29 +171,119 @@ class taskFeedbackFigure:
         self.fig1.canvas.draw_idle()
         self.fig1.canvas.flush_events()
 
+    def resizeTaskPlot(self):
+        self.resizeControlPosition='+620+575'
+        resizeTrialPlotsFrame = Toplevel()
+        # mng = plt.get_current_fig_manager()
+        eval('resizeTrialPlotsFrame.wm_geometry("{}")'.\
+            format(self.resizeControlPosition))
+        resizeTrialPlotsFrame.title('resize task plots')
+        self.resizeTrialPlotsFrame=resizeTrialPlotsFrame
+
+        self.distPlotMax=StringVar(resizeTrialPlotsFrame)
+
+        self.tbutton = Button(master=resizeTrialPlotsFrame, \
+            text='Quit', command=print('q'))
+        self.tbutton.configure(width=10)
+        self.tbutton.grid(row=0, column=0)
+
+        self.cpE=Entry(master=resizeTrialPlotsFrame,\
+            textvariable=self.distPlotMax)
+        self.cpE.grid(row=0, column=1)
+        self.distPlotMax.set(self.distPlotMaxVal)
+
+class sessionFeedbackFigure:
+
+    def gaussian(self,xSpan, mu, sig):
+        return np.exp(-np.power(xSpan - mu, 2.) / (2 * np.power(sig, 2.)))
+        
+    def smoothData(self,fKern,sData):
+        ogMean=np.mean(sData)
+        mid=int(len(fKern)*0.5)
+        padRands=np.pad(sData,(mid,mid),'mean')
+        smoothed=np.convolve(fKern,padRands)
+        trimSmooth=smoothed[2*mid:(-2*mid)+1]
+        newMean=np.mean(trimSmooth)
+        trimSmooth=(trimSmooth-newMean)+ogMean
+        return trimSmooth
+
+    def sessionPlotWindow(self):
+        self.sessionFramePosition='+985+0' # can be specified elsewhere
+        self.sessionFig = plt.figure(101,figsize=(4,3), dpi=100)
+        self.sessionFig.suptitle('session stats', fontsize=10)
+
+        tXLen=int(self.totalTrials.get())
+
+        self.initX10=np.array([])
+        self.initY10=np.array([])
+        self.ax10=plt.subplot2grid((2, 2), (0, 0), colspan=2,rowspan=2)
+        self.line10,=self.ax10.plot([],[],marker="o",markeredgecolor="cornflowerblue",markerfacecolor="none",lw=0)
+        self.line10b,=self.ax10.plot([0,int(self.totalTrials.get())],[0,0],'k:')
+        self.line10c,=self.ax10.plot([],[],'k-')
+
+        self.ax10.set_ylim([-1.1,1.2])
+        self.ax10.set_ylabel('left/right bias')
+        self.ax10.set_xlabel('trial number')
+        self.ax10.set_xlim([0,int(self.totalTrials.get())])
+        mng = plt.get_current_fig_manager()
+        eval('mng.window.wm_geometry("{}")'.format(self.sessionFramePosition))
+        plt.show(block=False)
+
+        self.ax10.draw_artist(self.line10)
+        self.ax10.draw_artist(self.line10c)
+        self.ax10.draw_artist(self.ax10.patch)
+        self.sessionFig.canvas.flush_events()
+        self.lastSplit=2000
+
+    def updateSessionPlot(self):
+        normVMax=np.max(np.array(np.max(self.stimLicks0),np.max(self.stimLicks1)))
+        normVMin=np.min(np.array(np.min(self.stimLicks0),np.min(self.stimLicks1)))
+        normVal=np.max(np.array([np.abs(normVMax),np.abs(normVMin)]))
+        self.difLicks=(np.array(self.stimLicks0)-np.array(self.stimLicks1))/normVal
+
+        tKern=sessionFeedbackFigure.gaussian(self,np.linspace(-0.5, 0.5, 50), 0, 0.05)
+        smtLB=sessionFeedbackFigure.smoothData(self,tKern,self.difLicks)
+        smtLB=smtLB/normVal
+        self.smoothedLickBias=smtLB
+
+        x10=np.arange(len(self.difLicks))
+        y10=self.difLicks
+        x10c=np.arange(len(self.smoothedLickBias))
+        y10c=self.smoothedLickBias
+
+        self.line10.set_xdata(x10)
+        self.line10.set_ydata(y10)
+        self.line10c.set_xdata(x10c)
+        self.line10c.set_ydata(y10c)
+        self.ax10.draw_artist(self.line10)
+        self.ax10.draw_artist(self.ax10.patch)
+        self.sessionFig.canvas.draw_idle()
+        self.sessionFig.canvas.flush_events()
+
 class setUserVars:
 
     def setStateNames(self):
         self.stateNames=\
-        ['bootState','waitState','initiationState','cue1State','cue2State',\
-        'stim1State','stim2State','catchState','saveState','rewardState','rewardState2',\
-        'neutralState','punishState','endState','defaultState']
+        ['bootState','waitState','initiationState','cue1State',\
+        'cue2State','stim1State','stim2State','catchState','saveState',\
+        'rewardState','rewardState2','neutralState','punishState',\
+        'endState','defaultState']
 
         self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,24,25,29]
         self.mapAssign(self.stateNames,self.stateIDs)
-        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)    
+        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)
 
     def setSessionVars(self):
         # session vars
-        self.sessionVarIDs=['ranTask','trialDataExists','sessionDataExists','comObjectExists',\
-        'taskProbsRefreshed','stateVarsRefreshed','currentTrial',\
-        'currentState','currentSession','sessionTrialCount']
+        self.sessionVarIDs=['ranTask','trialDataExists','sessionDataExists',\
+        'comObjectExists','taskProbsRefreshed','stateVarsRefreshed',\
+        'currentTrial','currentState','currentSession','sessionTrialCount']
         self.sessionVarVals=[0,0,0,0,0,0,1,0,1,1]
         self.mapAssign(self.sessionVarIDs,self.sessionVarVals)
 
     def setStateVars(self):
-        self.stateVarLabels=['acelValThr','acelSamps','distThr','timeOutDuration','waitStillTime','genStillTime',\
-        'cue1Dur','cue2Dur']
+        self.stateVarLabels=['acelValThr','acelSamps','distThr',\
+        'timeOutDuration','waitStillTime','genStillTime','cue1Dur','cue2Dur']
         self.stateVarValues=[10,100,1000,2,1,1,2,2]
         self.mapAssign(self.stateVarLabels,self.stateVarValues)
 
@@ -203,8 +295,9 @@ class setUserVars:
         self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
         self.mapAssign(self.t1ProbLabels,self.t1ProbValues)
 
-        self.t2ProbLabels='sTask2_prob','sTask2_target_prob','sTask2_distract_prob',\
-        'sTask2_target_reward_prob','sTask2_target_punish_prob','sTask2_distract_reward_prob',\
+        self.t2ProbLabels='sTask2_prob','sTask2_target_prob',\
+        'sTask2_distract_prob','sTask2_target_reward_prob',\
+        'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
         'sTask2_distract_punish_prob'
         self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
         self.mapAssign(self.t2ProbLabels,self.t2ProbValues)
@@ -215,18 +308,21 @@ class analysis:
 
         tA=np.abs(np.array(pyList))
 
-    def updateLickThresholdA(self,dataSpan):  #todo: should be one function for all
+    def updateLickThresholdA(self,dataSpan):  
+    #todo: should be one function for all
 
         if self.ux_adaptThresh.get()==1:
             tA=np.abs(np.array(dataSpan))
-            self.lickThresholdStrValA.set(str(np.percentile(tA[np.where(tA != 0)[0]],75)))
+            self.lickThresholdStrValA.set(str(np.percentile(\
+                tA[np.where(tA != 0)[0]],75)))
             self.lickMinMaxA=[min(dataSpan),max(dataSpan)]
 
     def updateLickThresholdB(self,dataSpan,quantileCut):
 
         if self.ux_adaptThresh.get()==1:
             tA=np.abs(np.array(dataSpan))
-            self.lickThresholdStrValB.set(str(np.percentile(tA[np.where(tA != 0)[0]],quantileCut)))
+            self.lickThresholdStrValB.set(str(np.percentile(\
+                tA[np.where(tA != 0)[0]],quantileCut)))
             self.lickMinMaxB=[min(dataSpan),max(dataSpan)]
 
     def lickDetection(self):
@@ -241,8 +337,6 @@ class analysis:
             self.lastLickA=self.mcTrialTime[-1]    
             self.lickThresholdLatchA=1
         
-            
-
         elif self.lickValsA[-1]<=aThreshold or self.lickThresholdLatchA==1:
             self.thrLicksA.append(0)
             self.stateLickCount0.append(self.lastLickCountA)
@@ -284,7 +378,8 @@ class analysis:
             self.stateLickCount1[-1]=self.lastLickCountB+1
 
     def checkMotion(self,acelThr,sampThr):
-        self.anState_acceleration.append(np.mean(np.array(self.posDelta[-int(sampThr):])))
+        self.anState_acceleration.append(np.mean(np.array(\
+            self.posDelta[-int(sampThr):])))
         self.analysis_acelThreshold.append(acelThr)
         if self.anState_acceleration[-1]<acelThr:
             lastLatch=self.stillLatch
@@ -312,10 +407,14 @@ class stateCallbacks:
         rwdSpout=int(tRCnt[1])
         offSpout=abs(int(tRCnt[1])-1)
 
-        targetMinLicked=eval('self.stateLickCount{}[-1]>=self.minTarget{}Licks'.format(rwdSpout,sPres))
-        targetMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(rwdSpout,sPres))
-        distractMinLicked=eval('self.stateLickCount{}[-1]>=self.minOffTarget{}Licks'.format(offSpout,sPres))
-        distractMaxLicked=eval('self.stateLickCount{}[-1]>=self.maxTarget{}Licks'.format(offSpout,sPres))
+        targetMinLicked=eval('self.stateLickCount{}[-1]>=\
+            self.minTarget{}Licks'.format(rwdSpout,sPres))
+        targetMaxLicked=eval('self.stateLickCount{}[-1]>=\
+            self.maxTarget{}Licks'.format(rwdSpout,sPres))
+        distractMinLicked=eval('self.stateLickCount{}[-1]>=\
+            self.minOffTarget{}Licks'.format(offSpout,sPres))
+        distractMaxLicked=eval('self.stateLickCount{}[-1]>=\
+            self.maxTarget{}Licks'.format(offSpout,sPres))
 
         if targetMinLicked==1 and targetMaxLicked == 0 and distractMinLicked == 0:
 
@@ -341,13 +440,12 @@ class stateCallbacks:
 
     def waitStateCB(self):  
         analysis.checkMotion(self,self.acelValThr,self.acelSamps)
-        if self.stillLatch==1 and self.stillTime[-1]>self.waitStillTime:  #var todo minStill
+        if self.stillLatch==1 and self.stillTime[-1]>self.waitStillTime:
             print('Still in wait state ==> S1 --> S2')
             self.waitConditionMetTime.append(self.mcStateTime[-1])
             self.waitLicks0.append(self.stateLickCount0[-1])
             self.waitLicks1.append(self.stateLickCount1[-1])
             stateFunctions.switchState(self,self.initiationState)
-
 
     def initiationStateHead(self):
         t1P=self.sTask1_prob
@@ -358,13 +456,13 @@ class stateCallbacks:
             self.cueSelected=2
 
     def initiationStateCB(self):
-
         aT=self.acelValThr  
         aS=self.acelSamps   
         analysis.checkMotion(self,aT,aS)
         if self.absolutePosition[-1]>self.distThr:
             print('moving spout; cue stim task #{}'.format(self.cueSelected))
-            eval('stateFunctions.switchState(self,self.cue{}State)'.format(self.cueSelected))
+            eval('stateFunctions.switchState(self,self.cue{}State)'.\
+                format(self.cueSelected))
 
     def cue1StateHead(self):
         self.startCue1=self.mcStateTime[-1]
@@ -382,10 +480,13 @@ class stateCallbacks:
         if self.mcStateTime[-1]>self.cue1Dur:
             self.cue1Time.append(self.mcStateTime[-1]-self.startCue1) 
             self.cuePresented.append(1)
-            eval('stateFunctions.switchState(self,self.stim{}State)'.format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
+            eval('stateFunctions.switchState(self,self.stim{}State)'.\
+                format(self.stimSelected))
+            exec('self.rewardContingency.append({}{})'.\
+                format(self.stimSelected,self.stimSelected-1))
             print(self.rewardContingency[-1])
-            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
+            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.\
+                format(self.stimSelected,self.stimSelected-1))
             
             
     def cue2StateHead(self):
@@ -427,7 +528,7 @@ class stateCallbacks:
             elif self.mcStateTime[-1]>=self.reportMax1Time:
                 self.trialOutcome.append(10)
                 print('timed out: did not report')
-                stateFunctions.switchState(self,self.neutralState)      #5
+                stateFunctions.switchState(self,self.neutralState)
 
     def stim2StateCB(self):
         self.minStim2Time=0
@@ -553,7 +654,6 @@ class stateFunctions:
             self.entryTime=self.mcTrialTime[-1] # log state entry time
             self.stillTimeStart=0
             self.stillLatch=0
-            print('in state # {}'.format(self.currentState))
             self.fig1.suptitle('trial # {}; state # {}'.format(self.currentTrial,self.currentState), fontsize=10)
             ranHeader=1 # fire the latch
         
@@ -578,7 +678,8 @@ class mainWindow:
         .grid(row=startRow,column=0,sticky=W)
 
         self.quitBtn = \
-        Button(self.master,text="Exit Program",command = lambda: mainWindow.mwQuitBtn(self), width=self.col2BW)
+        Button(self.master,text="Exit Program",command = \
+            lambda: mainWindow.mwQuitBtn(self), width=self.col2BW)
         self.quitBtn.grid(row=startRow+1, column=2)
 
         self.startBtn = Button(self.master, text="Start Task",\
@@ -586,18 +687,20 @@ class mainWindow:
         self.startBtn.grid(row=startRow+1, column=0,sticky=W,padx=10)
 
         self.endBtn = Button(self.master, text="End Task",width=self.col2BW, \
-            command=lambda: stateFunctions.switchState(self,self.endState),state=DISABLED)
+            command=lambda:\
+            stateFunctions.switchState(self,self.endState),state=DISABLED)
         self.endBtn.grid(row=startRow+2, column=0,sticky=W,padx=10)
 
-        self.stateEditBtn = Button(self.master, text="State Editor",width=self.col2BW, \
-            command=self.stateEditWindow,state=NORMAL)
+        self.stateEditBtn = Button(self.master, text="State Editor",\
+            width=self.col2BW, command=self.stateEditWindow,state=NORMAL)
         self.stateEditBtn.grid(row=startRow+2,column=2,sticky=W,padx=10)
 
     def addSerialBlock(self,startRow):
         self.startRow = startRow
 
         # @@@@@ --> Serial Block
-        self.comPathLabel = Label(self.master,text="COM Port Location:",justify=LEFT)
+        self.comPathLabel = Label(self.master,\
+            text="COM Port Location:",justify=LEFT)
         self.comPathLabel.grid(row=startRow,column=0,sticky=W)
 
         self.comPath=StringVar(self.master)
@@ -732,8 +835,8 @@ class mainWindow:
         self.debugWindowBtn.grid(row=startRow+3, column=2)
         self.debugWindowBtn.config(state=NORMAL)
 
-        self.perfWindowBtn=Button(self.master,text = 'Perf Window',width=self.col2BW,\
-            command=self.performanceWindow)
+        self.perfWindowBtn=Button(self.master,text = 'Session Plot',width=self.col2BW,\
+            command=lambda:sessionFeedbackFigure.sessionPlotWindow(self))
         self.perfWindowBtn.grid(row=startRow+4, column=2)
         self.perfWindowBtn.config(state=NORMAL)
 
@@ -831,7 +934,15 @@ class mainWindow:
     def mainWindowCallback(self):
         # look in whatever it thinks the working dir is and look for metadata to populate
         self.dirAnimalMetaExists=os.path.isfile(self.dirPath.get() + '.lastMeta.csv')
-        taskFeedbackFigure.taskPlotWindow(pyDiscrim_mainGUI)
+        self.trialFramePosition='+375+0'
+        self.resizeControlPosition='+620+575'
+        self.debugTogglePosition="+375+575"
+        self.sessionFramePosition='+950+0'
+
+        pyDiscrim_mainGUI.debugWindow(self)
+        taskFeedbackFigure.taskPlotWindow(self)
+        taskFeedbackFigure.resizeTaskPlot(self)
+        sessionFeedbackFigure.sessionPlotWindow(self)
 
     def mwQuitBtn(self):
         if self.ranTask==0 or self.comObjectExists==0:  
@@ -916,9 +1027,10 @@ class mainTask:
         mainTask.taskHeader(self)
         self.sessionStartTime=time.time()
         self.currentTrial=1
+        trialCounter=1
         while self.currentTrial <=int(self.totalTrials.get()) and self.shouldRun==1:
-            self.trialStartTime=time.time()
             mainTask.trial(self)
+            trialCounter+1
         self.data_saveSessionData()
 
         self.currentSessionTV.set(int(self.currentSessionTV.get())+1)
@@ -935,6 +1047,7 @@ class mainTask:
         serialFunctions.syncSerial(self)
     
     def trial(self):
+        self.trialStartTime=time.time()
         try:
             #S0 -----> hand shake (initialization state)
             if self.currentState==self.bootState:
@@ -1044,6 +1157,7 @@ class mainTask:
                 # append to session data
                 trialTime=self.trialEndTime-self.trialStartTime
                 self.trialTimes.append(trialTime)
+                sessionFeedbackFigure.updateSessionPlot(self)
                 
                 print('last trial took: {} seconds'.format(trialTime))
                 self.currentTrial=self.currentTrial+1
@@ -1071,6 +1185,7 @@ class pyDiscrim_mainGUI:
     def __init__(self,master):
         self.master = master
         self.frame = Frame(self.master)
+        root.wm_geometry("+0+0")
         setUserVars.setSessionVars(self)
         mainWindow.mainWindowPopulate(self)
         print('curTrial={}'.format(self.currentTrial))
@@ -1139,10 +1254,6 @@ class pyDiscrim_mainGUI:
         fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
         self.timeDisp.config(text=' #{} started: '.format(self.currentSession) + self.dateStr)
 
-        
-        
-
-
     def exportAnimalMeta(self):
         self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot',\
         'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas','lickThresholdStrValA',\
@@ -1173,7 +1284,9 @@ class pyDiscrim_mainGUI:
             self.sessionDF=self.sessionDF.append(ds,ignore_index=True)
 
     def debugWindow(self):
+        self.debugTogglePosition="+375+570"
         dbgFrame = Toplevel()
+        eval('dbgFrame.wm_geometry("{}")'.format(self.debugTogglePosition))
         dbgFrame.title('Debug Toggles')
         self.dbgFrame=dbgFrame
 
@@ -1211,11 +1324,10 @@ class pyDiscrim_mainGUI:
             analysis.lickDetectionDebug(self)
 
     def updatePlotCheck(self):
-        # analysis.updateLickThresholds(self)
-        # Tk.Update(self.master)
         if plt.fignum_exists(100):
             taskFeedbackFigure.updateTaskPlot(self)
         self.cycleCount=0
+
 
     def setPlotVariables(self):
 
@@ -1431,7 +1543,6 @@ class pyDiscrim_mainGUI:
 
     def data_trialContainers(self):
         self.trialDataExists=0
-        print('debug: made containers')
         # state & timing
         self.arStates=[]          
         self.mcTrialTime=[]
@@ -1533,7 +1644,7 @@ class pyDiscrim_mainGUI:
         'cuePresented','sStims','sRewardTarget',\
         'sPunishTarget','sOutcome','trialTimes','rcCol',\
         'toCol','shapingReport','waitLicks0','waitLicks1',\
-        'stimLicks0','stimLicks1','waitConditionMetTime'
+        'stimLicks0','stimLicks1','waitConditionMetTime','smoothedLickBias'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
@@ -1565,7 +1676,6 @@ class pyDiscrim_mainGUI:
         #todo: add a timeout for the resync
         print('closed the com port cleanly')
         exit()
-
 
 root = Tk()
 app = pyDiscrim_mainGUI(root)
