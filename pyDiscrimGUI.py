@@ -1,7 +1,7 @@
 # pyDiscrim:
 # A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 3.95 -- Window Layouts, Session and Trial Feedback Plots, Bias Example for Session
+# Version 3.96 -- Window Layouts, Session and Trial Feedback Plots, Bias Example for Session
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -10,9 +10,9 @@ from tkinter import filedialog
 import serial
 import numpy as np
 import matplotlib 
+import matplotlib.mlab as mlab
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from matplotlib.backend_bases import key_press_handler
 import time
 import datetime
 import random
@@ -208,40 +208,57 @@ class sessionFeedbackFigure:
         return trimSmooth
 
     def sessionPlotWindow(self):
+        # make and position the figure
         self.sessionFramePosition='+985+0' # can be specified elsewhere
-        self.sessionFig = plt.figure(101,figsize=(4,3), dpi=100)
+        self.sessionFig = plt.figure(101,figsize=(6,4.5), dpi=100)
         self.sessionFig.suptitle('session stats', fontsize=10)
-
-        tXLen=int(self.totalTrials.get())
-
-        self.initX10=np.array([])
-        self.initY10=np.array([])
-        self.ax10=plt.subplot2grid((2, 2), (0, 0), colspan=2,rowspan=2)
-        self.line10,=self.ax10.plot([],[],marker="o",markeredgecolor="cornflowerblue",markerfacecolor="none",lw=0)
-        self.line10b,=self.ax10.plot([0,int(self.totalTrials.get())],[0,0],'k:')
-        self.line10c,=self.ax10.plot([],[],'k-')
-
-        self.ax10.set_ylim([-1.1,1.2])
-        self.ax10.set_ylabel('left/right bias')
-        self.ax10.set_xlabel('trial number')
-        self.ax10.set_xlim([0,int(self.totalTrials.get())])
         mng = plt.get_current_fig_manager()
         eval('mng.window.wm_geometry("{}")'.format(self.sessionFramePosition))
-        plt.show(block=False)
 
-        self.ax10.draw_artist(self.line10)
-        self.ax10.draw_artist(self.line10c)
-        self.ax10.draw_artist(self.ax10.patch)
+        # make component 1: bias plot
+        # set the bias axis and lines
+        self.biasAxis=plt.subplot2grid((6, 6), (0, 0), colspan=4,rowspan=5)
+        self.biasLineNormCount,=self.biasAxis.plot([],[],marker="o",markeredgecolor="cornflowerblue",markerfacecolor="none",lw=0)
+        self.biasLineZero,=self.biasAxis.plot([0,int(self.totalTrials.get())],[0,0],'k:')
+        self.biasLineSmoothedBias,=self.biasAxis.plot([],[],'k-')
+        # mess with axis params
+        self.biasAxis.set_ylim([-1.6,1.6])
+        self.biasAxis.set_xlim([0,int(self.totalTrials.get())])
+        self.biasAxis.set_ylabel('left/right bias')
+        self.biasAxis.set_xlabel('trial number')
+        # plot once to cache, this allows artist to update later
+        plt.show(block=False)
+        # set artists (zero line doesn't update)
+        self.biasAxis.draw_artist(self.biasLineNormCount)
+        self.biasAxis.draw_artist(self.biasLineSmoothedBias)
+        self.biasAxis.draw_artist(self.biasAxis.patch)
+        numBins=5
+        self.leftCountAxis=plt.subplot2grid((6, 6), (0, 4), colspan=3,rowspan=2)
+        n, bins,patches=self.leftCountAxis.hist([],numBins,normed=1,facecolor='red',alpha=1)
+        self.leftCountAxis.set_yticks([])
+        self.leftCountAxis.set_xticks([])
+
+        self.rightCountAxis=plt.subplot2grid((6, 6), (2, 4), colspan=3,rowspan=2)
+        n,bins,patches=self.rightCountAxis.hist([],numBins,normed=1,facecolor='cornflowerblue',alpha=1)
+        self.rightCountAxis.set_yticks([])
+        self.leftCountAxis.axis([0, 15, 0, 1])
+        self.rightCountAxis.axis([0, 15, 0, 1])
+        self.rightCountAxis.set_xlabel('lick counts')
+        plt.show(block=False)
         self.sessionFig.canvas.flush_events()
-        self.lastSplit=2000
+
+        # # add a 'best fit' line
+        # y = mlab.normpdf( bins, np.mean(x), np.std(x))
+        # self.line12b, = self.ax12.plot(bins, y, 'k-', linewidth=1)
+        
 
     def updateSessionPlot(self):
         normVMax=np.max(np.array(np.max(self.stimLicks0),np.max(self.stimLicks1)))
         normVMin=np.min(np.array(np.min(self.stimLicks0),np.min(self.stimLicks1)))
         normVal=np.max(np.array([np.abs(normVMax),np.abs(normVMin)]))
-        self.difLicks=(np.array(self.stimLicks0)-np.array(self.stimLicks1))/normVal
+        self.difLicks=(np.array(self.stimLicks0/normVal)-np.array(self.stimLicks1/normVal))
 
-        tKern=sessionFeedbackFigure.gaussian(self,np.linspace(-0.5, 0.5, 50), 0, 0.05)
+        tKern=sessionFeedbackFigure.gaussian(self,np.linspace(-0.5, 0.5, 21), 0, 0.1)
         smtLB=sessionFeedbackFigure.smoothData(self,tKern,self.difLicks)
         smtLB=smtLB/normVal
         self.smoothedLickBias=smtLB
@@ -251,14 +268,48 @@ class sessionFeedbackFigure:
         x10c=np.arange(len(self.smoothedLickBias))
         y10c=self.smoothedLickBias
 
-        self.line10.set_xdata(x10)
-        self.line10.set_ydata(y10)
-        self.line10c.set_xdata(x10c)
-        self.line10c.set_ydata(y10c)
-        self.ax10.draw_artist(self.line10)
-        self.ax10.draw_artist(self.ax10.patch)
+        self.biasLineNormCount.set_xdata(x10)
+        self.biasLineNormCount.set_ydata(y10)
+        self.biasLineSmoothedBias.set_xdata(x10c)
+        self.biasLineSmoothedBias.set_ydata(y10c)
+        self.biasAxis.draw_artist(self.biasLineNormCount)
+        self.biasAxis.draw_artist(self.biasLineSmoothedBias)
+        self.biasAxis.draw_artist(self.biasAxis.patch)
+
         self.sessionFig.canvas.draw_idle()
         self.sessionFig.canvas.flush_events()
+        
+
+        # self.ax11=plt.subplot2grid((6, 6), (0, 4), colspan=3,rowspan=2)
+        # x =self.stimLicks0
+        # n, bins, patches = self.ax11.hist(np.nonzero(x), 10, normed=1, facecolor='red', alpha=0.75)
+
+        # # add a 'best fit' line
+        # y = mlab.normpdf( bins, np.mean(np.nonzero(x)), np.std(np.nonzero(x)))
+        # l = self.ax11.plot(bins, y, 'k-', linewidth=1)
+        # self.ax11.set_yticks([])
+        # self.ax11.set_xticks([])
+
+        # self.ax12=plt.subplot2grid((6, 6), (2, 4), colspan=3,rowspan=2)
+        # x =self.stimLicks1
+
+        # # the histogram of the data
+        # n, bins, patches = self.ax12.hist(np.nonzero(x), 10, normed=1, facecolor='cornflowerblue', alpha=0.75)
+
+        # # add a 'best fit' line
+        # y = mlab.normpdf( bins, np.mean(np.nonzero(x)), np.std(np.nonzero(x)))
+        # l = self.ax12.plot(bins, y, 'k-', linewidth=1)
+        # self.ax12.set_yticks([])
+
+        # self.ax11.axis([0, 20, 0, max(n)])
+        # self.ax12.axis([0, 20, 0, max(n)])
+        # self.ax12.set_xlabel('lick counts')
+
+
+
+    
+
+
 
 class setUserVars:
 
@@ -1644,7 +1695,7 @@ class pyDiscrim_mainGUI:
         'cuePresented','sStims','sRewardTarget',\
         'sPunishTarget','sOutcome','trialTimes','rcCol',\
         'toCol','shapingReport','waitLicks0','waitLicks1',\
-        'stimLicks0','stimLicks1','waitConditionMetTime','smoothedLickBias'
+        'stimLicks0','stimLicks1','waitConditionMetTime','smoothedLickBias','difLicks'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):

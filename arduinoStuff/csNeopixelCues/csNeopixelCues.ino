@@ -1,8 +1,7 @@
 /* csCueLights
-  Drives an RGB neopixel array via triggers.
-  Early version, very messy.
-
-  v0.5
+  Drives an RGB neopixel array via serial reads.
+  
+  v1.0
   cdeister@brown.edu
 
 */
@@ -14,34 +13,25 @@
 #define PSTR // Make Arduino Due happy
 #endif
 
+
 #define PIN 6
-#define cue1Pin 13
-#define cue2Pin 12
-#define initPin 10
-#define toPin 5
-
-
-
-
-bool iPinOn;
-bool c1PinOn;
-bool c2PinOn;
-bool toPinOn;
 
 
 int pulseDur = 10;
 int delayDur = 100;
 int inPulse = 1;
 int sC;
-
+int cueState = 5;
+int lastCueState = 5;
+boolean newData = false;
+const byte numChars = 32;
+char receivedChars[numChars];
 
 bool blinkHeaderToggle = 0;
 unsigned long pulseTimer;
 unsigned long pulseOffset;
-
-
-
-
+bool tLatch = 0;
+int stateDelta = 0;
 
 
 // Example for NeoPixel Shield.  In this application we'd like to use it
@@ -60,70 +50,89 @@ const uint16_t colors[] = {
 
 void setup() {
   Serial.begin(9600);
-  pinMode(cue1Pin, INPUT);
-  pinMode(cue2Pin, INPUT);
-  pinMode(initPin, INPUT);
-  pinMode(toPin, INPUT);
+  Serial1.begin(9600);
   matrix.begin();
-  matrix.setBrightness(20);
-  matrix.fillScreen(matrix.Color(255, 0, 0));
+  matrix.setBrightness(2);
+  matrix.fillScreen(matrix.Color(0, 0, 255));
   matrix.show();
   delay(500); //debug
 }
 
 
 void loop() {
-  c1PinOn = digitalRead(cue1Pin);
-  c2PinOn = digitalRead(cue2Pin);
-  iPinOn = digitalRead(initPin);
-  toPinOn = digitalRead(toPin);
+  flagReceive('c', '$');
+  showSetNewData();
+  checkStateChange();
 
-
-  if (c1PinOn) {
-    sC = 1;
-    nonBlockBlink(20, 300, matrix.Color(0, 0, 255));
+  if (cueState == 2) {
+    if (tLatch == 0) {
+      matrix.fillScreen(matrix.Color(0, 255, 0));
+      matrix.show();
+      tLatch = 1;
+      Serial.println(tLatch);
+    }
   }
-  else if (c2PinOn) {
-    sC = 2;
-    nonBlockBlink(20, 90, matrix.Color(0, 0, 255));
+  else if (cueState == 3) {
+    if (tLatch == 0) {
+      blinkHeaderToggle = 0;
+      inPulse = 1;
+      tLatch = 1;
+    }
+    else if (tLatch == 1) {
+      nonBlockBlink(10, 100,matrix.Color(0, 0, 255));
+    }
   }
-  else if (iPinOn) {
-    sC = 3;
-    matrix.fillScreen(matrix.Color(0, 255, 0));
-    matrix.show();
+  else if (cueState == 4) {
+    if (tLatch == 0) {
+      blinkHeaderToggle = 0;
+      inPulse = 1;
+      tLatch = 1;
+    }
+    else if (tLatch == 1) {
+      nonBlockBlink(10, 50,matrix.Color(0, 0, 255));
+    }
   }
-  else if (toPinOn) {
-    sC = 4;
-    nonBlockBlink(200, 200, matrix.Color(255, 0, 255));
+  else if (cueState == 24) {
+    if (tLatch == 0) {
+      matrix.fillScreen(matrix.Color(255, 0, 255));
+      matrix.show();
+      tLatch = 1;
+    }
+    else if (tLatch == 1) {
+      nonBlockBlink(100, 100, matrix.Color(255, 0, 255));
+    }
   }
   else  {
-    sC = 5; // off
-    matrix.fillScreen(matrix.Color(255, 0, 0));
-    matrix.show();
+    if (tLatch == 0) {
+      matrix.fillScreen(matrix.Color(255, 0, 0));
+      matrix.show();
+      tLatch = 1;
+    }
   }
-  Serial.println(sC);
-
 }
 
 
 
-
-
-void nonBlockBlink(int pDur, int dDur, const uint16_t col) {
+void nonBlockBlink(int pDur, int dDur,const uint16_t pCol) {
   if (inPulse == 1) {
     if (blinkHeaderToggle == 0) {
       pulseOffset = millis();
-      matrix.fillScreen(col);
+      matrix.fillScreen(pCol);
       matrix.show();
       pulseTimer = millis() - pulseOffset;
-      Serial.println("pulse header");
       blinkHeaderToggle = 1;
+      Serial.print('a');
+      Serial.print(',');
+      Serial.println(pulseTimer);
     }
-    else if (pulseTimer <= pDur) {
+    else if (blinkHeaderToggle == 1 && pulseTimer <= pDur) {
       pulseTimer = millis() - pulseOffset;
-      Serial.println("pulseTimer");
+      Serial.print('b');
+      Serial.print(',');
+      Serial.println(pulseTimer);
     }
-    else {
+    else if (blinkHeaderToggle == 1 && pulseTimer > pDur){
+      Serial.println('c');
       blinkHeaderToggle = 0;
       inPulse = 0;
     }
@@ -135,18 +144,84 @@ void nonBlockBlink(int pDur, int dDur, const uint16_t col) {
       matrix.fillScreen(0);
       matrix.show();
       pulseTimer = millis() - pulseOffset;
-      Serial.println("delay header");
       blinkHeaderToggle = 1;
+      Serial.print('aa');
+      Serial.print(',');
+      Serial.println(pulseTimer);
     }
-    else if (pulseTimer <= dDur) {
+    else if (blinkHeaderToggle == 1 && pulseTimer <= dDur) {
       pulseTimer = millis() - pulseOffset;
+      Serial.print('bb');
+      Serial.print(',');
+      Serial.println(pulseTimer);
     }
-    else {
+    else if (blinkHeaderToggle == 1 && pulseTimer > dDur){
+      Serial.println('c');
       blinkHeaderToggle = 0;
       inPulse = 1;
     }
   }
 }
+
+void flagReceive(char startChars, char endChars) {
+  static boolean recvInProgress = false;
+  static byte ndx = 0; char startMarker = startChars;
+  char endMarker = endChars; char rc;
+
+  while (Serial1.available() > 0 && newData == false) {
+    rc = Serial1.read();
+
+    if (recvInProgress == true) {
+      if (rc != endMarker) {
+        receivedChars[ndx] = rc;
+        ndx++;
+        if (ndx >= numChars) {
+          ndx = numChars - 1;
+        }
+      }
+      else if (rc == endMarker ) {
+        receivedChars[ndx] = '\0'; // terminate the string
+        recvInProgress = false;
+        ndx = 0;
+        newData = true;
+      }
+    }
+    else if (rc == startMarker) {
+      recvInProgress = true;
+    }
+  }
+}
+
+void showSetNewData() {
+  if (newData == true) {
+    cueState = int(String(receivedChars).toInt());
+    //    Serial.println(cueState);
+    newData = false;
+  }
+}
+
+void checkStateChange() {
+  stateDelta = abs(cueState - lastCueState);
+  if (stateDelta != 0) {
+    Serial.print("lastState=");
+    Serial.print(lastCueState);
+    Serial.print(',');
+    Serial.print("curState=");
+    Serial.print(cueState);
+    Serial.print(',');
+    Serial.print("latchState=");
+    Serial.print(tLatch);
+    tLatch = 0;
+    Serial.print(',');
+    Serial.print("latchState=");
+    Serial.print(tLatch);
+    lastCueState = cueState;
+    Serial.print(',');
+    Serial.print("newLastState=");
+    Serial.println(lastCueState);
+  }
+}
+
 
 
 
