@@ -1,7 +1,7 @@
 # pyDiscrim:
 # A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 3.96 -- Window Layouts, Session and Trial Feedback Plots, Bias Example for Session
+# Version 3.98 -- Auto Debiasing
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -61,8 +61,11 @@ class pdUtil:
         if refreshType==1: #refresh from entries
             for x in range(0,len(varLabels)):
                 a=eval('float(self.{}_tv.get())'.format(varLabels[x]))
+                if a.is_integer():
+                    a=int(a)
                 eval('self.{}_tv.set("{}")'.format(varLabels[x],str(a)))
                 varValues[x]=a
+
             pdUtil.mapAssign(self,varLabels,varValues)
         
         if refreshType==2: #write only
@@ -118,9 +121,10 @@ class pdVariables:
     def setStateVars(self):
         self.stateVarLabels=['acelValThr','acelSamps','distThr',\
         'timeOutDuration','waitStillTime','genStillTime','cue1Dur','cue2Dur',\
-        'biasRange','leftDebias','rightDebias','shapeC1_LPortProb',\
-        'shapeC2_LPortProb']
-        self.stateVarValues=[10,100,-100,2,1,1,2,2,5,0.0,0.0,0.5,0.5]
+        'biasRange','shapeC1_LPortProb','shapeC2_LPortProb','biasPCut','biasMuCut',\
+        'lBiasDelta','rBiasDelta']
+
+        self.stateVarValues=[10,100,-100,2,0.2,0.2,0.2,0.2,10,0.5,0.5,0.1,0.05,0.10,0.10]
         pdUtil.mapAssign(self,self.stateVarLabels,self.stateVarValues)
 
     def setTaskProbs(self):
@@ -265,6 +269,8 @@ class pdData:
         self.waitConditionMetTime=[]
         self.cue1Time=[]
         self.cue2Time=[]
+        self.trialLeft1Prob=[]
+        self.trialLeft2Prob=[]
 
     def data_trialContainers(self):
         self.trialDataExists=0
@@ -374,7 +380,7 @@ class pdData:
         'sPunishTarget','sOutcome','trialTimes','rcCol',\
         'toCol','shapingReport','waitLicks0','waitLicks1',\
         'stimLicks0','stimLicks1','waitConditionMetTime',\
-        'smoothedLickBias','difLicks','trialSampRate'
+        'smoothedLickBias','difLicks','trialSampRate','trialLeft1Prob','trialLeft2Prob'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
@@ -563,7 +569,7 @@ class pdPlot:
         normVal=np.max(np.array([np.abs(normVMax),np.abs(normVMin)]))
         self.difLicks=(np.array(self.stimLicks0/normVal)-np.array(self.stimLicks1/normVal))
 
-        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5, 21), 0, 0.1)
+        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5, self.biasRange+1), 0, 0.1)
         smtLB=pdPlot.smoothData(self,tKern,self.difLicks)
         smtLB=smtLB/normVal
         self.smoothedLickBias=smtLB
@@ -621,22 +627,41 @@ class pdPlot:
         self.sessionFig.canvas.flush_events()
 
 class pdAnalysis:
-
+    # todo: I think I should just enforce a pattern where all vartiables are treated as text variables. 
+    # todo: point is I can safely assume here that the probs aren't updated anywhere else, but not necessarily true for all?
+    # todo: this number formating is janktastic
     def shapingUpdateLeftRightProb(self):
-        print(type(self.shapeC1_LPortProb))
-        self.biasCut=0.1
-        self.lBiasDelta=0.1
-        self.rBiasDelta=0.1
-        meanBias=np.mean(np.array(self.smoothedLickBias[-self.biasRange:]))
-        if self.biasP<self.biasCut and meanBias>0 and self.shapeC1_LPortProb>=self.lBiasDelta:  # leftward bias
-            self.shapeC1_LPortProb=self.shapeC1_LPortProb-self.lBiasDelta
-            self.shapeC2_LPortProb=self.shapeC2_LPortProb-self.lBiasDelta
-            print('left bias detected; updated probs: {},{}'.format(self.shapeC1_LPortProb,self.shapeC2_LPortProb))
-        elif self.biasP<self.biasCut and meanBias>0 and self.shapeC1_LPortProb>=self.rBiasDelta:  # rightward bias
-            self.shapeC1_LPortProb=self.shapeC1_LPortProb+rBiasDelta
-            self.shapeC2_LPortProb=self.shapeC2_LPortProb+rBiasDelta
-            print('right bias detected; updated probs: {},{}'.format(self.shapeC1_LPortProb,self.shapeC2_LPortProb))
         
+        print(self.shapeC1_LPortProb_tv)
+        print(self.shapeC2_LPortProb_tv)
+        print(type(self.shapeC1_LPortProb))
+        print(type(self.shapeC2_LPortProb))
+        print(type(self.lBiasDelta))
+        print(type(self.rBiasDelta))
+
+        meanBias=np.mean(np.array(self.smoothedLickBias[-self.biasRange:]))
+        print('debug: mean bias={}'.format(meanBias))
+
+        if self.biasP<self.biasPCut and meanBias>self.biasMuCut and (self.shapeC1_LPortProb>=self.lBiasDelta):  # leftward bias
+            self.shapeC1_LPortProb=float("%.3g" % (self.shapeC1_LPortProb-self.lBiasDelta))
+            self.shapeC2_LPortProb=self.shapeC1_LPortProb
+            print('left bias detected; updated probs: {},{}'.format(self.shapeC1_LPortProb,self.shapeC2_LPortProb))
+
+        elif self.biasP<self.biasPCut and meanBias<-self.biasMuCut and (self.shapeC1_LPortProb<=(1-self.rBiasDelta)):  # rightward bias
+            self.shapeC1_LPortProb=float("%.3g" % (self.shapeC1_LPortProb+self.rBiasDelta))
+            self.shapeC2_LPortProb=self.shapeC1_LPortProb
+            print('right bias detected; updated probs: {},{}'.format(self.shapeC1_LPortProb,self.shapeC2_LPortProb))
+
+        if self.shapeC1_LPortProb > 1.0: #todo: this is stupid; I should add the condition above, but ...
+            self.shapeC1_LPortProb=1.0
+            self.shapeC2_LPortProb=self.shapeC1_LPortProb
+
+        if self.shapeC1_LPortProb <0.0: #todo: this is stupid; I should add the condition above, but ...
+            self.shapeC1_LPortProb=0.0
+            self.shapeC2_LPortProb=self.shapeC1_LPortProb
+
+        self.shapeC1_LPortProb_tv.set("%.3g" % self.shapeC1_LPortProb) # make sure gui understands
+        self.shapeC2_LPortProb_tv.set("%.3g" % self.shapeC2_LPortProb) # make sure gui understands
         
 
     def getQunat(self,pyList,quantileCut):
@@ -934,14 +959,17 @@ class pdCallbacks:
 
     def shaping_stim1StateHead(self):
         self.minStim1Time=1 #todo: variable shape time
-        self.shapeC1_LPortProb=self.shapeC1_LPortProb
         diceRoll=random.random()
         if diceRoll<=self.shapeC1_LPortProb:
+            print('debug: roll={},{}'.format(self.shapeC1_LPortProb,diceRoll))
             self.leftReward=1
             self.shapingReport.append(10)
+            print('will reward left')
         elif diceRoll>self.shapeC1_LPortProb:
+            print('debug: roll={},{}'.format(self.shapeC1_LPortProb,diceRoll))
             self.leftReward=0
             self.shapingReport.append(11)
+            print('will reward right')
 
     def shaping_stim1StateCB(self):
         if self.mcStateTime[-1]>self.minStim1Time:
@@ -956,15 +984,18 @@ class pdCallbacks:
 
     def shaping_stim2StateHead(self):
         self.minStim2Time=1
-        self.shapeC2_LPortProb=0.5
 
         diceRoll=random.random()
         if diceRoll<=self.shapeC2_LPortProb:
+            print('debug: roll={},{}'.format(self.shapeC2_LPortProb,diceRoll))
             self.leftReward=1
             self.shapingReport.append(20)
+            print('will reward left')
         elif diceRoll>self.shapeC2_LPortProb:
+            print('debug: roll={},{}'.format(self.shapeC2_LPortProb,diceRoll))
             self.leftReward=0
             self.shapingReport.append(21)
+            print('will reward right')
 
     def shaping_stim2StateCB(self):
         if self.mcStateTime[-1]>self.minStim2Time:
@@ -1397,11 +1428,8 @@ class pdTask:
         self.sessionStartTime=time.time()
         self.currentTrial=1
         trialCounter=1
-        while self.currentTrial <=int(self.totalTrials.get()) \
-        and self.shouldRun==1:
+        while self.currentTrial <=int(self.totalTrials.get()) and self.shouldRun==1:
             pdTask.trial(self)
-            if self.currentTrial % self.biasRange==0:
-                pdAnalysis.shapingUpdateLeftRightProb(self)
         pdData.data_saveSessionData(self)
 
         self.currentSessionTV.set(int(self.currentSessionTV.get())+1)
@@ -1522,6 +1550,11 @@ class pdTask:
                 # self.updatePerfPlot() # if self.pf_frame.winfo_exists():
                 # deal with trial data
 
+                if self.currentTrial % self.biasRange==0:
+                    pdAnalysis.shapingUpdateLeftRightProb(self)
+
+                self.trialLeft1Prob.append(self.shapeC1_LPortProb)
+                self.trialLeft2Prob.append(self.shapeC2_LPortProb)
                 self.trialSampRate.append(np.mean(np.diff(np.array(self.mcTrialTime))))
                 print('debug: mean dt={}'.format(self.trialSampRate[-1]))
 
