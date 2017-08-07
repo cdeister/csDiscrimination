@@ -69,7 +69,6 @@ void loop() {
       matrix.fillScreen(matrix.Color(0, 255, 0));
       matrix.show();
       tLatch = 1;
-      Serial.println(tLatch);
     }
   }
   else if (cueState == 3) {
@@ -121,18 +120,11 @@ void nonBlockBlink(int pDur, int dDur,const uint16_t pCol) {
       matrix.show();
       pulseTimer = millis() - pulseOffset;
       blinkHeaderToggle = 1;
-      Serial.print('a');
-      Serial.print(',');
-      Serial.println(pulseTimer);
     }
     else if (blinkHeaderToggle == 1 && pulseTimer <= pDur) {
       pulseTimer = millis() - pulseOffset;
-      Serial.print('b');
-      Serial.print(',');
-      Serial.println(pulseTimer);
     }
     else if (blinkHeaderToggle == 1 && pulseTimer > pDur){
-      Serial.println('c');
       blinkHeaderToggle = 0;
       inPulse = 0;
     }
@@ -145,18 +137,11 @@ void nonBlockBlink(int pDur, int dDur,const uint16_t pCol) {
       matrix.show();
       pulseTimer = millis() - pulseOffset;
       blinkHeaderToggle = 1;
-      Serial.print('aa');
-      Serial.print(',');
-      Serial.println(pulseTimer);
     }
     else if (blinkHeaderToggle == 1 && pulseTimer <= dDur) {
       pulseTimer = millis() - pulseOffset;
-      Serial.print('bb');
-      Serial.print(',');
-      Serial.println(pulseTimer);
     }
     else if (blinkHeaderToggle == 1 && pulseTimer > dDur){
-      Serial.println('c');
       blinkHeaderToggle = 0;
       inPulse = 1;
     }
@@ -195,7 +180,6 @@ void flagReceive(char startChars, char endChars) {
 void showSetNewData() {
   if (newData == true) {
     cueState = int(String(receivedChars).toInt());
-    //    Serial.println(cueState);
     newData = false;
   }
 }
@@ -203,22 +187,8 @@ void showSetNewData() {
 void checkStateChange() {
   stateDelta = abs(cueState - lastCueState);
   if (stateDelta != 0) {
-    Serial.print("lastState=");
-    Serial.print(lastCueState);
-    Serial.print(',');
-    Serial.print("curState=");
-    Serial.print(cueState);
-    Serial.print(',');
-    Serial.print("latchState=");
-    Serial.print(tLatch);
     tLatch = 0;
-    Serial.print(',');
-    Serial.print("latchState=");
-    Serial.print(tLatch);
     lastCueState = cueState;
-    Serial.print(',');
-    Serial.print("newLastState=");
-    Serial.println(lastCueState);
   }
 }
 
