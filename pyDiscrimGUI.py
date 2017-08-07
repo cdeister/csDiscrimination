@@ -124,7 +124,7 @@ class pdVariables:
         'biasRange','shapeC1_LPortProb','shapeC2_LPortProb','biasPCut','biasMuCut',\
         'lBiasDelta','rBiasDelta']
 
-        self.stateVarValues=[10,100,-100,2,0.2,0.2,0.2,0.2,10,0.5,0.5,0.1,0.05,0.10,0.10]
+        self.stateVarValues=[10,100,100,2,1,1,1.5,1.5,10,0.5,0.5,0.1,0.05,0.10,0.10]
         pdUtil.mapAssign(self,self.stateVarLabels,self.stateVarValues)
 
     def setTaskProbs(self):
