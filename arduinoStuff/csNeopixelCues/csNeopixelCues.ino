@@ -52,7 +52,7 @@ void setup() {
   Serial.begin(9600);
   Serial1.begin(9600);
   matrix.begin();
-  matrix.setBrightness(2);
+  matrix.setBrightness(5);
   matrix.fillScreen(matrix.Color(0, 0, 255));
   matrix.show();
   delay(500); //debug
