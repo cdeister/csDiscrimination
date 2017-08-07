@@ -95,51 +95,51 @@ void loop() {
   if (curState == 0) {
     msOffset=micros(); // sets the total trial time
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 
   else if (curState == 2) { // init state make a green light by sending cueState = 2
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 
   else if (curState == 3) { // cue state make a blue light blink sending cueState = 3
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 
   else if (curState == 4) { // cue state make a blue light blink sending cueState = 4
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 
   if (curState == 5) { // tone state; play a tone
     genericHeader(curState,1,tonePin, toneLow);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 
   else if (curState == 6) { // tone state; play a tone
     genericHeader(curState,1,tonePin, toneHigh);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 
-  else if (curState == 21) {
+  else if (curState == 10) {
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(1,60,waterLPin);
   }
 
   else if (curState == 22) {
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(1,60,waterRPin);
   }
 
   else if (curState == 24) { // punish and signal with a violet light blink
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
   else {
     genericHeader(curState,0,tonePin,0);
-    genericBody();
+    genericBody(0,0,waterLPin);
   }
 }
 
@@ -170,7 +170,7 @@ void genericHeader(int cueOut, bool useTone, int fPin, int fFreq) {
   noTone(tonePin);
   digitalWrite(waterLPin, LOW);
   digitalWrite(waterRPin, LOW);
-  pulseOffset = micros();
+  pulseOffset = millis();
   delayOffset = micros();
   s1Offset = micros();
   
@@ -184,11 +184,14 @@ void genericHeader(int cueOut, bool useTone, int fPin, int fFreq) {
   headerFired = 1;
 }
 
-void genericBody() {
+void genericBody(int reward, unsigned long rewardTime, int rPin) {
   while (headerFired == 1 and headerState == curState){
     trialTimeMicro = micros() - msOffset;
     stateTimeMicro = micros() - s1Offset;
     pollLickSensors();
+    if (reward){
+      nonBlockPulse(rewardTime,rPin);
+    }
     flagReceive('o', '>');
     showSetNewData();
     spitData();
@@ -243,5 +246,16 @@ void showSetNewData() {
     lastOrient = readOrient;
     newData = false;
   }
+}
+
+void nonBlockPulse(unsigned long pulseDur, int targPin){
+  pulseTime=millis()-pulseOffset;
+  if (pulseTime<=pulseDur){
+    digitalWrite(targPin,HIGH);
+  }
+  else{
+    digitalWrite(targPin,LOW);
+  }
+  
 }
 
