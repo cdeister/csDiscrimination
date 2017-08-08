@@ -1,7 +1,10 @@
 # pyDiscrim:
 # A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 3.98 -- Auto Debiasing
+# Version 3.99 -- Significant Trial Plot Improvements
+# > Can now resize all trial plots on the fly.
+# > Refactoring of line & axes code.
+# > Repositioned some stuff
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -399,93 +402,209 @@ class pdData:
 class pdPlot:
 
     def taskPlotWindow(self):
-        self.trialFramePosition='+375+0' # can be specified elsewhere
+        self.trialFramePosition='+370+0' # can be specified elsewhere
+        self.updateTrialAxes=0
         self.statePlotMin=0
         self.statePlotMax=25
-        self.distPlotMinVal=-500
-        self.distPlotMaxVal=2000
-        self.lickAMin=0
-        self.lickAMax=1100
-        self.lickBMin=0
-        self.lickBMax=1100
-        self.fig1 = plt.figure(100,figsize=(6,4.5), dpi=100)
-        self.fig1.suptitle('state 0', fontsize=10)
-        subIds=[221,222,223,224]
-        lineColors=['#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78']
-
-        for x in range(0,4):
-            exec('self.initX{}=np.arange(2000)'.format(x))
-            exec('self.initY{}=np.random.randint(20, size=2000)*\
-                np.random.randn(2000)'.format(x))
-            exec('self.ax{}=plt.subplot({})'.format(x,subIds[x]))
-            exec('self.line{},=self.ax{}.plot(self.initY{},color="{}")'.\
-                format(x,x,x,lineColors[x]))
-
-        self.ax0.set_ylim([self.statePlotMin,self.statePlotMax])
-        self.ax1.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
-        self.ax2.set_ylim([self.lickAMin,self.lickAMax])
-        self.ax3.set_ylim([self.lickBMin,self.lickBMax])
-
-        self.ax0.set_ylabel('current state')
-        self.ax1.set_ylabel('animal position')
-        self.ax2.set_ylabel('lick sensor values')
         
+        self.distPlotMinVal=-400
+        self.distPlotMaxVal=1200
+
+        self.lickAMin=0
+        self.lickAMax=1300
+
+        self.trialFig = plt.figure(100,figsize=(6.5,5.7), dpi=100)
+        self.trialFig.suptitle('state 0', fontsize=10)
+
+        self.initX=np.arange(2000)
+        self.initY=np.random.randint(5, size=2000)
+
+        self.stateAxes=plt.subplot(221)
+        self.stateAxes.set_ylabel('current state')
+        self.stateAxes.set_ylim([self.statePlotMin,self.statePlotMax])
+        self.stateAxes.set_xticks([])
+        self.stateLine,=self.stateAxes.plot(self.initY,color="darkgreen")
+
+        self.positionAxes=plt.subplot(222)
+        self.positionAxes.set_ylabel('animal position')
+        self.positionAxes.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
+        self.positionAxes.set_xticks([])
+        self.positionLine,=self.positionAxes.plot(self.initY,color="orchid",lw=2)
+        self.positionThreshLine,=self.positionAxes.plot([0,2000],[100,100],color="black",lw=0.5)
+
+        self.leftLickAxes=plt.subplot(223)
+        self.leftLickAxes.set_ylabel('lick sensor values')
+        self.leftLickAxes.set_title('left lick sensor')
+        self.leftLickAxes.set_ylim([self.lickAMin,self.lickAMax])
+        self.lickLeftValLine,=self.leftLickAxes.plot(self.initY,color="red")
+        self.lickLeftThreshLine,=self.leftLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
+
+        self.rightLickAxes=plt.subplot(224)
+        self.rightLickAxes.set_yticks([])
+        self.rightLickAxes.set_ylim([self.lickAMin,self.lickAMax])
+        self.rightLickAxes.set_title('right lick sensor')
+        self.lickRightValLine,=self.rightLickAxes.plot(self.initY,color="cornflowerblue")
+        self.lickRightThreshLine,=self.rightLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
+
         mng = plt.get_current_fig_manager()
         eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
-
         plt.show(block=False)
+        # we need to draw once before we set artists, so they can cache at init
 
-        for x in range(0,4):
-            exec('self.ax{}.draw_artist(self.line{})'.format(x,x))
-            exec('self.ax{}.draw_artist(self.ax{}.patch)'.format(x,x))
-        self.fig1.canvas.flush_events()
-        self.lastSplit=2000
+        self.stateAxes.draw_artist(self.stateLine)
+        self.stateAxes.draw_artist(self.stateAxes.patch)
+
+        self.positionAxes.draw_artist(self.positionLine)
+        self.positionAxes.draw_artist(self.positionThreshLine)
+        self.positionAxes.draw_artist(self.positionAxes.patch)
+
+        self.leftLickAxes.draw_artist(self.lickLeftValLine)
+        self.leftLickAxes.draw_artist(self.lickLeftThreshLine)
+        self.leftLickAxes.draw_artist(self.leftLickAxes.patch)
+
+        self.rightLickAxes.draw_artist(self.lickRightValLine)
+        self.rightLickAxes.draw_artist(self.lickRightThreshLine)
+        self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
+
+        self.trialFig.canvas.flush_events()
+        self.lastSplit=2000 #todo: why do i use this?
 
     def updateTaskPlot(self):
         splt=int(self.sampsToPlot.get())
         if splt != self.lastSplit:
-            self.ax0.set_xlim([0,splt])
-            self.ax1.set_xlim([0,splt])
-            self.ax2.set_xlim([0,splt])
-            self.ax3.set_xlim([0,splt])
+            self.stateAxes.set_xlim([0,splt])
+            self.positionAxes.set_xlim([0,splt])
+            self.leftLickAxes.set_xlim([0,splt])
+            self.rightLickAxes.set_xlim([0,splt])
 
         self.lastSplit=splt
-        x0=self.mcTrialTime[-int(splt):]
-        y0=np.array(self.arStates[-int(splt):])
-        y1=np.array(self.absolutePosition[-int(splt):])
-        y2=self.lickValsA[-int(splt):]
-        y3=self.lickValsB[-int(splt):]
-        x0=np.arange(len(y0))
-        sampCount=len(y0)
+
+        if self.updateTrialAxes==1:
+            print('debug: a')
+            self.stateAxes.set_ylim([self.statePlotMin,self.statePlotMax])
+            print('debug: b')
+            self.positionAxes.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
+            print('debug: c')
+            self.leftLickAxes.set_ylim([self.lickAMin,self.lickAMax])
+            print('debug: d')
+            self.rightLickAxes.set_ylim([self.lickAMin,self.lickAMax])
+            print('debug: e')
+            self.updateTrialAxes=0
+
+        tLeftLickThr=int(self.lickThresholdStrValA.get())
+        tRightLickThr=int(self.lickThresholdStrValB.get())
+
+        stPltData=np.array(self.arStates[-int(splt):])
+        posPltData=np.array(self.absolutePosition[-int(splt):])
+        posThreshPltData=[self.distThr,self.distThr]
+        lickLeftPltData=self.lickValsA[-int(splt):]
+        lickLeftThreshData=[tLeftLickThr,tLeftLickThr]
+        
+        lickRightPltData=self.lickValsB[-int(splt):]
+        lickRightThreshData=[tRightLickThr,tRightLickThr]
+        x0=np.arange(len(stPltData))
+        x1=[0,splt]
+        
         np.random.seed()
-        for x in range(0,4):
-            exec('self.line{}.set_xdata(x0)'.format(x))
-            exec('self.line{}.set_ydata(y{})'.format(x,x))
-            exec('self.ax{}.draw_artist(self.ax{}.patch)'.format(x,x))
-            exec('self.ax{}.draw_artist(self.line{})'.format(x,x))
-        self.fig1.canvas.draw_idle()
-        self.fig1.canvas.flush_events()
+
+        # update the line data
+        self.stateLine.set_xdata(x0)
+        self.stateLine.set_ydata(stPltData)
+
+        self.positionLine.set_xdata(x0)
+        self.positionLine.set_ydata(posPltData)
+        self.positionThreshLine.set_xdata(x1)
+        self.positionThreshLine.set_ydata(posThreshPltData)
+
+        self.lickLeftValLine.set_xdata(x0)
+        self.lickLeftValLine.set_ydata(lickLeftPltData)
+        self.lickLeftThreshLine.set_xdata(x1)
+        self.lickLeftThreshLine.set_ydata(lickLeftThreshData)
+
+        self.lickRightValLine.set_xdata(x0)
+        self.lickRightValLine.set_ydata(lickRightPltData)
+        self.lickRightThreshLine.set_xdata(x1)
+        self.lickRightThreshLine.set_ydata(lickRightThreshData)
+
+        # make new line visual data
+        self.stateAxes.draw_artist(self.stateLine)
+        self.stateAxes.draw_artist(self.stateAxes.patch)
+
+        self.positionAxes.draw_artist(self.positionLine)
+        self.positionAxes.draw_artist(self.positionThreshLine)
+        self.positionAxes.draw_artist(self.positionAxes.patch)
+
+        self.leftLickAxes.draw_artist(self.lickLeftValLine)
+        self.leftLickAxes.draw_artist(self.lickLeftThreshLine)
+        self.leftLickAxes.draw_artist(self.leftLickAxes.patch)
+
+        self.rightLickAxes.draw_artist(self.lickRightValLine)
+        self.rightLickAxes.draw_artist(self.lickRightThreshLine)
+        self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
+
+        # redraw and update
+        self.trialFig.canvas.draw_idle()
+        self.trialFig.canvas.flush_events()
 
     def resizeTaskPlot(self):
-        self.resizeControlPosition='+620+575'
+
+        self.resizeControlPosition='+610+660'
         resizeTrialPlotsFrame = Toplevel()
-        # mng = plt.get_current_fig_manager()
-        eval('resizeTrialPlotsFrame.wm_geometry("{}")'.\
-            format(self.resizeControlPosition))
-        resizeTrialPlotsFrame.title('resize task plots')
+        eval('resizeTrialPlotsFrame.wm_geometry("{}")'.format(self.resizeControlPosition))
+
+        resizeTrialPlotsFrame.title('Resize Trial Plots')
         self.resizeTrialPlotsFrame=resizeTrialPlotsFrame
+        
+        self.minLabel = Label(resizeTrialPlotsFrame, text="Min:",width=6).grid(row=0,column=1)
+        self.maxLabel = Label(resizeTrialPlotsFrame, text="Max:",width=6).grid(row=0,column=2)
 
-        self.distPlotMax=StringVar(resizeTrialPlotsFrame)
+        stateRow=1
+        self.stAxesLabel = Label(resizeTrialPlotsFrame, text="State:",width=6).grid(row=stateRow,column=0)
+        self.stPlotMinTV=StringVar(resizeTrialPlotsFrame)
+        self.stPlotMinTV.set(self.statePlotMin)
+        self.stMinE=Entry(master=resizeTrialPlotsFrame,textvariable=self.stPlotMinTV,width=6)
+        self.stMinE.grid(row=stateRow, column=1)
+        self.stPlotMaxTV=StringVar(resizeTrialPlotsFrame)
+        self.stPlotMaxTV.set(self.statePlotMax)
+        self.stmxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.stPlotMaxTV,width=6)
+        self.stmxE.grid(row=stateRow, column=2)
 
-        self.tbutton = Button(master=resizeTrialPlotsFrame, \
-            text='Quit', command=print('q'))
-        self.tbutton.configure(width=10)
-        self.tbutton.grid(row=0, column=0)
+        posRow=2
+        self.dAxesLabel = Label(resizeTrialPlotsFrame, text="Position:",width=6).grid(row=posRow,column=0)
+        self.distPlotMinTV=StringVar(resizeTrialPlotsFrame)
+        self.distPlotMinTV.set(self.distPlotMinVal)
+        self.dmnE=Entry(master=resizeTrialPlotsFrame,textvariable=self.distPlotMinTV,width=6)
+        self.dmnE.grid(row=posRow, column=1)
+        self.distPlotMaxTV=StringVar(resizeTrialPlotsFrame)
+        self.distPlotMaxTV.set(self.distPlotMaxVal)
+        self.dmxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.distPlotMaxTV,width=6)
+        self.dmxE.grid(row=posRow, column=2)
 
-        self.cpE=Entry(master=resizeTrialPlotsFrame,\
-            textvariable=self.distPlotMax)
-        self.cpE.grid(row=0, column=1)
-        self.distPlotMax.set(self.distPlotMaxVal)
+        lickRow=3
+        self.lAxesLabel = Label(resizeTrialPlotsFrame, text="Lick:",width=6).grid(row=lickRow,column=0)
+        self.lickPlotMinTV=StringVar(resizeTrialPlotsFrame)
+        self.lickPlotMinTV.set(self.lickAMin)
+        self.lkMinE=Entry(master=resizeTrialPlotsFrame,textvariable=self.lickPlotMinTV,width=6)
+        self.lkMinE.grid(row=lickRow, column=1)
+        self.lickPlotMaxTV=StringVar(resizeTrialPlotsFrame)
+        self.lickPlotMaxTV.set(self.lickAMax)
+        self.lkMaxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.lickPlotMaxTV,width=6)
+        self.lkMaxE.grid(row=lickRow, column=2)
+
+        self.setAxesBtn = Button(master=resizeTrialPlotsFrame, text='Set', command=lambda:pdPlot.setAxesBtnCB(self))
+        self.setAxesBtn.configure(width=6)
+        self.setAxesBtn.grid(row=4, column=2)
+
+    def setAxesBtnCB(self):
+
+        self.statePlotMin=int(self.stPlotMinTV.get())
+        self.statePlotMax=int(self.stPlotMaxTV.get())
+        self.distPlotMinVal=int(self.distPlotMinTV.get())
+        self.distPlotMaxVal=int(self.distPlotMaxTV.get())
+        self.lickAMin=int(self.lickPlotMinTV.get())
+        self.lickAMax=int(self.lickPlotMaxTV.get())
+
+        self.updateTrialAxes=1
 
     def gaussian(self,xSpan, mu, sig):
 
@@ -571,7 +690,6 @@ class pdPlot:
 
         tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5, self.biasRange+1), 0, 0.1)
         smtLB=pdPlot.smoothData(self,tKern,self.difLicks)
-        smtLB=smtLB/normVal
         self.smoothedLickBias=smtLB
         self.biasP=stats.ttest_1samp(self.smoothedLickBias[-self.biasRange:],0).pvalue
         print("%.4g" % self.biasP)
@@ -594,7 +712,7 @@ class pdPlot:
         self.sessionFig.canvas.flush_events()
         
 
-        numBins=5
+        numBins=10
         plt.sca(self.leftCountAxis)
         plt.cla()
         plt.sca(self.rightCountAxis)
@@ -613,10 +731,10 @@ class pdPlot:
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
         self.rightCountAxis.set_yticks([])
-        self.leftCountAxis.axis([0, 20, 0, 1])
-        self.rightCountAxis.axis([0, 20, 0, 1])
+        self.leftCountAxis.axis([0, 20, 0, 0.3])
+        self.rightCountAxis.axis([0, 20, 0, 0.3])
         self.rightCountAxis.set_xlabel('lick counts')
-        numBins=20
+        numBins=10
         self.sampDiffAxis=plt.subplot2grid((self.figSc),(self.sdAxSc), \
             colspan=self.sdAxCR[0],rowspan=self.sdAxCR[1])
         p,binsp,patchesp=self.sampDiffAxis.hist(np.array(self.trialSampRate)*100,numBins,\
@@ -631,16 +749,9 @@ class pdAnalysis:
     # todo: point is I can safely assume here that the probs aren't updated anywhere else, but not necessarily true for all?
     # todo: this number formating is janktastic
     def shapingUpdateLeftRightProb(self):
-        
-        print(self.shapeC1_LPortProb_tv)
-        print(self.shapeC2_LPortProb_tv)
-        print(type(self.shapeC1_LPortProb))
-        print(type(self.shapeC2_LPortProb))
-        print(type(self.lBiasDelta))
-        print(type(self.rBiasDelta))
 
         meanBias=np.mean(np.array(self.smoothedLickBias[-self.biasRange:]))
-        print('debug: mean bias={}'.format(meanBias))
+        print('mean bias={}'.format(meanBias)) # debug
 
         if self.biasP<self.biasPCut and meanBias>self.biasMuCut and (self.shapeC1_LPortProb>=self.lBiasDelta):  # leftward bias
             self.shapeC1_LPortProb=float("%.3g" % (self.shapeC1_LPortProb-self.lBiasDelta))
@@ -785,7 +896,6 @@ class pdState:
 
     def stateHeader(self,upSt):
         self.upSt=upSt
-        # self.tp_frame.title('Task Feedback: S={}'.format(self.currentState))
         ranHeader=0 # set the latch, the header runs once per entry.
         while ranHeader==0:
             self.cycleCount=1
@@ -795,8 +905,7 @@ class pdState:
             self.entryTime=self.mcTrialTime[-1] # log state entry time
             self.stillTimeStart=0
             self.stillLatch=0
-            self.fig1.suptitle('trial # {}; state # {}'.format(self.currentTrial,\
-                self.currentState), fontsize=10)
+            self.trialFig.suptitle('trial # {}; state # {}'.format(self.currentTrial,self.currentState), fontsize=10)
             ranHeader=1 # fire the latch
         
     def coreState(self):
@@ -1644,7 +1753,7 @@ class pyDiscrim:
             self.sessionDF=self.sessionDF.append(ds,ignore_index=True)
 
     def debugWindow(self):
-        self.debugTogglePosition="+375+570"
+        self.debugTogglePosition="+370+660"
         dbgFrame = Toplevel()
         eval('dbgFrame.wm_geometry("{}")'.format(self.debugTogglePosition))
         dbgFrame.title('Debug Toggles')
