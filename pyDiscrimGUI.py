@@ -438,32 +438,70 @@ class pdPlot:
         self.initX=np.arange(2000)
         self.initY=np.random.randint(5, size=2000)
 
-        self.stateAxes=plt.subplot(221)
+
+        self.stateAxes=plt.subplot2grid((3,3), (1,0), colspan=1,rowspan=1)
         self.stateAxes.set_ylabel('current state')
         self.stateAxes.set_ylim([self.statePlotMin,self.statePlotMax])
         self.stateAxes.set_xticks([])
         self.stateLine,=self.stateAxes.plot(self.initY,color="darkgreen")
 
-        self.positionAxes=plt.subplot(222)
+        self.positionAxes=plt.subplot2grid((3,3), (2,0), colspan=1,rowspan=1)
         self.positionAxes.set_ylabel('animal position')
         self.positionAxes.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
         self.positionAxes.set_xticks([])
         self.positionLine,=self.positionAxes.plot(self.initY,color="orchid",lw=2)
         self.positionThreshLine,=self.positionAxes.plot([0,2000],[100,100],color="black",lw=0.5)
 
-        self.leftLickAxes=plt.subplot(223)
-        self.leftLickAxes.set_ylabel('lick sensor values')
-        self.leftLickAxes.set_title('left lick sensor')
+        self.leftLickAxes=plt.subplot2grid((3,3), (0,1), colspan=1,rowspan=1)
+        self.leftLickAxes.set_ylabel('sensor values')
+        self.leftLickAxes.set_title('left')
         self.leftLickAxes.set_ylim([self.lickAMin,self.lickAMax])
         self.lickLeftValLine,=self.leftLickAxes.plot(self.initY,color="red")
         self.lickLeftThreshLine,=self.leftLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
 
-        self.rightLickAxes=plt.subplot(224)
+        self.rightLickAxes=plt.subplot2grid((3,3), (0,2), colspan=1,rowspan=1)
         self.rightLickAxes.set_yticks([])
         self.rightLickAxes.set_ylim([self.lickAMin,self.lickAMax])
-        self.rightLickAxes.set_title('right lick sensor')
+        self.rightLickAxes.set_title('right')
         self.lickRightValLine,=self.rightLickAxes.plot(self.initY,color="cornflowerblue")
         self.lickRightThreshLine,=self.rightLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
+
+        # start port
+        self.pLineOpt={}
+        self.pLineOpt['reward']=dict(marker='o',markersize=25, markeredgewidth=1.5, markerfacecolor="cornflowerblue",markeredgecolor="black",alpha=0.9)
+        self.pLineOpt['punish']=dict(marker='o',markersize=25, markeredgewidth=1.5, markerfacecolor="red", markeredgecolor="black",alpha=0.9)
+        self.pLineOpt['neutral']=dict(marker='o',markersize=25, markeredgewidth=1.5,markerfacecolor="white", markeredgecolor="black",alpha=0.9)
+        self.pLineOpt['licked']=dict(marker='o',markersize=25, markeredgewidth=1.5,markerfacecolor="grey", markeredgecolor="black",alpha=0.9)
+
+        self.lPX=0.3
+        self.rPX=0.7
+        self.prsY=0.7
+        self.rptY=0.3
+        self.labDelt=0.11
+        self.lineDelt=0.1
+        self.portAxes = plt.subplot2grid((3,3), (1, 1), colspan=2,rowspan=2)
+        self.leftPresLine,=self.portAxes.plot(self.lPX,self.prsY,**self.pLineOpt['reward'])
+        self.rightPresLine,=self.portAxes.plot(self.rPX,self.prsY,**self.pLineOpt['punish'])
+        self.portAxes.plot([self.lPX+self.lineDelt,self.rPX-self.lineDelt],[self.prsY,self.prsY],'k:')
+        self.portAxes.text(0.5,self.prsY+self.labDelt,'presented',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.lPX,self.prsY,'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.rPX,self.prsY,'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortPresText=self.portAxes.text(self.lPX,self.prsY-0.1,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortPresText=self.portAxes.text(self.rPX,self.prsY-0.1,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+
+        self.leftReportLine,=self.portAxes.plot(self.lPX,self.rptY,**self.pLineOpt['neutral'])
+        self.rightReportLine,=self.portAxes.plot(self.rPX,self.rptY,**self.pLineOpt['neutral'])
+        self.portAxes.plot([self.lPX+0.1,self.rPX-0.1],[self.rptY,self.rptY],'k:')
+        self.portAxes.text(0.5,self.rptY+self.labDelt,'reported',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.lPX,self.rptY,'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.rPX,self.rptY,'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortReportText=self.portAxes.text(self.lPX,self.rptY-0.1,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortReportText=self.portAxes.text(self.rPX,self.rptY-0.1,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+
+
+        self.portAxes.set_ylim([0,1])
+        self.portAxes.set_xlim([0,1])
+        self.portAxes.set_axis_off()
 
         mng = plt.get_current_fig_manager()
         eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
@@ -485,6 +523,15 @@ class pdPlot:
         self.rightLickAxes.draw_artist(self.lickRightThreshLine)
         self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
 
+        self.portAxes.draw_artist(self.leftPresLine)
+        self.portAxes.draw_artist(self.rightPresLine)
+        self.portAxes.draw_artist(self.leftPresLine)
+        self.portAxes.draw_artist(self.rightPresLine)
+        self.portAxes.draw_artist(self.leftReportLine)
+        self.portAxes.draw_artist(self.rightReportLine)
+        self.portAxes.draw_artist(self.portAxes.patch)
+
+
         self.trialFig.canvas.flush_events()
         self.lastSplit=2000 #todo: why do i use this?
 
@@ -505,6 +552,7 @@ class pdPlot:
             self.rightLickAxes.set_ylim([self.lickAMin,self.lickAMax])
             self.updateTrialAxes=0
 
+
         tLeftLickThr=int(self.lickThresholdStrValA.get())
         tRightLickThr=int(self.lickThresholdStrValB.get())
 
@@ -518,6 +566,28 @@ class pdPlot:
         lickRightThreshData=[tRightLickThr,tRightLickThr]
         x0=np.arange(len(stPltData))
         x1=[0,splt]
+
+        if self.stateLickCount0[-1]>0:
+            self.leftReportLine.set_markerfacecolor("gray")
+        elif self.stateLickCount0[-1]==0:
+            self.leftReportLine.set_markerfacecolor("white")
+        
+        if self.stateLickCount1[-1]>0:
+            self.rightReportLine.set_markerfacecolor("gray")
+        elif self.stateLickCount1[-1]==0:
+            self.rightReportLine.set_markerfacecolor("white")
+
+        if len(self.shapingReport)>1:
+            if (self.shapingReport[-1]==10) or (self.shapingReport[-1]==20):
+                self.leftPresLine.set_markerfacecolor("cornflowerblue")
+            elif (self.shapingReport[-1]==11) or (self.shapingReport[-1]==21):
+                self.leftPresLine.set_markerfacecolor("white")
+            
+            
+            if (self.shapingReport[-1]==10) or (self.shapingReport[-1]==20):
+                self.rightPresLine.set_markerfacecolor("white")
+            elif (self.shapingReport[-1]==11) or (self.shapingReport[-1]==21):
+                self.rightPresLine.set_markerfacecolor("cornflowerblue")
         
         np.random.seed()
 
@@ -555,6 +625,13 @@ class pdPlot:
         self.rightLickAxes.draw_artist(self.lickRightValLine)
         self.rightLickAxes.draw_artist(self.lickRightThreshLine)
         self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
+
+        
+        self.portAxes.draw_artist(self.leftPresLine)
+        self.portAxes.draw_artist(self.rightPresLine)
+        self.portAxes.draw_artist(self.leftReportLine)
+        self.portAxes.draw_artist(self.rightReportLine)
+        self.portAxes.draw_artist(self.portAxes.patch)
 
         # redraw and update
         self.trialFig.canvas.draw_idle()
@@ -643,7 +720,8 @@ class pdPlot:
         
 
         self.biasAxis=plt.subplot2grid((8,8), (0, 0), colspan=5,rowspan=4)
-        self.biasLineNormCount,=self.biasAxis.plot([],[],marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=10,lw=0)
+        self.biasLineNormCount,=self.biasAxis.plot([],[],marker="o",markeredgecolor="black",\
+            markerfacecolor="cornflowerblue",markersize=10,lw=0)
         self.biasLineZero,=self.biasAxis.plot([0,int(self.totalTrials.get())],[0,0],'k:')
         self.biasLineSmoothedBias,=self.biasAxis.plot([],[],'k-')
         
@@ -705,7 +783,7 @@ class pdPlot:
         
     def updateSessionPlot(self):
         self.difLicks=(np.array(self.stimLicks0)-np.array(self.stimLicks1))
-        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5,self.stVarD['self.biasRange']+1), 0, 0.1)
+        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5,self.stVarD['self.biasRange']+1), 0, 0.05)
         smtLB=pdPlot.smoothData(self,tKern,self.difLicks)
         self.smoothedLickBias=smtLB
         self.biasP=stats.ttest_1samp(self.smoothedLickBias[-self.stVarD['self.biasRange']:],0).pvalue
@@ -746,9 +824,11 @@ class pdPlot:
         plt.cla()
 
         self.leftCountAxis=plt.subplot2grid((self.figSc),(self.lcAxSc), colspan=self.lcAxCR[0],rowspan=self.lcAxCR[0])
-        n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),numBins,normed=1,facecolor='red',alpha=1)
+        n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),numBins,normed=1,\
+            facecolor='red',alpha=1)
         self.rightCountAxis=plt.subplot2grid((self.figSc),(self.rcAxSc),colspan=self.rcAxCR[0],rowspan=self.rcAxCR[0])
-        o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),numBins,normed=1,facecolor='cornflowerblue',alpha=1)
+        o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),numBins,normed=1,\
+            facecolor='cornflowerblue',alpha=1)
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
         self.rightCountAxis.set_yticks([])
@@ -950,7 +1030,8 @@ class pdState:
             self.entryTime=self.mcTrialTime[-1] # log state entry time
             self.stillTimeStart=0
             self.stillLatch=0
-            self.trialFig.suptitle('trial # {}; state # {}'.format(self.sesVarD['self.currentTrial'],self.currentState, fontsize=10))
+            self.trialFig.suptitle('trial # {}; state # {}'.format(self.sesVarD['self.currentTrial'],\
+                self.currentState, fontsize=10))
             ranHeader=1 # fire the latch
         
     def coreState(self):
@@ -1065,7 +1146,6 @@ class pdCallbacks:
             exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
             print(self.rewardContingency[-1])
             
-
     def cue2StateCB(self):
         aT=self.stVarD['self.acelValThr']
         aS=self.stVarD['self.acelSamps']
@@ -1196,10 +1276,11 @@ class pdWindow:
         self.quitBtn = Button(self.master,text="Exit Program",command = lambda: pdWindow.mwQuitBtn(self), width=self.col2BW)
         self.quitBtn.grid(row=startRow+1, column=2)
 
-        self.startBtn = Button(self.master, text="Start Task",width=10, command=lambda: pdTask.runSession(self) ,state=DISABLED)
+        self.startBtn = Button(self.master, text="Start Task",width=10,command=lambda: pdTask.runSession(self) ,state=DISABLED)
         self.startBtn.grid(row=startRow+1, column=0,sticky=W,padx=10)
 
-        self.endBtn = Button(self.master, text="End Task",width=self.col2BW, command=lambda:pdState.switchState(self,self.stateD['self.endState']),state=DISABLED)
+        self.endBtn = Button(self.master, text="End Task",width=self.col2BW, \
+            command=lambda:pdState.switchState(self,self.stateD['self.endState']),state=DISABLED)
         self.endBtn.grid(row=startRow+2, column=0,sticky=W,padx=10)
 
         self.stateEditBtn = Button(self.master, text="State Editor",\
@@ -1311,7 +1392,8 @@ class pdWindow:
         self.stateVarsBtn.grid(row=startRow+6, column=2)
         self.stateVarsBtn.config(state=NORMAL)
 
-        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',width = self.col2BW,command = lambda: pdWindow.mwLoadMetaBtn(self))
+        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',width = self.col2BW,\
+            command = lambda: pdWindow.mwLoadMetaBtn(self))
         self.loadAnimalMetaBtn.grid(row=startRow+1, column=2)
         self.loadAnimalMetaBtn.config(state=NORMAL)
 
@@ -1884,44 +1966,54 @@ class pyDiscrim:
         self.stateStartColumn=sCl
         self.stateStartRow=sRw
 
-        self.sBtn_save = Button(st_frame, text="Save State", command=lambda: pdState.switchState(self,self.stateD['self.saveState']),width=btWdth)
+        self.sBtn_save = Button(st_frame, text="Save State", \
+            command=lambda: pdState.switchState(self,self.stateD['self.saveState']),width=btWdth)
         self.sBtn_save.grid(row=sRw+1, column=sCl)
         self.sBtn_save.config(state=NORMAL)
 
-        self.sBtn_endSession = Button(st_frame, text="End Session", command=lambda: pdState.switchState(self,self.stateD['self.endState']),width=btWdth)
+        self.sBtn_endSession = Button(st_frame, text="End Session", \
+            command=lambda: pdState.switchState(self,self.stateD['self.endState']),width=btWdth)
         self.sBtn_endSession.grid(row=sRw-2, column=sCl+1)
         self.sBtn_endSession.config(state=NORMAL)
 
-        self.sBtn_boot = Button(st_frame, text="S0: Boot", command=lambda: pdState.switchState(self,self.stateD['self.bootState']),width=btWdth)
+        self.sBtn_boot = Button(st_frame, text="S0: Boot", \
+            command=lambda: pdState.switchState(self,self.stateD['self.bootState']),width=btWdth)
         self.sBtn_boot.grid(row=sRw-1, column=sCl)
         self.sBtn_boot.config(state=NORMAL)
 
-        self.sBtn_wait = Button(st_frame, text="S1: Wait", command=lambda: pdState.switchState(self,self.stateD['self.waitState']),width=btWdth)
+        self.sBtn_wait = Button(st_frame, text="S1: Wait", \
+            command=lambda: pdState.switchState(self,self.stateD['self.waitState']),width=btWdth)
         self.sBtn_wait.grid(row=sRw, column=sCl)
         self.sBtn_wait.config(state=NORMAL)
 
-        self.sBtn_initiate = Button(st_frame, text="S2: Initiate", command=lambda: pdState.switchState(self,self.stateD['self.initiationState']),width=btWdth)
+        self.sBtn_initiate = Button(st_frame, text="S2: Initiate", \
+            command=lambda: pdState.switchState(self,self.stateD['self.initiationState']),width=btWdth)
         self.sBtn_initiate.grid(row=sRw, column=sCl+1)
         self.sBtn_initiate.config(state=NORMAL)
 
-        self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", command=lambda: pdState.switchState(self,self.stateD['self.cue1State']),width=btWdth)
+        self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", \
+            command=lambda: pdState.switchState(self,self.stateD['self.cue1State']),width=btWdth)
         self.sBtn_cue1.grid(row=sRw-1, column=sCl+2)
         self.sBtn_cue1.config(state=NORMAL)
 
-        self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", command=lambda: pdState.switchState(self,self.stateD['self.cue2State']),width=btWdth)
+        self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", \
+            command=lambda: pdState.switchState(self,self.stateD['self.cue2State']),width=btWdth)
         self.sBtn_cue2.grid(row=sRw+1, column=sCl+2)
         self.sBtn_cue2.config(state=NORMAL)
 
-        self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", command=lambda: pdState.switchState(self,self.stateD['self.stim1State']),width=btWdth)
+        self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", \
+            command=lambda: pdState.switchState(self,self.stateD['self.stim1State']),width=btWdth)
         self.sBtn_stim1.grid(row=sRw-2, column=sCl+3)
         self.sBtn_stim1.config(state=NORMAL)
 
-        self.sBtn_stim2 = Button(st_frame, text="SS1: Stim 2", command=lambda: pdState.switchState(self,self.stateD['self.stim2State']),width=btWdth)
+        self.sBtn_stim2 = Button(st_frame, text="SS1: Stim 2", \
+            command=lambda: pdState.switchState(self,self.stateD['self.stim2State']),width=btWdth)
         self.sBtn_stim2.grid(row=sRw+2, column=sCl+3)
         self.sBtn_stim2.config(state=NORMAL)
 
 
-        self.sBtn_catch = Button(st_frame, text="SC: Catch", command=lambda: pdState.switchState(self,self.stateD['self.catchState']),width=btWdth)
+        self.sBtn_catch = Button(st_frame, text="SC: Catch", \
+            command=lambda: pdState.switchState(self,self.stateD['self.catchState']),width=btWdth)
         self.sBtn_catch.grid(row=sRw, column=sCl+3)
         self.sBtn_catch.config(state=NORMAL)
 
@@ -1952,7 +2044,8 @@ class pyDiscrim:
         se_frame.title('Set States')
         self.se_frame=se_frame
         self.populateVarFrameFromDict(self.stateD,0,11,'state dictionary','se_frame')
-        self.setStatesBtn = Button(se_frame, text = 'Set State IDs', width = 10, command = lambda: pdUtil.refreshDictFromGui(self,self.stateD))
+        self.setStatesBtn = Button(se_frame, text = 'Set State IDs', width = 10, \
+            command = lambda: pdUtil.refreshDictFromGui(self,self.stateD))
         self.setStatesBtn.grid(row=len(self.stateNames)+2, column=1,sticky=E)
 
     def taskProbWindow(self):
@@ -1961,7 +2054,8 @@ class pyDiscrim:
         self.tb_frame=tb_frame
         self.populateVarFrameFromDict(self.task1D,0,0,'task 1','tb_frame')
         self.populateVarFrameFromDict(self.task2D,2,0,'task 2','tb_frame')
-        self.setTaskProbsBtn = Button(tb_frame,text='Set Probs.',width = 10,command = lambda: self.taskProbRefreshBtnCB())
+        self.setTaskProbsBtn = Button(tb_frame,text='Set Probs.',width = 10,\
+            command = lambda: self.taskProbRefreshBtnCB())
         self.setTaskProbsBtn.grid(row=len(self.t1ProbValues)+2, column=1,sticky=W)
 
     def taskProbRefreshBtnCB(self):
@@ -1973,7 +2067,8 @@ class pyDiscrim:
         frame_sv.title('State Vars')
         self.frame_sv=frame_sv
         self.populateVarFrameFromDict(self.stVarD,0,11,'state vars:','frame_sv')
-        self.setStateVars = Button(frame_sv,text = 'Set Variables.', width = 9, command = lambda: pdUtil.refreshDictFromGui(self,self.stVarD))
+        self.setStateVars = Button(frame_sv,text = 'Set Variables.', width = 9, \
+            command = lambda: pdUtil.refreshDictFromGui(self,self.stVarD))
         self.setStateVars.grid(row=len(self.stateVarValues)+2, column=1,sticky=W)  
 
     def stateNumsRefreshBtnCB(self):
