@@ -1,7 +1,7 @@
 # pyDiscrim:
 # A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 0.9 -- All variables are dict based. Version number reset.
+# Version 0.95 -- Import of last task probs and state vars.
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -107,7 +107,6 @@ class pdUtil:
             exec('self.{}.set(a[0])'.format(l1[x]))
 
     def refreshDictFromGui(self,dictName):
-        print(dictName)
         for key in list(dictName.keys()):
             a=eval('float({}_tv.get())'.format(key))
             if a.is_integer():
@@ -153,12 +152,16 @@ class pdUtil:
         self.lickThresholdStrValA.get(),self.lickThresholdStrValB.get(),\
         self.lickPlotMax.get(),self.currentSessionTV.get()]
         self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
-        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.\
-            format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        pdVariables.dictToPandas(self,self.stateD,'self.stateMap')
+        self.stateMap.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
+        self.sesVarBindings.to_csv('{}{}_sesVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
+        self.stateVarBindings.to_csv('{}{}_stateVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
 
 class pdSerial:
     def syncSerial(self):
-        print(self.stateD['self.bootState'])
         lBS=self.stateD['self.bootState']
         ranHeader=0
         self.sesVarD['self.trialDataExists']=0
@@ -687,8 +690,10 @@ class pdPlot:
         self.stimLickAxes.axis([0, 1, 100, 0])
         self.stimLickAxes.set_xlabel('time since stimulus (ms)')
         self.stimLickAxes.set_ylabel('trial number')
-        self.stimLickLeftLine,=self.stimLickAxes.plot(np.random.random_sample(100),np.arange(100),marker="o",markeredgecolor="black",markerfacecolor="red",markersize=lrMS,lw=0,alpha=0.5)
-        self.stimLickRightLine,=self.stimLickAxes.plot(np.random.random_sample(100),np.arange(100),marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=lrMS,lw=0,alpha=0.5)
+        self.stimLickLeftLine,=self.stimLickAxes.plot(np.random.random_sample(100),np.arange(100),\
+            marker="o",markeredgecolor="black",markerfacecolor="red",markersize=lrMS,lw=0,alpha=0.5)
+        self.stimLickRightLine,=self.stimLickAxes.plot(np.random.random_sample(100),np.arange(100),\
+            marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=lrMS,lw=0,alpha=0.5)
 
         plt.show(block=False)
         self.sessionFig.canvas.flush_events()
@@ -699,11 +704,7 @@ class pdPlot:
         self.stimLickAxes.draw_artist(self.biasAxis.patch)
         
     def updateSessionPlot(self):
-        # normVMax=np.max(np.array(np.max(self.stimLicks0),np.max(self.stimLicks1)))
-        # normVMin=np.min(np.array(np.min(self.stimLicks0),np.min(self.stimLicks1)))
-        # normVal=np.max(np.array([np.abs(normVMax),np.abs(normVMin)]))
         self.difLicks=(np.array(self.stimLicks0)-np.array(self.stimLicks1))
-
         tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5,self.stVarD['self.biasRange']+1), 0, 0.1)
         smtLB=pdPlot.smoothData(self,tKern,self.difLicks)
         self.smoothedLickBias=smtLB
@@ -743,17 +744,11 @@ class pdPlot:
         plt.cla()
         plt.sca(self.rightCountAxis)
         plt.cla()
-        # plt.sca(self.sampDiffAxis)
-        # plt.cla()
 
-        self.leftCountAxis=plt.subplot2grid((self.figSc),(self.lcAxSc), \
-            colspan=self.lcAxCR[0],rowspan=self.lcAxCR[0])
-        n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),\
-            numBins,normed=1,facecolor='red',alpha=1)
-        self.rightCountAxis=plt.subplot2grid((self.figSc),(self.rcAxSc),\
-            colspan=self.rcAxCR[0],rowspan=self.rcAxCR[0])
-        o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),\
-            numBins,normed=1,facecolor='cornflowerblue',alpha=1)
+        self.leftCountAxis=plt.subplot2grid((self.figSc),(self.lcAxSc), colspan=self.lcAxCR[0],rowspan=self.lcAxCR[0])
+        n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),numBins,normed=1,facecolor='red',alpha=1)
+        self.rightCountAxis=plt.subplot2grid((self.figSc),(self.rcAxSc),colspan=self.rcAxCR[0],rowspan=self.rcAxCR[0])
+        o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),numBins,normed=1,facecolor='cornflowerblue',alpha=1)
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
         self.rightCountAxis.set_yticks([])
@@ -761,14 +756,10 @@ class pdPlot:
         self.rightCountAxis.axis([0, 20, 0, 0.3])
         self.rightCountAxis.set_xlabel('lick counts')
         
-        
         plt.show(block=False)
         self.sessionFig.canvas.flush_events()
 
 class pdAnalysis:
-    # todo: I think I should just enforce a pattern where all vartiables are treated as text variables. 
-    # todo: point is I can safely assume here that the probs aren't updated anywhere else, but not necessarily true for all?
-    # todo: this number formating is janktastic
 
     def shapingUpdateLeftRightProb(self):
         bR=self.stVarD['self.biasRange']
@@ -827,13 +818,11 @@ class pdAnalysis:
             self.stimRightLickTimes=self.stimRightLickTimes+stBTimes.tolist()
             self.stimRightLickInds=self.stimRightLickInds+stBInds.tolist()
         
-
     def getQunat(self,pyList,quantileCut):
 
         tA=np.abs(np.array(pyList))
 
     def updateLickThresholdA(self,dataSpan):  
-    #todo: should be one function for all
 
         if self.ux_adaptThresh.get()==1:
             tA=np.abs(np.array(dataSpan))
@@ -867,7 +856,6 @@ class pdAnalysis:
         elif self.lickValsA[-1]<=aThreshold or self.lickThresholdLatchA==1:
             self.stateLickCount0.append(self.lastLickCountA)
             
-
         if self.lickValsB[-1]>bThreshold and self.lickThresholdLatchB==0:
             self.thrLicksB.append(1)
             self.thrLicksB_time.append(self.mcTrialTime[-1])
@@ -879,7 +867,6 @@ class pdAnalysis:
             self.lastLickB=self.mcTrialTime[-1]
             self.lickThresholdLatchB=1
             
-
         elif self.lickValsB[-1]<=bThreshold or self.lickThresholdLatchB==1:
             self.stateLickCount1.append(self.lastLickCountB)
 
@@ -888,7 +875,6 @@ class pdAnalysis:
 
         if self.lickThresholdLatchB and self.lickValsB[-1]<=bThreshold:
             self.lickThresholdLatchB=0;
-
 
     def lickDetectionDebug(self):
 
@@ -899,7 +885,6 @@ class pdAnalysis:
             self.thrLicksA_state.append(self.arStates[-1])
             self.lastLickCountA=self.lastLickCountA+1
             self.stateLickCount0[-1]=self.lastLickCountA+1
-
 
         if self.lickValsB[-1]>int(self.lickThresholdStrValB.get()):
             self.thrLicksB.append(1)
@@ -1045,7 +1030,6 @@ class pdCallbacks:
             eval('pdState.switchState(self,self.stateD["self.cue{}State"])'.format(self.cueSelected))
 
     def cue1StateHead(self):
-        print('debug: header')
         self.startCue1=self.mcStateTime[-1]
         self.outcomeSwitch=random.random()
         o1P=self.task1D['self.sTask_target_prob1']
@@ -1055,7 +1039,6 @@ class pdCallbacks:
         elif self.outcomeSwitch>o1P:
             self.stimSelected=2
             self.sStims.append(2)
-        print('debug: header fin')
 
     def cue2StateHead(self):
         self.startCue2=self.mcTrialTime[-1]
@@ -1289,8 +1272,7 @@ class pdWindow:
         self.pathEntry.grid(row=startRow+3,column=0,sticky=W)
         self.dirPath.set(os.path.join(os.getcwd(),self.animalID))
 
-        self.setPath_button = Button(self.master,text="<- Set Path",\
-            command=lambda: pdWindow.mwPathBtn(self),width=self.col2BW)
+        self.setPath_button = Button(self.master,text="<- Set Path",command=lambda: pdWindow.mwPathBtn(self),width=self.col2BW)
         self.setPath_button.grid(row=startRow+3,column=2)
 
         self.aIDLabel=Label(self.master, text="animal id:")\
@@ -1329,9 +1311,7 @@ class pdWindow:
         self.stateVarsBtn.grid(row=startRow+6, column=2)
         self.stateVarsBtn.config(state=NORMAL)
 
-        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',\
-            width = self.col2BW, command = \
-            lambda: pdWindow.mwLoadMetaBtn(self))
+        self.loadAnimalMetaBtn = Button(self.master,text = 'Load Metadata',width = self.col2BW,command = lambda: pdWindow.mwLoadMetaBtn(self))
         self.loadAnimalMetaBtn.grid(row=startRow+1, column=2)
         self.loadAnimalMetaBtn.config(state=NORMAL)
 
@@ -1516,17 +1496,66 @@ class pdWindow:
         self.animalIDStr.set(os.path.basename(self.selectPath))
         self.animalIDEntry.config(bg='white')
         self.sesPathFuzzy=0
+        
         metaString='{}{}_animalMeta.csv'.format(self.selectPath + '/',self.animalIDStr.get())
         stateString='{}{}_stateMap.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        sesString='{}{}_sesVars.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        stateVarString='{}{}_stateVars.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        t1PString='{}{}_task1Probs.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        t2PString='{}{}_task2Probs.csv'.format(self.selectPath + '/',self.animalIDStr.get())
+        
         self.loadedMeta=os.path.isfile(metaString)
         self.loadedStates=os.path.isfile(stateString)
+        self.loadedSesVars=os.path.isfile(sesString)
+        self.loadedStateVars=os.path.isfile(stateVarString)
+        self.loadedT1Probs=os.path.isfile(t1PString)
+        self.loadedT2Probs=os.path.isfile(t2PString)
+        
         if self.loadedMeta is True:
             tempMeta=pd.read_csv(metaString,index_col=0)
             pdUtil.parseMetaDataStrings(self,tempMeta)
             print("loaded {}'s previous settings".format(self.animalIDStr.get()))
+        
         if self.loadedStates is True:
             tempStates=pd.Series.from_csv(stateString)
             print("loaded {}'s previous state assignments, but didn't parse them".format(self.animalIDStr.get()))
+
+        if self.loadedSesVars is True:
+            tempSesVars=pd.Series.from_csv(sesString)
+            print("loaded {}'s previous session variables, but didn't parse them".format(self.animalIDStr.get()))
+
+        if self.loadedStateVars is True:
+            tempStateVars=pd.Series.from_csv(stateVarString)
+            varIt=0
+            for k in list(tempStateVars.index):
+                a=tempStateVars[varIt]
+                if a.is_integer():
+                    a=int(a)
+                self.stVarD[k]=a
+                varIt=varIt+1
+            print('parsed and loaded the last state variables')
+
+        if self.loadedT1Probs is True:
+            tempT1Vars=pd.Series.from_csv(t1PString)
+            varIt=0
+            for k in list(tempT1Vars.index):
+                a=tempT1Vars[varIt]
+                if a.is_integer():
+                    a=int(a)
+                self.task1D[k]=a
+                varIt=varIt+1
+            print('parsed and loaded the last task1 probs')
+
+        if self.loadedT2Probs is True:
+            tempT2Vars=pd.Series.from_csv(t2PString)
+            varIt=0
+            for k in list(tempT2Vars.index):
+                a=tempT2Vars[varIt]
+                if a.is_integer():
+                    a=int(a)
+                self.task2D[k]=a
+                varIt=varIt+1
+            print('parsed and loaded the last task2 probs')
 
     def mwSaveMetaBtn(self):
         metaString='{}{}_animalMeta.csv'.format(self.pathSet,self.animalIDStr.get())
@@ -1542,8 +1571,7 @@ class pdWindow:
         tempStates.to_csv('.lastStates.csv')
 
     def mwLoadMetaBtn(self):
-        aa=fd.askopenfilename(\
-            title = "what what?",defaultextension='.csv')
+        aa=fd.askopenfilename(title = "what what?",defaultextension='.csv')
         tempMeta=pd.read_csv(aa,index_col=0)
         aa=tempMeta.dtypes.index
         varNames=[]
@@ -1581,17 +1609,26 @@ class pdTask:
 
         self.sesVarD['self.currentSession']=int(self.currentSessionTV.get())+1
         self.currentSessionTV.set(self.sesVarD['self.currentSession'])
-        pdUtil.exportAnimalMeta(self)
         
         self.endBtn.config(state=DISABLED)
         self.startBtn.config(state=NORMAL)
+
+        pdUtil.exportAnimalMeta(self)
         
         pdVariables.dictToPandas(self,self.stateD,'self.stateMap')
         self.stateMap.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
         pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
         self.sesVarBindings.to_csv('{}{}_sesVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
         pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
         self.stateVarBindings.to_csv('{}{}_stateVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
+        pdVariables.dictToPandas(self,self.task1D,'self.task1Bindings')
+        self.task1Bindings.to_csv('{}{}_task1Probs.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
+        pdVariables.dictToPandas(self,self.task2D,'self.task2Bindings')
+        self.task2Bindings.to_csv('{}{}_task2Probs.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
         
         print('I completed {} trials.'.format(self.sesVarD['self.currentTrial']-1))
         print('!!!!!!! --> Session #:{} Finished'.format(int(self.currentSessionTV.get())-1))
@@ -1718,7 +1755,6 @@ class pdTask:
 
             #S13: save state
             elif self.currentState==lSvS:
-
                 pdTask.postTrialAnalysis(self)
                 pdData.data_saveTrialData(self)
                 pdData.data_trialContainers(self)
@@ -1747,12 +1783,12 @@ class pdTask:
         self.cycleCount=0
 
     def postTrialAnalysis(self):
+        pdAnalysis.getLickTimesByState(self)
         if self.sesVarD['self.currentTrial'] % self.stVarD['self.biasRange']==0:
             pdAnalysis.shapingUpdateLeftRightProb(self)
         self.trialLeft1Prob.append(self.stVarD['self.shapeC1_LPortProb'])
         self.trialLeft2Prob.append(self.stVarD['self.shapeC2_LPortProb'])
         self.trialSampRate.append(np.mean(np.diff(np.array(self.mcTrialTime))))
-        print('debug: mean dt={}'.format(self.trialSampRate[-1]))
 
     def postTrialCleanup(self):
         self.trialEndTime=time.time()
@@ -1763,7 +1799,6 @@ class pdTask:
         print('last trial took: {} seconds'.format(trialTime))
         self.sesVarD['self.currentTrial']=self.sesVarD['self.currentTrial']+1
         self.sesVarD['self.sessionTrialCount']=self.sesVarD['self.sessionTrialCount']+1 
-        # in case you run a second session
         print('trial {} done, saved its data'.format(self.sesVarD['self.currentTrial']-1))
 
 class pyDiscrim:
