@@ -1,10 +1,7 @@
 # pyDiscrim:
 # A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 3.995 -- Bias Tweaks; State Vars are all dict based now.
-# > Bias plot and calculation work on non-normalized counts now.
-# > Most/All custom variables are mainatined in a dictionary (even gui updates)
-# > Will move all variables to dicts next round. 
+# Version 0.9 -- All variables are dict based. Version number reset.
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -23,6 +20,60 @@ import sys
 import os
 import pandas as pd
 import scipy.stats as stats
+
+class pdVariables:
+
+    def setStateNames(self):
+        self.stateNames=['bootState','waitState','initiationState','cue1State','cue2State','stim1State',\
+        'stim2State','catchState','saveState','rewardState','rewardState2','neutralState','punishState',\
+        'endState','defaultState']
+
+        self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,24,25,29]
+        self.stateD = {}
+        for x in range(0,len(self.stateNames)):
+            self.stateD['self.'+ self.stateNames[x]]=self.stateIDs[x]
+        pdVariables.dictToPandas(self,self.stateD,'self.stateMap')
+
+    def setSessionVars(self):
+        # session vars
+        self.sessionVarIDs=['ranTask','trialDataExists','sessionDataExists','comObjectExists',\
+        'currentTrial','currentSession','sessionTrialCount']
+        self.sessionVarVals=[0,0,0,0,0,0,1,1,1]
+        self.sesVarD = {}
+        for x in range(0,len(self.sessionVarIDs)):
+            self.sesVarD['self.'+ self.sessionVarIDs[x]]=self.sessionVarVals[x]
+        pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
+
+    def setStateVars(self):
+        self.stateVarLabels=['acelValThr','acelSamps','distThr','timeOutDuration','waitStillTime','genStillTime',\
+        'cue1Dur','cue2Dur','biasRange','shapeC1_LPortProb','shapeC2_LPortProb','biasPCut','biasMuCut','lBiasDelta','rBiasDelta',\
+        'reward1Time','reward2Time']
+        self.stateVarValues=[10,100,100,2,1,1,1.5,1.5,10,0.5,0.5,0.1,1.9,0.10,0.10,1.5,1.5]
+        self.stVarD = {}
+        for x in range(0,len(self.stateVarLabels)):
+            self.stVarD['self.'+ self.stateVarLabels[x]]=self.stateVarValues[x]
+        pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
+        
+    def setTaskProbs(self):
+        self.tProbLabels='sTask_prob','sTask_target_prob','sTask_distract_prob','sTask_target_reward_prob',\
+        'sTask_target_punish_prob','sTask_distract_reward_prob','sTask_distract_punish_prob'
+        self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+        self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
+        self.task1D = {}
+        self.task2D = {}
+        for x in range(0,len(self.tProbLabels)):
+            self.task1D['self.'+ self.tProbLabels[x] + '1']=self.t1ProbValues[x]
+            self.task2D['self.'+ self.tProbLabels[x] + '2']=self.t2ProbValues[x]
+        pdVariables.dictToPandas(self,self.task1D,'self.task1Bindings')
+        pdVariables.dictToPandas(self,self.task2D,'self.task2Bindings')
+
+    def dictToPandas(self,dictName,bindingName):
+        tLab=[]
+        tVal=[]
+        for key in list(dictName.keys()):
+            tLab.append(key)
+            tVal.append(dictName[key])
+        exec('{}=pd.Series(tVal,index=tLab)'.format(bindingName))
 
 class pdUtil:
 
@@ -56,16 +107,13 @@ class pdUtil:
             exec('self.{}.set(a[0])'.format(l1[x]))
 
     def refreshDictFromGui(self,dictName):
+        print(dictName)
         for key in list(dictName.keys()):
             a=eval('float({}_tv.get())'.format(key))
             if a.is_integer():
                 a=int(a)
             exec('dictName["{}"]={}'.format(key,a))
             eval('{}_tv.set("{}")'.format(key,str(a)))
-            exec('{}={}'.format(key,a)) 
-            # todo: when I change vars to dict calls this can go
-
-
 
     def refreshVars(self,varLabels,varValues,refreshType):
         
@@ -96,10 +144,8 @@ class pdUtil:
         pdUtil.mapAssignStringEntries(self,varNames,varVals)
 
     def exportAnimalMeta(self):
-        self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot',\
-        'uiUpdateSamps','ux_adaptThresh','lickValuesOrDeltas',\
-        'lickThresholdStrValA','lickThresholdStrValB',\
-        'lickPlotMax','currentSessionTV']
+        self.metaNames=['comPath','dirPath','animalIDStr','totalTrials','sampsToPlot','uiUpdateSamps','ux_adaptThresh',\
+        'lickValuesOrDeltas','lickThresholdStrValA','lickThresholdStrValB','lickPlotMax','currentSessionTV']
         sesVarVals=[self.comPath.get(),self.dirPath.get(),\
         self.animalIDStr.get(),self.totalTrials.get(),\
         self.sampsToPlot.get(),self.uiUpdateSamps.get(),\
@@ -110,102 +156,41 @@ class pdUtil:
         self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.\
             format(self.dirPath.get() + '/',self.animalIDStr.get()))
 
-class pdVariables:
-
-    def setStateNames(self):
-        self.stateNames=\
-        ['bootState','waitState','initiationState','cue1State',\
-        'cue2State','stim1State','stim2State','catchState','saveState',\
-        'rewardState','rewardState2','neutralState','punishState',\
-        'endState','defaultState']
-
-        self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,24,25,29]
-        pdUtil.mapAssign(self,self.stateNames,self.stateIDs)
-        self.stateBindings=pd.Series(self.stateIDs,index=self.stateNames)
-
-    def setSessionVars(self):
-        # session vars
-        self.sessionVarIDs=['ranTask','trialDataExists','sessionDataExists',\
-        'comObjectExists','taskProbsRefreshed','stateVarsRefreshed',\
-        'currentTrial','currentState','currentSession','sessionTrialCount']
-        self.sessionVarVals=[0,0,0,0,0,0,1,0,1,1]
-        pdUtil.mapAssign(self,self.sessionVarIDs,self.sessionVarVals)
-
-    def setStateVars(self):
-        self.stateVarLabels=['acelValThr','acelSamps','distThr','timeOutDuration','waitStillTime','genStillTime','cue1Dur','cue2Dur',\
-        'biasRange','shapeC1_LPortProb','shapeC2_LPortProb','biasPCut','biasMuCut','lBiasDelta','rBiasDelta']
-        self.stateVarValues=[10,100,100,2,1,1,1.5,1.5,10,0.5,0.5,0.1,0.05,0.10,0.10]
-        self.stateVarBindings=pd.Series(self.stateVarValues,index=self.stateVarLabels)
-        self.stateVarDict = {}
-        for x in range(0,len(self.stateVarLabels)):
-            self.stateVarDict['self.'+ self.stateVarLabels[x]]=self.stateVarValues[x]
-            exec('self.{}=self.stateVarValues[{}]'.format(self.stateVarLabels[x],x))
-        pdVariables.dictToPandas(self,self.stateVarDict,'self.stateVarBindings')
-
-
-    def dictToPandas(self,dictName,bindingName):
-        tLab=[]
-        tVal=[]
-        for key in list(dictName.keys()):
-            tLab.append(key)
-            tVal.append(dictName[key])
-        exec('{}=pd.Series(tVal,index=tLab)'.format(bindingName))
-        
-    def setTaskProbs(self):
-        self.t1ProbLabels='sTask1_prob','sTask1_target_prob',\
-            'sTask1_distract_prob','sTask1_target_reward_prob',\
-            'sTask1_target_punish_prob','sTask1_distract_reward_prob',\
-            'sTask1_distract_punish_prob'
-        self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        pdUtil.mapAssign(self,self.t1ProbLabels,self.t1ProbValues)
-
-        self.t2ProbLabels='sTask2_prob','sTask2_target_prob',\
-        'sTask2_distract_prob','sTask2_target_reward_prob',\
-        'sTask2_target_punish_prob','sTask2_distract_reward_prob',\
-        'sTask2_distract_punish_prob'
-        self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        pdUtil.mapAssign(self,self.t2ProbLabels,self.t2ProbValues)
-
 class pdSerial:
-
     def syncSerial(self):
+        print(self.stateD['self.bootState'])
+        lBS=self.stateD['self.bootState']
         ranHeader=0
-        self.trialDataExists=0
+        self.sesVarD['self.trialDataExists']=0
         while ranHeader==0:
             gaveFeedback=0
             ranHeader=1
             loopCount=0
         while ranHeader==1:
-            self.comObj.write(struct.pack('>B', self.bootState))
+            self.comObj.write(struct.pack('>B',lBS))
             pdSerial.serial_readDataFlush(self)
             if self.serDataAvail==1:
-                self.currentState=int(self.sR[self.stID_state])
-                if self.currentState!=self.bootState:
+                self.currentState = int(self.sR[self.stID_state])
+                if self.currentState != lBS:
                     if gaveFeedback==0:
-                        print('mc state is not right, \
-                            thinks it is #: {}'.format(self.currentState))
-                        print('will force boot state, \
-                            might take a second or so ...')
-                        print('!!!! ~~> UI may become \
-                            unresponsive for 1-30 seconds or so, \
-                            but I havent crashed ...')
+                        print('mc state is not right, thinks it is #: {}'.format(self.currentState))
+                        print('will force boot state, might take a second or so ...')
+                        print('!!!! ~~> UI may become unresponsive for 1-30 seconds or so, but I havent crashed ...')
                         gaveFeedback=1
                     loopCount=loopCount+1
                     if loopCount % 5000 ==0:
-                        print('still syncing: state #: {}; loop #: \
-                            {}'.format(self.currentState,loopCount))
-                elif self.currentState==self.bootState:
-                    print('ready: mc is in state #: {}'\
-                        .format(self.currentState))
+                        print('still syncing: state #: {}; loop #: {}'.format(lCS,loopCount))
+                elif self.currentState==lBS:
+                    print('ready: mc is in state #: {}'.format(self.currentState))
                     return
 
     def serial_initComObj(self):
-        if self.comObjectExists==0:
+        if self.sesVarD['self.comObjectExists']==0:
             print('Opening serial port: {}'.format(self.comPath.get()))
             self.comObj = serial.Serial(self.comPath.get(),\
                 self.baudSelected.get()) 
             pdSerial.syncSerial(self)
-            self.comObjectExists=1
+            self.sesVarD['self.comObjectExists']=1
 
 
             # update the GUI
@@ -221,12 +206,12 @@ class pdSerial:
             # self.stateTogglesBtn.invoke()
         
     def serial_closeComObj(self):
-        if self.comObjectExists==1:
-            if self.trialDataExists==1:
+        if self.sesVarD['self.comObjectExists']==1:
+            if self.sesVarD['self.trialDataExists']==1:
                 pdData.data_saveTrialData(self)
             pdSerial.syncSerial(self)
             self.comObj.close()
-            self.comObjectExists=0
+            self.sesVarD['self.comObjectExists']=0
             print('> i closed the COM object')
             
             # update the GUI
@@ -271,7 +256,7 @@ class pdData:
         self.stID_lickSensor_b=6
 
     def data_sessionContainers(self):
-        self.sessionDataExists=0
+        self.sesVarD['self.sessionDataExists']=0
         self.rewardContingency=[] 
         self.trialOutcome=[]
         self.PooledTasks=[]
@@ -301,7 +286,7 @@ class pdData:
         self.stimRightLickInds=[]
 
     def data_trialContainers(self):
-        self.trialDataExists=0
+        self.sesVarD['self.trialDataExists']=0
         # state & timing
         self.arStates=[]          
         self.mcTrialTime=[]
@@ -376,7 +361,7 @@ class pdData:
         self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
         self.lickValsB.append(int(self.sR[self.stID_lickSensor_b]))
         pdAnalysis.lickDetection(self)
-        self.trialDataExists=1
+        self.sesVarD['self.trialDataExists']=1
 
     def data_saveTrialData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
@@ -400,8 +385,8 @@ class pdData:
 
         self.rf.to_csv('{}{}_{}_s{}_trial_{}.csv'.\
             format(self.dirPath.get() + '/', self.animalIDStr.get(),\
-                self.dateSvStr, self.currentSession, self.currentTrial))
-        self.trialDataExists=0
+                self.dateSvStr, self.sesVarD['self.currentSession'],self.sesVarD['self.currentTrial']))
+        self.sesVarD['self.trialDataExists']=0
     
     def data_saveSessionData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).\
@@ -427,8 +412,8 @@ class pdData:
 
         self.rf.to_csv('{}{}_{}_s{}_sessionData.csv'.\
             format(self.dirPath.get() + '/', self.animalIDStr.get(),\
-                self.dateSvStr, self.currentSession))
-        self.sessionDataExists=0
+                self.dateSvStr, self.sesVarD['self.currentSession']))
+        self.sesVarD['self.sessionDataExists']=0
 
 class pdPlot:
 
@@ -522,7 +507,7 @@ class pdPlot:
 
         stPltData=np.array(self.arStates[-int(splt):])
         posPltData=np.array(self.absolutePosition[-int(splt):])
-        posThreshPltData=[self.distThr,self.distThr]
+        posThreshPltData=[self.stVarD['self.distThr'],self.stVarD['self.distThr']]
         lickLeftPltData=self.lickValsA[-int(splt):]
         lickLeftThreshData=[tLeftLickThr,tLeftLickThr]
         
@@ -719,14 +704,14 @@ class pdPlot:
         # normVal=np.max(np.array([np.abs(normVMax),np.abs(normVMin)]))
         self.difLicks=(np.array(self.stimLicks0)-np.array(self.stimLicks1))
 
-        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5, self.biasRange+1), 0, 0.1)
+        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5,self.stVarD['self.biasRange']+1), 0, 0.1)
         smtLB=pdPlot.smoothData(self,tKern,self.difLicks)
         self.smoothedLickBias=smtLB
-        self.biasP=stats.ttest_1samp(self.smoothedLickBias[-self.biasRange:],0).pvalue
+        self.biasP=stats.ttest_1samp(self.smoothedLickBias[-self.stVarD['self.biasRange']:],0).pvalue
         print("%.4g" % self.biasP)
 
         x10=np.arange(len(self.difLicks))
-        yStLicks=np.arange(self.currentTrial)
+        yStLicks=np.arange(self.sesVarD['self.currentTrial'])
         y10=self.difLicks
         x10c=np.arange(len(self.smoothedLickBias))
         y10c=self.smoothedLickBias
@@ -786,58 +771,58 @@ class pdAnalysis:
     # todo: this number formating is janktastic
 
     def shapingUpdateLeftRightProb(self):
-        bR=self.stateVarDict['self.biasRange']
-        bL1P=self.stateVarDict['self.shapeC1_LPortProb']
-        bL2P=self.stateVarDict['self.shapeC2_LPortProb']
-        bPC=self.stateVarDict['self.biasPCut']
-        bMC=self.stateVarDict['self.biasMuCut']
-        lBD=self.stateVarDict['self.lBiasDelta']
-        rBD=self.stateVarDict['self.rBiasDelta']
+        bR=self.stVarD['self.biasRange']
+        bL1P=self.stVarD['self.shapeC1_LPortProb']
+        bL2P=self.stVarD['self.shapeC2_LPortProb']
+        bPC=self.stVarD['self.biasPCut']
+        bMC=self.stVarD['self.biasMuCut']
+        lBD=self.stVarD['self.lBiasDelta']
+        rBD=self.stVarD['self.rBiasDelta']
 
-        meanBias=np.mean(np.array(self.smoothedLickBias[-self.biasRange:]))
+        meanBias=np.mean(np.array(self.smoothedLickBias[-self.stVarD['self.biasRange']:]))
         print('mean bias={}'.format(meanBias)) # debug
 
         if self.biasP<bPC and meanBias>bMC and (bL1P>=lBD):  # leftward bias
-            self.stateVarDict['self.shapeC1_LPortProb']=float("%.3g" % (self.stateVarDict['self.shapeC1_LPortProb']-lBD))
-            self.stateVarDict['self.shapeC2_LPortProb']=self.stateVarDict['self.shapeC1_LPortProb']
+            self.stVarD['self.shapeC1_LPortProb']=float("%.3g" % (self.stVarD['self.shapeC1_LPortProb']-lBD))
+            self.stVarD['self.shapeC2_LPortProb']=self.stVarD['self.shapeC1_LPortProb']
             print('left bias detected; updated probs: {},{}'.\
-                format(self.stateVarDict['self.shapeC1_LPortProb'],self.stateVarDict['self.shapeC2_LPortProb']))
+                format(self.stVarD['self.shapeC1_LPortProb'],self.stVarD['self.shapeC2_LPortProb']))
 
         elif self.biasP<bPC and meanBias<-bMC and (bL1P<=(1-rBD)):  # rightward bias
-            self.stateVarDict['self.shapeC1_LPortProb']=float("%.3g" % (self.stateVarDict['self.shapeC2_LPortProb']+rBD))
-            self.stateVarDict['self.shapeC2_LPortProb']=self.stateVarDict['self.shapeC1_LPortProb']
+            self.stVarD['self.shapeC1_LPortProb']=float("%.3g" % (self.stVarD['self.shapeC2_LPortProb']+rBD))
+            self.stVarD['self.shapeC2_LPortProb']=self.stVarD['self.shapeC1_LPortProb']
             print('right bias detected; updated probs: {},{}'.\
-                format(self.stateVarDict['self.shapeC1_LPortProb'],self.stateVarDict['self.shapeC2_LPortProb']))
+                format(self.stVarD['self.shapeC1_LPortProb'],self.stVarD['self.shapeC2_LPortProb']))
         
-        if self.stateVarDict['self.shapeC1_LPortProb'] > 1.0: 
+        if self.stVarD['self.shapeC1_LPortProb'] > 1.0: 
             #todo: this is stupid; I should add the condition above, but ...
             #todo: update, should be fixed,but will leave alone for now while I change variable updates to dict writes
-            self.stateVarDict['self.shapeC1_LPortProb']=1.0
-            self.stateVarDict['self.shapeC2_LPortProb']=1.0
+            self.stVarD['self.shapeC1_LPortProb']=1.0
+            self.stVarD['self.shapeC2_LPortProb']=1.0
 
-        if self.stateVarDict['self.shapeC1_LPortProb'] < 0.0: #todo: this is stupid; I should add the condition above, but ...
-            self.stateVarDict['self.shapeC1_LPortProb']= 0.0
-            self.stateVarDict['self.shapeC2_LPortProb']= 0.0
+        if self.stVarD['self.shapeC1_LPortProb'] < 0.0: #todo: this is stupid; I should add the condition above, but ...
+            self.stVarD['self.shapeC1_LPortProb']= 0.0
+            self.stVarD['self.shapeC2_LPortProb']= 0.0
 
-        self.shapeC1_LPortProb_tv.set("%.3g" % self.stateVarDict['self.shapeC1_LPortProb']) # make sure gui understands
-        self.shapeC2_LPortProb_tv.set("%.3g" % self.stateVarDict['self.shapeC2_LPortProb']) # make sure gui understands
+        self.shapeC1_LPortProb_tv.set("%.3g" % self.stVarD['self.shapeC1_LPortProb']) # make sure gui understands
+        self.shapeC2_LPortProb_tv.set("%.3g" % self.stVarD['self.shapeC2_LPortProb']) # make sure gui understands
 
     def getLickTimesByState(self):
         tmpAStates=np.array([self.thrLicksA_state])
         tmpBStates=np.array([self.thrLicksB_state])
         tmpAStateTimes=np.array([self.thrLicksA_stateTime])
         tmpBStateTimes=np.array([self.thrLicksB_stateTime])
-        tmpASpikeInd=self.currentTrial*np.array([self.thrLicksA])
-        tmpBSpikeInd=self.currentTrial*np.array([self.thrLicksB])
+        tmpASpikeInd=self.sesVarD['self.currentTrial']*np.array([self.thrLicksA])
+        tmpBSpikeInd=self.sesVarD['self.currentTrial']*np.array([self.thrLicksB])
 
-        stATimes=tmpAStateTimes[(tmpAStates==self.stim1State) | (tmpAStates==self.stim2State)]
-        stAInds=tmpASpikeInd[(tmpAStates==self.stim1State) | (tmpAStates==self.stim2State)]
+        stATimes=tmpAStateTimes[(tmpAStates==self.stateD['self.stim1State']) | (tmpAStates==self.stateD['self.stim2State'])]
+        stAInds=tmpASpikeInd[(tmpAStates==self.stateD['self.stim1State']) | (tmpAStates==self.stateD['self.stim2State'])]
         if len(stATimes)>0:
             self.stimLeftLickTimes=self.stimLeftLickTimes+stATimes.tolist()
             self.stimLeftLickInds=self.stimLeftLickInds+stAInds.tolist()
 
-        stBTimes=tmpBStateTimes[(tmpBStates==self.stim1State) | (tmpBStates==self.stim2State)]
-        stBInds=tmpBSpikeInd[(tmpBStates==self.stim1State) | (tmpBStates==self.stim2State)]
+        stBTimes=tmpBStateTimes[(tmpBStates==self.stateD['self.stim1State']) | (tmpBStates==self.stateD['self.stim2State'])]
+        stBInds=tmpBSpikeInd[(tmpBStates==self.stateD['self.stim1State']) | (tmpBStates==self.stateD['self.stim2State'])]
         if len(stBTimes)>0:
             self.stimRightLickTimes=self.stimRightLickTimes+stBTimes.tolist()
             self.stimRightLickInds=self.stimRightLickInds+stBInds.tolist()
@@ -952,7 +937,7 @@ class pdState:
             print('no thanks; you chose the state you are in, no infinite loops for me :)')
             return
         self.targetState=targetState
-        if self.trialDataExists==1:
+        if self.sesVarD['self.trialDataExists']==1:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.mcTrialTime[-1])
         print('pushing: s{} -> s{}'.format(self.currentState,targetState))
@@ -966,12 +951,11 @@ class pdState:
             if self.serDataAvail==1:
                 pdData.data_parseData(self)
                 self.currentState=int(self.sR[self.stID_state])
-        if self.trialDataExists==1:
+        if self.sesVarD['self.trialDataExists']==1:
             self.pyStatesTS.append(self.currentState)
             self.pyStatesTT.append(self.mcTrialTime[-1])
 
-    def stateHeader(self,upSt):
-        self.upSt=upSt
+    def stateHeader(self):
         ranHeader=0 # set the latch, the header runs once per entry.
         while ranHeader==0:
             self.cycleCount=1
@@ -981,7 +965,7 @@ class pdState:
             self.entryTime=self.mcTrialTime[-1] # log state entry time
             self.stillTimeStart=0
             self.stillLatch=0
-            self.trialFig.suptitle('trial # {}; state # {}'.format(self.currentTrial,self.currentState), fontsize=10)
+            self.trialFig.suptitle('trial # {}; state # {}'.format(self.sesVarD['self.currentTrial'],self.currentState, fontsize=10))
             ranHeader=1 # fire the latch
         
     def coreState(self):
@@ -1017,34 +1001,34 @@ class pdCallbacks:
             print('licked spout {}: on target -> reward'.format(rwdSpout))
             exec('self.trialOutcome.append({}1)'.format(sPres))
             if rwdSpout==0:
-                pdState.switchState(self,self.rewardState)
+                pdState.switchState(self,self.stateD['self.rewardState'])
             elif rwdSpout==1:
-                pdState.switchState(self,self.rewardState2)
+                pdState.switchState(self,self.stateD['self.rewardState2'])
             print(self.trialOutcome[-1])
 
         elif targetMinLicked==0 and distractMinLicked == 1:
             print('licked spout {}: off target -> punish'.format(offSpout))
             exec('self.trialOutcome.append({}2)'.format(sPres))
-            pdState.switchState(self,self.punishState)
+            pdState.switchState(self,self.stateD['self.punishState'])
             print(self.trialOutcome[-1])
 
         elif targetMinLicked==1 and distractMinLicked == 1:
             print('licked both spouts: ambiguous -> punish')
             exec('self.trialOutcome.append({}3)'.format(sPres))
-            pdState.switchState(self,self.neutralState)
+            pdState.switchState(self,self.stateD['self.neutralState'])
             print(self.trialOutcome[-1])
 
     def waitStateCB(self):  
-        pdAnalysis.checkMotion(self,self.stateVarDict['self.acelValThr'],self.stateVarDict['self.acelSamps'])
-        if self.stillLatch==1 and self.stillTime[-1]>self.waitStillTime:
+        pdAnalysis.checkMotion(self,self.stVarD['self.acelValThr'],self.stVarD['self.acelSamps'])
+        if self.stillLatch==1 and self.stillTime[-1]>self.stVarD['self.waitStillTime']:
             print('Still in wait state ==> S1 --> S2')
             self.waitConditionMetTime.append(self.mcStateTime[-1])
             self.waitLicks0.append(self.stateLickCount0[-1])
             self.waitLicks1.append(self.stateLickCount1[-1])
-            pdState.switchState(self,self.initiationState)
+            pdState.switchState(self,self.stateD['self.initiationState'])
 
     def initiationStateHead(self):
-        t1P=self.sTask1_prob
+        t1P=self.task1D['self.sTask_prob1']
         self.task_switch=random.random()
         if self.task_switch<=t1P:
             self.cueSelected=1
@@ -1052,47 +1036,31 @@ class pdCallbacks:
             self.cueSelected=2
 
     def initiationStateCB(self):
-        aT=self.stateVarDict['self.acelValThr']
-        aS=self.stateVarDict['self.acelSamps']
-        dT=self.stateVarDict['self.distThr']  
+        aT=self.stVarD['self.acelValThr']
+        aS=self.stVarD['self.acelSamps']
+        dT=self.stVarD['self.distThr']  
         pdAnalysis.checkMotion(self,aT,aS)
         if self.absolutePosition[-1]>dT:
             print('moving spout; cue stim task #{}'.format(self.cueSelected))
-            eval('pdState.switchState(self,self.cue{}State)'.\
-                format(self.cueSelected))
+            eval('pdState.switchState(self,self.stateD["self.cue{}State"])'.format(self.cueSelected))
 
     def cue1StateHead(self):
+        print('debug: header')
         self.startCue1=self.mcStateTime[-1]
         self.outcomeSwitch=random.random()
-        o1P=self.sTask1_target_prob
+        o1P=self.task1D['self.sTask_target_prob1']
         if self.outcomeSwitch<=o1P:
             self.stimSelected=1
             self.sStims.append(1)
         elif self.outcomeSwitch>o1P:
             self.stimSelected=2
             self.sStims.append(2)
+        print('debug: header fin')
 
-    def cue1StateCB(self):
-        aT=self.stateVarDict['self.acelValThr']
-        aS=self.stateVarDict['self.acelSamps']
-        dT=self.stateVarDict['self.distThr']
-        cD=self.stateVarDict['self.cue1Dur']    
-        pdAnalysis.checkMotion(self,aT,aS)
-        if self.mcStateTime[-1]>cD:
-            self.cue1Time.append(self.mcStateTime[-1]-self.startCue1) 
-            self.cuePresented.append(1)
-            eval('pdState.switchState(self,self.stim{}State)'.\
-                format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.\
-                format(self.stimSelected,self.stimSelected-1))
-            print(self.rewardContingency[-1])
-            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.\
-                format(self.stimSelected,self.stimSelected-1))
-            
     def cue2StateHead(self):
         self.startCue2=self.mcTrialTime[-1]
         self.outcomeSwitch=random.random()
-        o2P=self.sTask2_target_prob
+        o2P=self.task2D['self.sTask_target_prob2']
         if self.outcomeSwitch<=o2P:
             self.stimSelected=2
             self.sStims.append(2)
@@ -1100,21 +1068,33 @@ class pdCallbacks:
             self.stimSelected=1
             self.sStims.append(1)
 
+    def cue1StateCB(self):
+        aT=self.stVarD['self.acelValThr']
+        aS=self.stVarD['self.acelSamps']
+        dT=self.stVarD['self.distThr']
+        cD=self.stVarD['self.cue1Dur']    
+        pdAnalysis.checkMotion(self,aT,aS)
+        if self.mcStateTime[-1]>cD:
+            self.cue1Time.append(self.mcStateTime[-1]-self.startCue1)
+            self.cuePresented.append(1)
+            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
+            eval('pdState.switchState(self,self.stateD["self.stim{}State"])'.format(self.stimSelected))
+            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
+            print(self.rewardContingency[-1])
+            
+
     def cue2StateCB(self):
-        aT=self.stateVarDict['self.acelValThr']
-        aS=self.stateVarDict['self.acelSamps']
-        dT=self.stateVarDict['self.distThr']
-        cD=self.stateVarDict['self.cue2Dur']  
+        aT=self.stVarD['self.acelValThr']
+        aS=self.stVarD['self.acelSamps']
+        dT=self.stVarD['self.distThr']
+        cD=self.stVarD['self.cue2Dur']  
         pdAnalysis.checkMotion(self,aT,aS)
         if self.mcStateTime[-1]>cD:
             self.cue2Time.append(self.mcTrialTime[-1]-self.startCue2)
             self.cuePresented.append(2)
-            print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.\
-                format(self.stimSelected,self.stimSelected-1))
-            eval('pdState.switchState(self,self.stim{}State)'.\
-                format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.\
-                format(self.stimSelected,self.stimSelected-1))
+            print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
+            eval('pdState.switchState(self,self.stateD["self.stim{}State"])'.format(self.stimSelected))
+            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
             print(self.rewardContingency[-1])
     
     def stim1StateCB(self):
@@ -1132,7 +1112,7 @@ class pdCallbacks:
             elif self.mcStateTime[-1]>=self.reportMax1Time:
                 self.trialOutcome.append(10)
                 print('timed out: did not report')
-                pdState.switchState(self,self.neutralState)
+                pdState.switchState(self,self.stateD['self.neutralState'])
 
     def stim2StateCB(self):
         self.minStim2Time=0
@@ -1145,21 +1125,22 @@ class pdCallbacks:
         if self.mcStateTime[-1]>self.minStim2Time:
             if self.mcStateTime[-1]<self.reportMax2Time:
                 pdCallbacks.defineOutcome(self,self.rewardContingency)
+
             elif self.mcStateTime[-1]>=self.reportMax2Time:
                 self.trialOutcome.append(20)
                 print('timed out: did not report')
-                pdState.switchState(self,self.neutralState) 
+                pdState.switchState(self,self.stateD['self.neutralState']) 
 
     def shaping_stim1StateHead(self):
         self.minStim1Time=1 #todo: variable shape time
         diceRoll=random.random()
-        if diceRoll<=self.stateVarDict['self.shapeC1_LPortProb']:
-            print('debug: roll={},{}'.format(self.stateVarDict['self.shapeC1_LPortProb'],diceRoll))
+        if diceRoll<=self.stVarD['self.shapeC1_LPortProb']:
+            print('debug: roll={},{}'.format(self.stVarD['self.shapeC1_LPortProb'],diceRoll))
             self.leftReward=1
             self.shapingReport.append(10)
             print('will reward left')
-        elif diceRoll>self.stateVarDict['self.shapeC1_LPortProb']:
-            print('debug: roll={},{}'.format(self.stateVarDict['self.shapeC1_LPortProb'],diceRoll))
+        elif diceRoll>self.stVarD['self.shapeC1_LPortProb']:
+            print('debug: roll={},{}'.format(self.stVarD['self.shapeC1_LPortProb'],diceRoll))
             self.leftReward=0
             self.shapingReport.append(11)
             print('will reward right')
@@ -1169,23 +1150,23 @@ class pdCallbacks:
             if self.leftReward:
                 self.stimLicks0.append(self.stateLickCount0[-1])
                 self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.rewardState)
+                pdState.switchState(self,self.stateD['self.rewardState'])
             elif self.leftReward !=1:
                 self.stimLicks0.append(self.stateLickCount0[-1])
                 self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.rewardState2)
+                pdState.switchState(self,self.stateD['self.rewardState2'])
 
     def shaping_stim2StateHead(self):
         self.minStim2Time=1
 
         diceRoll=random.random()
-        if diceRoll<=self.stateVarDict['self.shapeC2_LPortProb']:
-            print('debug: roll={},{}'.format(self.stateVarDict['self.shapeC2_LPortProb'],diceRoll))
+        if diceRoll<=self.stVarD['self.shapeC2_LPortProb']:
+            print('debug: roll={},{}'.format(self.stVarD['self.shapeC2_LPortProb'],diceRoll))
             self.leftReward=1
             self.shapingReport.append(20)
             print('will reward left')
-        elif diceRoll>self.stateVarDict['self.shapeC2_LPortProb']:
-            print('debug: roll={},{}'.format(self.stateVarDict['self.shapeC2_LPortProb'],diceRoll))
+        elif diceRoll>self.stVarD['self.shapeC2_LPortProb']:
+            print('debug: roll={},{}'.format(self.stVarD['self.shapeC2_LPortProb'],diceRoll))
             self.leftReward=0
             self.shapingReport.append(21)
             print('will reward right')
@@ -1195,34 +1176,30 @@ class pdCallbacks:
             if self.leftReward:
                 self.stimLicks0.append(self.stateLickCount0[-1])
                 self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.rewardState)
+                pdState.switchState(self,self.stateD['self.rewardState'])
             elif self.leftReward !=1:
                 self.stimLicks0.append(self.stateLickCount0[-1])
                 self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.rewardState2)
+                pdState.switchState(self,self.stateD['self.rewardState2'])
 
     def rewardStateCB(self):
-        self.reward1Time=1
-        if self.mcStateTime[-1]<self.reward1Time:
-            print('rewarding left port')
-            pdState.switchState(self,self.saveState)
+        if self.mcStateTime[-1]>=self.stVarD['self.reward1Time']:
+            pdState.switchState(self,self.stateD['self.saveState'])
 
     def rewardState2CB(self):
-        self.reward2Time=1
-        if self.mcStateTime[-1]<self.reward2Time:
-            print('rewarding right port')
-            pdState.switchState(self,self.saveState)
+        if self.mcStateTime[-1]>=self.stVarD['self.reward2Time']:
+            pdState.switchState(self,self.stateD['self.saveState'])
 
     def neutralStateCB(self):
         self.neutralTime=1
         if self.mcStateTime[-1]<0.1:
             print('no reward')
-            pdState.switchState(self,self.saveState)
+            pdState.switchState(self,self.stateD['self.saveState'])
 
     def punishStateCB(self):
-        if self.mcTrialTime[-1]-self.entryTime>=self.timeOutDuration:
-            print('timeout of {} seconds is over'.format(self.timeOutDuration))
-            pdState.switchState(self,self.saveState)
+        if self.mcTrialTime[-1]-self.entryTime>=self.stVarD['self.timeOutDuration']:
+            print('timeout of {} seconds is over'.format(self.stVarD['self.timeOutDuration']))
+            pdState.switchState(self,self.stateD['self.saveState'])
 
 class pdWindow:
 
@@ -1233,18 +1210,13 @@ class pdWindow:
         self.mainCntrlLabel = Label(self.master, text="Main Controls:")\
         .grid(row=startRow,column=0,sticky=W)
 
-        self.quitBtn = \
-        Button(self.master,text="Exit Program",command = \
-            lambda: pdWindow.mwQuitBtn(self), width=self.col2BW)
+        self.quitBtn = Button(self.master,text="Exit Program",command = lambda: pdWindow.mwQuitBtn(self), width=self.col2BW)
         self.quitBtn.grid(row=startRow+1, column=2)
 
-        self.startBtn = Button(self.master, text="Start Task",\
-            width=10, command=lambda: pdTask.runSession(self) ,state=DISABLED)
+        self.startBtn = Button(self.master, text="Start Task",width=10, command=lambda: pdTask.runSession(self) ,state=DISABLED)
         self.startBtn.grid(row=startRow+1, column=0,sticky=W,padx=10)
 
-        self.endBtn = Button(self.master, text="End Task",width=self.col2BW, \
-            command=lambda:pdState.switchState(\
-                self,self.endState),state=DISABLED)
+        self.endBtn = Button(self.master, text="End Task",width=self.col2BW, command=lambda:pdState.switchState(self,self.stateD['self.endState']),state=DISABLED)
         self.endBtn.grid(row=startRow+2, column=0,sticky=W,padx=10)
 
         self.stateEditBtn = Button(self.master, text="State Editor",\
@@ -1303,21 +1275,17 @@ class pdWindow:
         self.sesPathFuzzy=1 # This variable is set when we guess the path.
 
         self.animalID='yourID'
-        self.dateStr = datetime.datetime.\
-        fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
+        self.dateStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
 
         self.blankLine(self.master,startRow)
-        self.sessionStuffLabel = Label(self.master,\
-            text="Session Stuff: ",justify=LEFT)\
-        .grid(row=startRow+1, column=0,sticky=W)
+        self.sessionStuffLabel = Label(self.master,text="Session Stuff: ",justify=LEFT).grid(row=startRow+1, column=0,sticky=W)
 
         self.timeDisp = Label(self.master, text=' #{} started: '\
-            .format(self.currentSession) + self.dateStr,justify=LEFT)
+            .format(self.sesVarD['self.currentSession']) + self.dateStr,justify=LEFT)
         self.timeDisp.grid(row=startRow+2,column=0,sticky=W)
 
         self.dirPath=StringVar(self.master)
-        self.pathEntry=Entry(self.master,textvariable=\
-            self.dirPath,width=24,bg='grey')
+        self.pathEntry=Entry(self.master,textvariable=self.dirPath,width=24,bg='grey')
         self.pathEntry.grid(row=startRow+3,column=0,sticky=W)
         self.dirPath.set(os.path.join(os.getcwd(),self.animalID))
 
@@ -1341,17 +1309,13 @@ class pdWindow:
             self.totalTrials,width=10).\
         grid(row=startRow+5,column=0,sticky=E)
 
-        self.curSession_label = Label(self.master,text="current session:")\
-        .grid(row=startRow+6,column=0,sticky=W)
+        self.curSession_label = Label(self.master,text="current session:").grid(row=startRow+6,column=0,sticky=W)
         self.currentSessionTV=StringVar(self.master)
-        self.currentSessionTV.set(self.currentSession)
-        self.curSession_entry=Entry(self.master,textvariable=\
-            self.currentSessionTV,width=10)
+        self.currentSessionTV.set(self.sesVarD['self.currentSession'])
+        self.curSession_entry=Entry(self.master,textvariable=self.currentSessionTV,width=10)
         self.curSession_entry.grid(row=startRow+6,column=0,sticky=E)
 
-        self.taskProbsBtn = Button(self.master,text='Task Probs',\
-            width=self.col2BW,\
-            command=self.taskProbWindow)
+        self.taskProbsBtn = Button(self.master,text='Task Probs',width=self.col2BW,command=self.taskProbWindow)
         self.taskProbsBtn.grid(row=startRow+4, column=2)
         self.taskProbsBtn.config(state=NORMAL)
 
@@ -1528,17 +1492,17 @@ class pdWindow:
         pdPlot.makeSessionPlotWindow(self)
 
     def mwQuitBtn(self):
-        if self.ranTask==0 or self.comObjectExists==0:  
+        if self.sesVarD['self.ranTask']==0 or self.sesVarD['self.comObjectExists']==0:  
             print('*** bye: closed without saving ***')
             exit()
         else: 
             print('!!!! going down')
-            if self.trialDataExists==1:
+            if self.sesVarD['self.trialDataExists']==1:
                 pdData.data_saveTrialData(self)
-            if self.sessionDataExists==1:
+            if self.sesVarD['self.sessionDataExists']==1:
                 pdData.data_saveSessionData(self)
                 print('... saved some remaining data')
-            if self.comObjectExists==1:
+            if self.sesVarD['self.comObjectExists']==1:
                 pdSerial.syncSerial(self)
                 print('... resyncd serial state')
                 self.comObj.close()
@@ -1598,9 +1562,9 @@ class pdTask:
         print('started at state #: {}'.format(self.currentState))
         pdData.data_serialInputIDs(self)
         self.uiUpdateDelta=int(self.uiUpdateSamps.get())
-        self.ranTask=self.ranTask+1
+        self.sesVarD['self.ranTask']=self.sesVarD['self.ranTask']+1
         self.shouldRun=1
-        self.currentSession=self.currentSessionTV.get()
+        self.sesVarD['self.currentSession']=int(self.currentSessionTV.get())
 
         np.random.seed()
         self.t1RCPairs=[10,21] # stim 1, reward left; stim 2 reward right
@@ -1609,159 +1573,166 @@ class pdTask:
     def runSession(self):
         pdTask.taskHeader(self)
         self.sessionStartTime=time.time()
-        self.currentTrial=1
+        self.sesVarD['self.currentTrial']=1
         trialCounter=1
-        while self.currentTrial <=int(self.totalTrials.get()) and self.shouldRun==1:
+        while self.sesVarD['self.currentTrial'] <=int(self.totalTrials.get()) and self.shouldRun==1:
             pdTask.trial(self)
         pdData.data_saveSessionData(self)
 
-        self.currentSessionTV.set(int(self.currentSessionTV.get())+1)
-        self.currentSession=int(self.currentSessionTV.get())
+        self.sesVarD['self.currentSession']=int(self.currentSessionTV.get())+1
+        self.currentSessionTV.set(self.sesVarD['self.currentSession'])
         pdUtil.exportAnimalMeta(self)
         
         self.endBtn.config(state=DISABLED)
         self.startBtn.config(state=NORMAL)
         
-        self.stateBindings.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        pdVariables.dictToPandas(self,self.stateD,'self.stateMap')
+        self.stateMap.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
+        self.sesVarBindings.to_csv('{}{}_sesVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
         self.stateVarBindings.to_csv('{}{}_stateVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
-        print('I completed {} trials.'.format(self.currentTrial-1))
+        
+        print('I completed {} trials.'.format(self.sesVarD['self.currentTrial']-1))
         print('!!!!!!! --> Session #:{} Finished'.format(int(self.currentSessionTV.get())-1))
+        
         self.updateDispTime()
         pdSerial.syncSerial(self)
     
     def trial(self):
+        # make the dict states local, just for typing sake
+        lBS=self.stateD['self.bootState']
+        lWS=self.stateD['self.waitState']
+        lIS=self.stateD['self.initiationState']
+        lC1S=self.stateD['self.cue1State']
+        lC2S=self.stateD['self.cue2State']
+        lS1S=self.stateD['self.stim1State']
+        lS2S=self.stateD['self.stim2State']
+        lCtS=self.stateD['self.catchState']
+        lSvS=self.stateD['self.saveState']
+        lR1S=self.stateD['self.rewardState']
+        lR2S=self.stateD['self.rewardState2']
+        lNS=self.stateD['self.neutralState']
+        lPS=self.stateD['self.punishState']
+        lES=self.stateD['self.endState']
+
         self.trialStartTime=time.time()
+        
         try:
             #S0 -----> hand shake (initialization state)
-            if self.currentState==self.bootState:
+            if self.currentState==lBS:
                 pdData.data_trialContainers(self)
                 pdSerial.serial_readDataFlush(self)
-                while self.currentState==self.bootState:
+                while self.currentState==lBS:
                     pdSerial.serial_readDataFlush(self)
                     if self.serDataAvail==1:
                         pdData.data_parseData(self)
-                        pdState.switchState(self,self.waitState)
+                        pdState.switchState(self,lWS)
             
             #S1 -----> trial wait state
-            elif self.currentState==self.waitState:
-                pdState.stateHeader(self,1)
-                while self.currentState==self.waitState:
+            elif self.currentState==lWS:
+                pdState.stateHeader(self)
+                while self.currentState==lWS:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.waitStateCB(self)
 
             
             #S2 -----> trial initiation state
-            elif self.currentState==self.initiationState:
-                pdState.stateHeader(self,1)
+            elif self.currentState==lIS:
+                pdState.stateHeader(self)
                 pdCallbacks.initiationStateHead(self)
-                while self.currentState==self.initiationState:
+                while self.currentState==lIS:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.initiationStateCB(self)
             
             #S3 -----> cue #1
-            elif self.currentState==self.cue1State:
-                pdState.stateHeader(self,1)
+            elif self.currentState==lC1S:
+                pdState.stateHeader(self)
                 pdCallbacks.cue1StateHead(self)
-                while self.currentState==self.cue1State:
+                while self.currentState==lC1S:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.cue1StateCB(self)
 
             #S4 -----> cue #2
-            elif self.currentState==self.cue2State:
-                pdState.stateHeader(self,1)
+            elif self.currentState==lC2S:
+                pdState.stateHeader(self)
                 pdCallbacks.cue2StateHead(self)
-                while self.currentState==self.cue2State:    
+                while self.currentState==lC2S:    
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.cue2StateCB(self)
 
             #S5 -----> stim tone #1
-            elif self.currentState==self.stim1State:
-                pdState.stateHeader(self,1)
+            elif self.currentState==lS1S:
+                pdState.stateHeader(self)
                 pdCallbacks.shaping_stim1StateHead(self)
-                while self.currentState==self.stim1State:
+                while self.currentState==lS1S:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.shaping_stim1StateCB(self)
 
             #S6 -----> stim tone #2
-            elif self.currentState==self.stim2State:
-                pdState.stateHeader(self,1)
+            elif self.currentState==lS2S:
+                pdState.stateHeader(self)
                 pdCallbacks.shaping_stim2StateHead(self)
-                while self.currentState==self.stim2State:
+                while self.currentState==lS2S:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.shaping_stim2StateCB(self)
             
             #S21 -----> reward state
-            elif self.currentState==self.rewardState:
-                pdState.stateHeader(self,0)
-                while self.currentState==self.rewardState:
+            elif self.currentState==lR1S:
+                print('rewarding left')
+                pdState.stateHeader(self)
+                while self.currentState==lR1S:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.rewardStateCB(self)
             #S22 -----> reward state
-            elif self.currentState==self.rewardState2:
-                pdState.stateHeader(self,0)
-                while self.currentState==self.rewardState2:
+            elif self.currentState==lR2S:
+                print('rewarding right')
+                pdState.stateHeader(self)
+                while self.currentState==lR2S:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.rewardStateCB(self)
 
             #S23 -----> neutral state
-            elif self.currentState==self.neutralState:
-                pdState.stateHeader(self,0)
-                while self.currentState==self.neutralState:
+            elif self.currentState==lNS:
+                pdState.stateHeader(self)
+                while self.currentState==lNS:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.neutralStateCB(self)
 
             #S24 -----> punish state
-            elif self.currentState==self.punishState:
-                pdState.stateHeader(self,0)
-                while self.currentState==self.punishState:
+            elif self.currentState==lPS:
+                pdState.stateHeader(self)
+                while self.currentState==lPS:
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.punishStateCB(self)
 
             #S13: save state
-            elif self.currentState==self.saveState:
+            elif self.currentState==lSvS:
 
-                # deal with any post-trial analysis on data we are about to dump
-                pdAnalysis.getLickTimesByState(self)
-
-                if self.currentTrial % self.biasRange==0:
-                    pdAnalysis.shapingUpdateLeftRightProb(self)
-                self.trialLeft1Prob.append(self.stateVarDict['self.shapeC1_LPortProb'])
-                self.trialLeft2Prob.append(self.stateVarDict['self.shapeC2_LPortProb'])
-                self.trialSampRate.append(np.mean(np.diff(np.array(self.mcTrialTime))))
-                print('debug: mean dt={}'.format(self.trialSampRate[-1]))
+                pdTask.postTrialAnalysis(self)
                 pdData.data_saveTrialData(self)
                 pdData.data_trialContainers(self)
-                self.trialEndTime=time.time()
-                # append to session data
-                trialTime=self.trialEndTime-self.trialStartTime
-                self.trialTimes.append(trialTime)
-                pdPlot.updateSessionPlot(self)
-                
-                print('last trial took: {} seconds'.format(trialTime))
-                self.currentTrial=self.currentTrial+1
-                self.sessionTrialCount=self.sessionTrialCount+1 
-                # in case you run a second session
-                print('trial {} done, saved its data'.format(self.currentTrial-1))
-                pdState.switchState(self,self.bootState)
+                pdTask.postTrialCleanup(self)
+                pdState.switchState(self,lBS)
  
 
             #S25: end session state
-            elif self.currentState==self.endState:
+            elif self.currentState==self.stateD['self.endState']:
                 print('About to end the session ...')
-                if self.trialDataExists==1:
+                if self.sesVarD['self.trialDataExists']==1:
                     pdData.data_saveTrialData(self)
-                    self.currentTrial=self.currentTrial+1
-                    self.sessionTrialCount=self.sessionTrialCount+1 
+                    self.sesVarD['self.currentTrial']=self.sesVarD['self.currentTrial']+1
+                    self.sesVarD['self.sessionTrialCount']=self.sesVarD['self.sessionTrialCount']+1 
                     # in case you run a second session
                     pdData.data_trialContainers(self)
                 self.shouldRun=0  # session interput
@@ -1775,6 +1746,26 @@ class pdTask:
             pdPlot.updateTaskPlot(self)
         self.cycleCount=0
 
+    def postTrialAnalysis(self):
+        if self.sesVarD['self.currentTrial'] % self.stVarD['self.biasRange']==0:
+            pdAnalysis.shapingUpdateLeftRightProb(self)
+        self.trialLeft1Prob.append(self.stVarD['self.shapeC1_LPortProb'])
+        self.trialLeft2Prob.append(self.stVarD['self.shapeC2_LPortProb'])
+        self.trialSampRate.append(np.mean(np.diff(np.array(self.mcTrialTime))))
+        print('debug: mean dt={}'.format(self.trialSampRate[-1]))
+
+    def postTrialCleanup(self):
+        self.trialEndTime=time.time()
+        trialTime=self.trialEndTime-self.trialStartTime
+        self.trialTimes.append(trialTime)
+        pdPlot.updateSessionPlot(self)
+        
+        print('last trial took: {} seconds'.format(trialTime))
+        self.sesVarD['self.currentTrial']=self.sesVarD['self.currentTrial']+1
+        self.sesVarD['self.sessionTrialCount']=self.sesVarD['self.sessionTrialCount']+1 
+        # in case you run a second session
+        print('trial {} done, saved its data'.format(self.sesVarD['self.currentTrial']-1))
+
 class pyDiscrim:
 
     def __init__(self,master):
@@ -1783,8 +1774,8 @@ class pyDiscrim:
         root.wm_geometry("+0+0")
         pdVariables.setSessionVars(self)
         pdWindow.pdWindowPopulate(self)
-        print('curTrial={}'.format(self.currentTrial))
-        print('curSession={}'.format(self.currentSession))
+        print('curTrial={}'.format(self.sesVarD['self.currentTrial']))
+        print('curSession={}'.format(self.sesVarD['self.currentSession']))
         pdVariables.setStateNames(self)
         pdVariables.setTaskProbs(self)
         pdVariables.setStateVars(self)
@@ -1800,27 +1791,7 @@ class pyDiscrim:
         self.dateStr = datetime.datetime.\
         fromtimestamp(time.time()).strftime('%H:%M (%m/%d/%Y)')
         self.timeDisp.config(text=' #{} started:'\
-            .format(self.currentSession) + self.dateStr)
-    
-    def makeMetaFrame(self):
-        sesVarVals=[]
-        self.saveVars_session_ids=\
-        ['sessionTrialCount','currentTrial','timeOutDuration']
-        for x in range(0,len(self.saveVars_session_ids)):
-            exec('sesVarVals.append(self.{})'\
-                .format(self.saveVars_session_ids[x]))
-
-        self.sessionDF=pd.DataFrame([sesVarVals],\
-            columns=self.saveVars_session_ids)
-
-    def updateMetaFrame(self):
-        # updates are series
-            sesVarVals=[]
-            for x in range(0,len(self.saveVars_session_ids)):
-                exec('sesVarVals.append(self.{})'\
-                    .format(self.saveVars_session_ids[x]))
-            ds=pd.Series(sesVarVals,index=self.saveVars_session_ids)
-            self.sessionDF=self.sessionDF.append(ds,ignore_index=True)
+            .format(self.sesVarD['self.currentSession']) + self.dateStr)
 
     def debugWindow(self):
         self.debugTogglePosition="+370+660"
@@ -1878,66 +1849,44 @@ class pyDiscrim:
         self.stateStartColumn=sCl
         self.stateStartRow=sRw
 
-        # self.blankLine(self.st_frame,sRw)
-
-        self.sBtn_save = Button(st_frame, text="Save State", \
-            command=lambda: pdState.switchState(self,self.saveState),\
-            width=btWdth)
+        self.sBtn_save = Button(st_frame, text="Save State", command=lambda: pdState.switchState(self,self.stateD['self.saveState']),width=btWdth)
         self.sBtn_save.grid(row=sRw+1, column=sCl)
         self.sBtn_save.config(state=NORMAL)
 
-        self.sBtn_endSession = Button(st_frame, text="End Session", \
-            command=lambda: pdState.switchState(\
-                self,self.endState),width=btWdth)
+        self.sBtn_endSession = Button(st_frame, text="End Session", command=lambda: pdState.switchState(self,self.stateD['self.endState']),width=btWdth)
         self.sBtn_endSession.grid(row=sRw-2, column=sCl+1)
         self.sBtn_endSession.config(state=NORMAL)
 
-        self.sBtn_boot = Button(st_frame, text="S0: Boot", \
-            command=lambda: pdState.switchState(\
-                self,self.bootState),width=btWdth)
+        self.sBtn_boot = Button(st_frame, text="S0: Boot", command=lambda: pdState.switchState(self,self.stateD['self.bootState']),width=btWdth)
         self.sBtn_boot.grid(row=sRw-1, column=sCl)
         self.sBtn_boot.config(state=NORMAL)
 
-        self.sBtn_wait = Button(st_frame, text="S1: Wait", \
-            command=lambda: pdState.switchState(\
-                self,self.waitState),width=btWdth)
+        self.sBtn_wait = Button(st_frame, text="S1: Wait", command=lambda: pdState.switchState(self,self.stateD['self.waitState']),width=btWdth)
         self.sBtn_wait.grid(row=sRw, column=sCl)
         self.sBtn_wait.config(state=NORMAL)
 
-        self.sBtn_initiate = Button(st_frame, text="S2: Initiate", \
-            command=lambda: pdState.switchState(\
-                self,self.initiationState),width=btWdth)
+        self.sBtn_initiate = Button(st_frame, text="S2: Initiate", command=lambda: pdState.switchState(self,self.stateD['self.initiationState']),width=btWdth)
         self.sBtn_initiate.grid(row=sRw, column=sCl+1)
         self.sBtn_initiate.config(state=NORMAL)
 
-        self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", \
-            command=lambda: pdState.switchState(\
-                self,self.cue1State),width=btWdth)
+        self.sBtn_cue1 = Button(st_frame, text="S3: Cue 1", command=lambda: pdState.switchState(self,self.stateD['self.cue1State']),width=btWdth)
         self.sBtn_cue1.grid(row=sRw-1, column=sCl+2)
         self.sBtn_cue1.config(state=NORMAL)
 
-        self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", \
-            command=lambda: pdState.switchState(\
-                self,self.cue2State),width=btWdth)
+        self.sBtn_cue2 = Button(st_frame, text="S4: Cue 2", command=lambda: pdState.switchState(self,self.stateD['self.cue2State']),width=btWdth)
         self.sBtn_cue2.grid(row=sRw+1, column=sCl+2)
         self.sBtn_cue2.config(state=NORMAL)
 
-        self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", \
-            command=lambda: pdState.switchState(\
-                self,self.stim1State),width=btWdth)
+        self.sBtn_stim1 = Button(st_frame, text="SS1: Stim 1", command=lambda: pdState.switchState(self,self.stateD['self.stim1State']),width=btWdth)
         self.sBtn_stim1.grid(row=sRw-2, column=sCl+3)
         self.sBtn_stim1.config(state=NORMAL)
 
-        self.sBtn_stim2 = Button(st_frame, text="SS1: Stim 2",\
-            command=lambda: pdState.switchState(\
-                self,self.stim2State),width=btWdth)
+        self.sBtn_stim2 = Button(st_frame, text="SS1: Stim 2", command=lambda: pdState.switchState(self,self.stateD['self.stim2State']),width=btWdth)
         self.sBtn_stim2.grid(row=sRw+2, column=sCl+3)
         self.sBtn_stim2.config(state=NORMAL)
 
 
-        self.sBtn_catch = Button(st_frame, text="SC: Catch", \
-            command=lambda: pdState.switchState(\
-                self,self.catchState),width=btWdth)
+        self.sBtn_catch = Button(st_frame, text="SC: Catch", command=lambda: pdState.switchState(self,self.stateD['self.catchState']),width=btWdth)
         self.sBtn_catch.grid(row=sRw, column=sCl+3)
         self.sBtn_catch.config(state=NORMAL)
 
@@ -1953,13 +1902,13 @@ class pyDiscrim:
 
         self.sBtn_neutral = Button(st_frame, text="SN: Neutral", \
             command=lambda: pdState.switchState(\
-                self,self.neutralState),width=btWdth)
+                self,self.stateD['self.neutralState']),width=btWdth)
         self.sBtn_neutral.grid(row=sRw, column=sCl+5)
         self.sBtn_neutral.config(state=NORMAL)
 
         self.sBtn_punish = Button(st_frame, text="SP: Punish", \
             command=lambda: pdState.switchState(\
-                self,self.punishState),width=btWdth)
+                self,self.stateD['self.punishState']),width=btWdth)
         self.sBtn_punish.grid(row=sRw+0, column=sCl+4)
         self.sBtn_punish.config(state=NORMAL)
 
@@ -1967,68 +1916,74 @@ class pyDiscrim:
         se_frame = Toplevel()
         se_frame.title('Set States')
         self.se_frame=se_frame
-
-        self.populateVarFrames(self.stateNames,self.stateIDs,0,'se_frame')
-        
-        self.setStatesBtn = Button(se_frame, text = 'Set State IDs', \
-            width = 15, command = lambda: self.stateNumsRefreshBtnCB())
-        self.setStatesBtn.grid(row=len(self.stateNames)+2, column=0)
+        self.populateVarFrameFromDict(self.stateD,0,11,'state dictionary','se_frame')
+        self.setStatesBtn = Button(se_frame, text = 'Set State IDs', width = 10, command = lambda: pdUtil.refreshDictFromGui(self,self.stateD))
+        self.setStatesBtn.grid(row=len(self.stateNames)+2, column=1,sticky=E)
 
     def taskProbWindow(self):
         tb_frame = Toplevel()
         tb_frame.title('Task Probs')
         self.tb_frame=tb_frame
-        self.populateVarFrames(self.t1ProbLabels,\
-            self.t1ProbValues,0,'tb_frame')
-        self.populateVarFrames(self.t2ProbLabels,\
-            self.t2ProbValues,2,'tb_frame')
-        
-        self.setTaskProbsBtn = Button(\
-            tb_frame,text='Set Probs.',width = 10,\
-            command = lambda: self.taskProbRefreshBtnCB())
-        self.setTaskProbsBtn.grid(row=len(self.t1ProbValues)+2, column=0,sticky=E)
+        self.populateVarFrameFromDict(self.task1D,0,0,'task 1','tb_frame')
+        self.populateVarFrameFromDict(self.task2D,2,0,'task 2','tb_frame')
+        self.setTaskProbsBtn = Button(tb_frame,text='Set Probs.',width = 10,command = lambda: self.taskProbRefreshBtnCB())
+        self.setTaskProbsBtn.grid(row=len(self.t1ProbValues)+2, column=1,sticky=W)
 
     def taskProbRefreshBtnCB(self):
-        pdUtil.refreshVars(self,self.t1ProbLabels,self.t1ProbValues,1)
-        pdUtil.refreshVars(self,self.t2ProbLabels,self.t2ProbValues,1)
+        pdUtil.refreshDictFromGui(self,self.task1D)
+        pdUtil.refreshDictFromGui(self,self.task2D)
 
     def stateVarWindow(self):
         frame_sv = Toplevel()
         frame_sv.title('State Vars')
         self.frame_sv=frame_sv
-        self.populateVarFrameFromDict(self.stateVarDict,0,'frame_sv')
-        self.setStateVars = Button(frame_sv,text = 'Set Variables.', width = 10, command = lambda: pdUtil.refreshDictFromGui(self,self.stateVarDict))
-        self.setStateVars.grid(row=len(self.stateVarValues)+2, column=0)  
-
+        self.populateVarFrameFromDict(self.stVarD,0,11,'state vars:','frame_sv')
+        self.setStateVars = Button(frame_sv,text = 'Set Variables.', width = 9, command = lambda: pdUtil.refreshDictFromGui(self,self.stVarD))
+        self.setStateVars.grid(row=len(self.stateVarValues)+2, column=1,sticky=W)  
 
     def stateNumsRefreshBtnCB(self):
 
         pdUtil.refreshVars(self,self.stateNames,self.stateIDs,1)
 
-    def populateVarFrameFromDict(self,dictName,stCol,frameName):
-        rowC=1
+    def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName):
+        rowC=2
+        stBCol=stCol+1
+        spillCount=0
+        exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
+        exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
         for key in list(dictName.keys()):
+            if varPerCol != 0:
+                if (rowC % varPerCol)==0:
+                    rowC=2
+                    spillCount=spillCount+1
+                    stCol=stCol+(spillCount+1)
+                    stBCol=stCol+(spillCount+2)
+            
             exec('{}_tv=StringVar(self.{})'.format(key,frameName))
             exec('{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
-            exec('{}_entries=Entry(self.{},width=6,textvariable={}_tv)'.format(key,frameName,key))
-            exec('{}_label.grid(row={}, column=stCol+1)'.format(key,rowC))
+            exec('{}_entries=Entry(self.{},width=5,textvariable={}_tv)'.format(key,frameName,key))
+            exec('{}_label.grid(row={}, column=stBCol,sticky=W)'.format(key,rowC))
             exec('{}_entries.grid(row={}, column=stCol)'.format(key,rowC))
             exec('{}_tv.set({})'.format(key,dictName[key]))
             rowC=rowC+1
 
     def populateVarFrames(self,varLabels,varValues,stCol,frameName):
-
+        stBCol=stCol+1
         for x in range(0,len(varLabels)):
+            if x > 6:
+                stCol=stCol+2
+                stBCol=stCol+3
             exec('self.{}_tv=StringVar(self.{})'.format(varLabels[x],frameName))
             exec('self.{}_label = Label(self.{}, text="{}")'.format(varLabels[x],frameName,varLabels[x]))
             exec('self.{}_entries=Entry(self.{},width=6,textvariable=self.{}_tv)'.format(varLabels[x],frameName,varLabels[x]))
-            exec('self.{}_label.grid(row=x, column=stCol+1)'.format(varLabels[x]))
+            exec('self.{}_label.grid(row=x, column=stBCol)'.format(varLabels[x]))
             exec('self.{}_entries.grid(row= x, column=stCol)'.format(varLabels[x]))
             exec('self.{}_tv.set({})'.format(varLabels[x],varValues[x]))
 
     def exceptionCallback(self):
         print('EXCEPTION thrown: I am going down')
-        print('last trial = {} and the last state was {}.I will try to save last trial ...'.format(self.currentTrial,self.currentState))
+        print('last trial = {} and the last state was {}.I will try to save last trial ...'.\
+            format(self.sesVarD['self.currentTrial'],self.currentState))
         pdData.data_saveTrialData(self)
         print('save was a success; now I will close com port and quit')
         print('I will try to reset the mc state before closing the port ...')
