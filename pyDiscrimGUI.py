@@ -1,7 +1,7 @@
 # pyDiscrim:
 # A Python 3 program that interacts with a microcontroller to perform state-based behavioral tasks.
 #
-# Version 0.95 -- Import of last task probs and state vars.
+# Version 0.99 -- states update graphically
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 
@@ -25,7 +25,7 @@ class pdVariables:
 
     def setStateNames(self):
         self.stateNames=['bootState','waitState','initiationState','cue1State','cue2State','stim1State',\
-        'stim2State','catchState','saveState','rewardState','rewardState2','neutralState','punishState',\
+        'stim2State','catchState','saveState','rewardState1','rewardState2','neutralState','punishState1',\
         'endState','defaultState']
 
         self.stateIDs=[0,1,2,3,4,5,6,7,13,21,22,23,24,25,29]
@@ -45,25 +45,24 @@ class pdVariables:
         pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
 
     def setStateVars(self):
-        self.stateVarLabels=['acelValThr','acelSamps','distThr','timeOutDuration','waitStillTime','genStillTime',\
-        'cue1Dur','cue2Dur','biasRange','shapeC1_LPortProb','shapeC2_LPortProb','biasPCut','biasMuCut','lBiasDelta','rBiasDelta',\
-        'reward1Time','reward2Time']
-        self.stateVarValues=[10,100,100,2,1,1,1.5,1.5,10,0.5,0.5,0.1,1.9,0.10,0.10,1.5,1.5]
-        self.stVarD = {}
-        for x in range(0,len(self.stateVarLabels)):
-            self.stVarD['self.'+ self.stateVarLabels[x]]=self.stateVarValues[x]
+        self.stateVarValues=[10,100,100,2,2,1,1,1.5,1.5,10,0.5,0.5,0.05,0.4,0.1,0.1,1.5,1.5,1.0,1.0,15,15,1,1]
+        self.stVarD = {'self.acelValThr':10,'self.acelSamps':100,'self.distThr':100,'self.tOutDur1':2,'self.tOutDur2':2,\
+        'self.waitStillTime':1.5,'self.genStillTime':1.5,'self.cue1Dur':1.5,'self.cue2Dur':1.5,'self.biasRange':5,\
+        'self.shapeC1_LPortProb':0.5,'self.shapeC2_LPortProb':0.5,'self.biasPCut':0.05,'self.biasMuCut':0.4,\
+        'self.lBiasDelta':0.1,'self.rBiasDelta':0.1,'self.rwdTime1':1.5,'self.rwdTime2':1.5,'self.minStim1Time':1,'self.minStim2Time':1,\
+        'self.max1ReportTime':20,'self.max2ReportTime':20,'self.neutralTime':1}
         pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
         
     def setTaskProbs(self):
-        self.tProbLabels='sTask_prob','sTask_target_prob','sTask_distract_prob','sTask_target_reward_prob',\
-        'sTask_target_punish_prob','sTask_distract_reward_prob','sTask_distract_punish_prob'
-        self.t1ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        self.t2ProbValues=[0.5,0.5,0.5,1.0,0.0,0.0,1.0]
-        self.task1D = {}
-        self.task2D = {}
-        for x in range(0,len(self.tProbLabels)):
-            self.task1D['self.'+ self.tProbLabels[x] + '1']=self.t1ProbValues[x]
-            self.task2D['self.'+ self.tProbLabels[x] + '2']=self.t2ProbValues[x]
+
+        self.task1D = {'self.sTask_prob':0.5,'self.sTask_target_prob':0.5,'self.sTask_distract_prob':0.5,\
+        'self.sTask_target_reward_prob':1.0,'self.sTask_target_punish_prob':0.0, 'self.sTask_distract_reward_prob':0.0,\
+        'self.sTask_distract_punish_prob':1.0,'self.sTask_shaping_prob':1.0,'self.shape_rwdProb':1.0}
+
+        self.task2D = {'self.sTask_prob':0.5,'self.sTask_target_prob':0.5,'self.sTask_distract_prob':0.5,\
+        'self.sTask_target_reward_prob':1.0,'self.sTask_target_punish_prob':0.0,'self.sTask_distract_reward_prob':0.0,\
+        'self.sTask_distract_punish_prob':1.0,'self.sTask_shaping_prob':1.0,'self.shape_rwdProb':1.0}
+
         pdVariables.dictToPandas(self,self.task1D,'self.task1Bindings')
         pdVariables.dictToPandas(self,self.task2D,'self.task2Bindings')
 
@@ -79,13 +78,11 @@ class pdUtil:
 
     def getPath(self):
 
-        self.selectPath = fd.askdirectory(title =\
-            "what what?")
+        self.selectPath = fd.askdirectory(title ="what what?")
 
     def getFilePath(self):
 
-        self.selectPath = fd.askopenfilename(title =\
-            "what what?",defaultextension='.csv')
+        self.selectPath = fd.askopenfilename(title ="what what?",defaultextension='.csv')
 
     def setSessionPath(self):
         dirPathFlg=os.path.isdir(self.dirPath.get())
@@ -153,12 +150,21 @@ class pdUtil:
         self.lickPlotMax.get(),self.currentSessionTV.get()]
         self.animalMetaDF=pd.DataFrame([sesVarVals],columns=self.metaNames)
         self.animalMetaDF.to_csv('{}{}_animalMeta.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
         pdVariables.dictToPandas(self,self.stateD,'self.stateMap')
         self.stateMap.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+
         pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
         self.sesVarBindings.to_csv('{}{}_sesVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
         pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
         self.stateVarBindings.to_csv('{}{}_stateVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
+        pdVariables.dictToPandas(self,self.task1D,'self.task1Bindings')
+        self.task1Bindings.to_csv('{}{}_task1Probs.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+        
+        pdVariables.dictToPandas(self,self.task2D,'self.task2Bindings')
+        self.task2Bindings.to_csv('{}{}_task2Probs.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
 
 class pdSerial:
     def syncSerial(self):
@@ -182,7 +188,7 @@ class pdSerial:
                         gaveFeedback=1
                     loopCount=loopCount+1
                     if loopCount % 5000 ==0:
-                        print('still syncing: state #: {}; loop #: {}'.format(lCS,loopCount))
+                        print('still syncing: state #: {}; loop #: {}'.format(self.currentState,loopCount))
                 elif self.currentState==lBS:
                     print('ready: mc is in state #: {}'.format(self.currentState))
                     return
@@ -195,18 +201,14 @@ class pdSerial:
             pdSerial.syncSerial(self)
             self.sesVarD['self.comObjectExists']=1
 
-
             # update the GUI
-            self.comPathLabel.config(text="COM Object Connected ***",\
-                justify=LEFT,fg="green",bg="black") 
+            self.comPathLabel.config(text="COM Object Connected ***",justify=LEFT,fg="green",bg="black") 
             self.comPathEntry.config(state=DISABLED)
             self.baudPick.config(state=DISABLED)
             self.createCom_button.config(state=DISABLED)
             self.startBtn.config(state=NORMAL)
             self.closeComObj_button.config(state=NORMAL)
             self.syncComObj_button.config(state=NORMAL)
-            # self.taskProbsBtn.invoke()
-            # self.stateTogglesBtn.invoke()
         
     def serial_closeComObj(self):
         if self.sesVarD['self.comObjectExists']==1:
@@ -226,8 +228,6 @@ class pdSerial:
             self.startBtn.config(state=DISABLED)
             self.closeComObj_button.config(state=DISABLED)
             self.syncComObj_button.config(state=DISABLED)
-            # self.taskProbsBtn.invoke()
-            # self.stateTogglesBtn.invoke()
 
     def serial_readDataFlush(self):
 
@@ -260,12 +260,19 @@ class pdData:
 
     def data_sessionContainers(self):
         self.sesVarD['self.sessionDataExists']=0
-        self.rewardContingency=[] 
-        self.trialOutcome=[]
-        self.PooledTasks=[]
+        self.cueSelected=[]
+        self.stimSelected=[]
+        self.shapingTrial=[]
+        self.cueTime=[]
+        self.rewardPort=[]
+        self.punishedPort=[]
+        self.selectedPort=[]
 
-        self.cuePresented=[];
-        self.sStims=[];
+        self.rewardContingency=[] 
+        self.choiceOutcome=[]
+
+        self.PooledTasks=[]
+        
         self.sRewardTarget=[];
         self.sPunishTarget=[];
         self.sOutcome=[]; 
@@ -274,19 +281,23 @@ class pdData:
         self.rcCol=[]
         self.toCol=[]
         self.shapingReport=[]
+        self.leftReward=[]
         self.waitLicks0=[]
         self.waitLicks1=[]
         self.stimLicks0=[]
         self.stimLicks1=[]
         self.waitConditionMetTime=[]
-        self.cue1Time=[]
-        self.cue2Time=[]
         self.trialLeft1Prob=[]
         self.trialLeft2Prob=[]
         self.stimLeftLickTimes=[]
         self.stimRightLickTimes=[]
         self.stimLeftLickInds=[]
         self.stimRightLickInds=[]
+        self.presLeftFreq=[]
+        self.presRightFreq=[]
+        self.lickedLeft=[]
+        self.lickedRight=[]
+        self.smoothedLickBias=[]
 
     def data_trialContainers(self):
         self.sesVarD['self.trialDataExists']=0
@@ -330,35 +341,32 @@ class pdData:
         self.pyStatesRT = []
         self.pyStatesTT = []
         self.pyStatesTS = []
+
+    def correct9DOF(self,rOrient,maxDelta):
+        cTheta=rOrient-self.lastOrientation
+        rollCorrectTheta=cTheta
+        if cTheta>maxDelta: # rolled from 180 to -180 (pos to neg)
+            rollCorrectTheta=(cTheta-180)*-1
+        elif cTheta<-maxDelta: # rolled -180 over to positive
+            rollCorrectTheta=(cTheta+180)*-1
+        return rollCorrectTheta
          
     def data_parseData(self):
+        # print(int(self.sR[self.stID_trialTime])/self.timeBase)
         self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
 
+        orientWRoll=int(self.sR[self.stID_pos])
+        noRollOrient=pdData.correct9DOF(self,orientWRoll,290)
         
-        cOr=int(self.sR[self.stID_pos])
-
-        cTheta=cOr-self.lastOrientation
-        
-        rollCorrectTheta=cTheta
-        
-        if cTheta>250: # rolled from 180 to -180 (pos to neg)
-            
-            rollCorrectTheta=(cTheta-180)*-1
-        elif cTheta<-250: # rolled -180 over to positive
-            
-            rollCorrectTheta=(cTheta+180)*-1
-        
-        self.orientation.append(cOr)
+        self.orientation.append(orientWRoll)
         
         self.lastOrientation=self.orientation[-1]
         
-        self.posDelta.append(rollCorrectTheta)
+        self.posDelta.append(noRollOrient)
         
-        self.absolutePosition.append(self.lastPos+rollCorrectTheta)
+        self.absolutePosition.append(self.lastPos+noRollOrient)
         self.lastPos=self.absolutePosition[-1]
-
-
         self.currentState=int(self.sR[self.stID_state])
         self.arStates.append(self.currentState)
         self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
@@ -395,15 +403,11 @@ class pdData:
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).\
         strftime('%H%M_%m%d%Y')
 
-        saveStreams='rewardContingency','trialOutcome','PooledTasks',\
-        'cuePresented','sStims','sRewardTarget',\
-        'sPunishTarget','sOutcome','trialTimes','rcCol',\
-        'toCol','shapingReport','waitLicks0','waitLicks1',\
-        'stimLicks0','stimLicks1','waitConditionMetTime',\
-        'smoothedLickBias','difLicks','trialSampRate',\
-        'trialLeft1Prob','trialLeft2Prob','stimLeftLickTimes','stimRightLickTimes',\
-        'stimLeftLickInds','stimRightLickInds'
-
+        saveStreams='rewardContingency','choiceOutcome','PooledTasks','cueSelected','stimSelected','sRewardTarget','sPunishTarget','sOutcome','trialTimes','rcCol',\
+        'toCol','shapingReport','waitLicks0','waitLicks1','stimLicks0','stimLicks1','waitConditionMetTime','smoothedLickBias','trialSampRate',\
+        'trialLeft1Prob','trialLeft2Prob','stimLeftLickTimes','stimRightLickTimes','stimLeftLickInds','stimRightLickInds','leftReward',\
+        'lickedLeft','lickedRight','presLeftFreq','presRightFreq','smoothedLickBias'
+        
         self.tCo=[]
         for x in range(0,len(saveStreams)):
             exec('self.tCo=self.{}'.format(saveStreams[x]))
@@ -420,96 +424,148 @@ class pdData:
 
 class pdPlot:
 
-    def taskPlotWindow(self):
+    def trialPlotFig(self):
+        self.pClrs={'right':'#D9220D','cBlue':'#33A4F3','cPurp':'#6515D9',\
+        'cOrange':'#F7961D','left':'cornflowerblue','cGreen':'#29AA03'}
+        # plt.style.use('dark_background')
         self.trialFramePosition='+370+0' # can be specified elsewhere
         self.updateTrialAxes=0
-        self.statePlotMin=0
-        self.statePlotMax=25
-        
-        self.distPlotMinVal=-400
-        self.distPlotMaxVal=1200
 
-        self.lickAMin=0
-        self.lickAMax=1300
+        trialPlotOpts={'distPlotMinVal':-400,'distPlotMaxVal':1200,'lickAMin':0,'lickAMax':1300}
+        self.trialPlotOpts=trialPlotOpts
 
-        self.trialFig = plt.figure(100,figsize=(6.5,5.7), dpi=100)
+        self.trialFig = plt.figure(100,figsize=(6.5,3.5), dpi=100)
         self.trialFig.suptitle('state 0', fontsize=10)
-
         self.initX=np.arange(2000)
         self.initY=np.random.randint(5, size=2000)
+        self.trialSubCR=[3,6]
+        self.trialFig.subplots_adjust(wspace=0.1,hspace=0.1)
 
 
-        self.stateAxes=plt.subplot2grid((3,3), (1,0), colspan=1,rowspan=1)
-        self.stateAxes.set_ylabel('current state')
-        self.stateAxes.set_ylim([self.statePlotMin,self.statePlotMax])
-        self.stateAxes.set_xticks([])
-        self.stateLine,=self.stateAxes.plot(self.initY,color="darkgreen")
-
-        self.positionAxes=plt.subplot2grid((3,3), (2,0), colspan=1,rowspan=1)
-        self.positionAxes.set_ylabel('animal position')
-        self.positionAxes.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
+        self.positionAxes=plt.subplot2grid(self.trialSubCR,(0,3),colspan=1,rowspan=1)
+        self.positionAxes.set_ylim([trialPlotOpts['distPlotMinVal'],trialPlotOpts['distPlotMaxVal']])
+        self.positionAxes.set_yticks([])
         self.positionAxes.set_xticks([])
+        self.positionAxes.set_title('pos')
         self.positionLine,=self.positionAxes.plot(self.initY,color="orchid",lw=2)
         self.positionThreshLine,=self.positionAxes.plot([0,2000],[100,100],color="black",lw=0.5)
-
-        self.leftLickAxes=plt.subplot2grid((3,3), (0,1), colspan=1,rowspan=1)
-        self.leftLickAxes.set_ylabel('sensor values')
-        self.leftLickAxes.set_title('left')
-        self.leftLickAxes.set_ylim([self.lickAMin,self.lickAMax])
-        self.lickLeftValLine,=self.leftLickAxes.plot(self.initY,color="red")
-        self.lickLeftThreshLine,=self.leftLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
-
-        self.rightLickAxes=plt.subplot2grid((3,3), (0,2), colspan=1,rowspan=1)
-        self.rightLickAxes.set_yticks([])
-        self.rightLickAxes.set_ylim([self.lickAMin,self.lickAMax])
-        self.rightLickAxes.set_title('right')
-        self.lickRightValLine,=self.rightLickAxes.plot(self.initY,color="cornflowerblue")
-        self.lickRightThreshLine,=self.rightLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
-
-        # start port
-        self.pLineOpt={}
-        self.pLineOpt['reward']=dict(marker='o',markersize=25, markeredgewidth=1.5, markerfacecolor="cornflowerblue",markeredgecolor="black",alpha=0.9)
-        self.pLineOpt['punish']=dict(marker='o',markersize=25, markeredgewidth=1.5, markerfacecolor="red", markeredgecolor="black",alpha=0.9)
-        self.pLineOpt['neutral']=dict(marker='o',markersize=25, markeredgewidth=1.5,markerfacecolor="white", markeredgecolor="black",alpha=0.9)
-        self.pLineOpt['licked']=dict(marker='o',markersize=25, markeredgewidth=1.5,markerfacecolor="grey", markeredgecolor="black",alpha=0.9)
-
-        self.lPX=0.3
-        self.rPX=0.7
-        self.prsY=0.7
-        self.rptY=0.3
-        self.labDelt=0.11
-        self.lineDelt=0.1
-        self.portAxes = plt.subplot2grid((3,3), (1, 1), colspan=2,rowspan=2)
-        self.leftPresLine,=self.portAxes.plot(self.lPX,self.prsY,**self.pLineOpt['reward'])
-        self.rightPresLine,=self.portAxes.plot(self.rPX,self.prsY,**self.pLineOpt['punish'])
-        self.portAxes.plot([self.lPX+self.lineDelt,self.rPX-self.lineDelt],[self.prsY,self.prsY],'k:')
-        self.portAxes.text(0.5,self.prsY+self.labDelt,'presented',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.lPX,self.prsY,'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.rPX,self.prsY,'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.leftPortPresText=self.portAxes.text(self.lPX,self.prsY-0.1,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.rightPortPresText=self.portAxes.text(self.rPX,self.prsY-0.1,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-
-        self.leftReportLine,=self.portAxes.plot(self.lPX,self.rptY,**self.pLineOpt['neutral'])
-        self.rightReportLine,=self.portAxes.plot(self.rPX,self.rptY,**self.pLineOpt['neutral'])
-        self.portAxes.plot([self.lPX+0.1,self.rPX-0.1],[self.rptY,self.rptY],'k:')
-        self.portAxes.text(0.5,self.rptY+self.labDelt,'reported',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.lPX,self.rptY,'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.rPX,self.rptY,'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.leftPortReportText=self.portAxes.text(self.lPX,self.rptY-0.1,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.rightPortReportText=self.portAxes.text(self.rPX,self.rptY-0.1,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-
-
-        self.portAxes.set_ylim([0,1])
-        self.portAxes.set_xlim([0,1])
-        self.portAxes.set_axis_off()
 
         mng = plt.get_current_fig_manager()
         eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
         plt.show(block=False)
-        # we need to draw once before we set artists, so they can cache at init
+        self.trialFig.canvas.flush_events()
 
-        self.stateAxes.draw_artist(self.stateLine)
-        self.stateAxes.draw_artist(self.stateAxes.patch)
+        self.leftLickAxes=plt.subplot2grid(self.trialSubCR,(0,4), colspan=1,rowspan=1)
+        self.leftLickAxes.set_yticks([])
+        self.leftLickAxes.set_xticks([])
+        self.leftLickAxes.set_title('left')
+        self.leftLickAxes.set_ylim([trialPlotOpts['lickAMin'],trialPlotOpts['lickAMax']])
+        self.lickLeftValLine,=self.leftLickAxes.plot(self.initY,color=self.pClrs['left'])
+        self.lickLeftThreshLine,=self.leftLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
+
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        self.rightLickAxes=plt.subplot2grid(self.trialSubCR,(0,5), colspan=1,rowspan=1)
+        self.rightLickAxes.set_yticks([])
+        self.rightLickAxes.set_xticks([])
+        self.rightLickAxes.set_ylim([trialPlotOpts['lickAMin'],trialPlotOpts['lickAMax']])
+        self.rightLickAxes.set_title('right')
+        self.lickRightValLine,=self.rightLickAxes.plot(self.initY,color=self.pClrs['right'])
+        self.lickRightThreshLine,=self.rightLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
+
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        #start state
+        self.stPlotX={'boot':0.1,'wait':0.1,'init':0.1,'cue1':0.3,'cue2':0.3,'stm1':0.5,'stm2':0.5,\
+        'lRwd':0.8,'TOb':0.8,'TOa':0.7,'rRwd':0.7,'save':0.4}
+        
+        self.stPlotY={'boot':0.90,'wait':0.65,'init':0.40,'cue1':0.52,'cue2':0.28,'stm1':0.52,'stm2':0.28,\
+        'lRwd':0.52,'TOb':0.28,'TOa':0.675,'rRwd':0.125,'save':0.90}
+
+        # # todo:link actual state dict to plot state dict, now its a hack
+        # key is real state value is plot state
+        self.stPlotRel={'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'21':7,'22':8,'24':9,'25':10,'13':11}
+        
+        self.stAxes = plt.subplot2grid(self.trialSubCR,(0, 0),colspan=3,rowspan=3)
+        self.stAxes.set_ylim([-0.02,1.02])
+        self.stAxes.set_xlim([-0.02,1.02])
+        self.stAxes.set_axis_off()
+        self.stMrkSz=28
+        self.txtOff=-0.02
+
+        self.pltX=[]
+        for xVals in list(self.stPlotX.values()):
+            self.pltX.append(xVals)
+        self.pltY=[]
+        for yVals in list(self.stPlotY.values()):
+            self.pltY.append(yVals)
+
+        self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,\
+            marker='o',markersize=self.stMrkSz,markeredgewidth=2,markerfacecolor="white",markeredgecolor="black",lw=0)
+        k=0
+        for stAnTxt in list(self.stPlotX.keys()):
+            tASt="{}".format(stAnTxt)
+            self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,horizontalalignment='center',fontsize=9, fontdict={'family': 'monospace'})
+            k=k+1
+        self.curStLine,=self.stAxes.plot(self.pltX[0],self.pltY[0],\
+            marker='o',markersize=self.stMrkSz+2,markeredgewidth=2,markerfacecolor=self.pClrs['cPurp'],markeredgecolor='black',lw=0,alpha=0.5)
+
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        # start port
+        self.portPltVrs={'lPX':0.25,'rPX':0.75,'prsY':0.75,'rptY':0.2,'labDelt':0.12,'lineDelt':0.1}
+        self.portAxes = plt.subplot2grid(self.trialSubCR, (1,3), colspan=3,rowspan=2)
+        self.portAxes.set_ylim([0,1])
+        self.portAxes.set_xlim([0,1])
+        self.portAxes.set_axis_off()
+        rTxtOff=0.2
+
+        self.leftSelectedLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['prsY'],\
+            marker='o',markersize=25,markeredgewidth=2,markerfacecolor="white",markeredgecolor=self.pClrs['left'])
+        self.rightSelectedLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['prsY'],\
+            marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
+        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-\
+            self.portPltVrs['lineDelt']],[self.portPltVrs['prsY'],self.portPltVrs['prsY']],'k:')
+        self.portAxes.text(0.5,self.portPltVrs['prsY']+self.portPltVrs['labDelt'],'presented',\
+            horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY'],'L',horizontalalignment='center',\
+            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY'],'R',horizontalalignment='center',\
+            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortPresText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortPresText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        self.leftReportLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['rptY'],marker='o',\
+            markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['left'])
+        self.rightReportLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['rptY'],marker='o',\
+            markersize=25,markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
+        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],\
+            [self.portPltVrs['rptY'],self.portPltVrs['rptY']],'k:')
+        self.portAxes.text(0.5,self.portPltVrs['rptY']+self.portPltVrs['labDelt'],'reported'\
+            ,horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY'],'L',horizontalalignment='center',\
+            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY'],'R',horizontalalignment='center',\
+            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortReportText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortReportText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+
+
+        self.trialFig.canvas.draw_idle()
+        plt.show(block=False)
+
+        self.stAxes.draw_artist(self.stPLine)
+        self.stAxes.draw_artist(self.curStLine)
+        self.stAxes.draw_artist(self.stAxes.patch)
 
         self.positionAxes.draw_artist(self.positionLine)
         self.positionAxes.draw_artist(self.positionThreshLine)
@@ -523,33 +579,31 @@ class pdPlot:
         self.rightLickAxes.draw_artist(self.lickRightThreshLine)
         self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
 
-        self.portAxes.draw_artist(self.leftPresLine)
-        self.portAxes.draw_artist(self.rightPresLine)
-        self.portAxes.draw_artist(self.leftPresLine)
-        self.portAxes.draw_artist(self.rightPresLine)
+
+        self.portAxes.draw_artist(self.leftSelectedLine)
+        self.portAxes.draw_artist(self.rightSelectedLine)
         self.portAxes.draw_artist(self.leftReportLine)
         self.portAxes.draw_artist(self.rightReportLine)
+        self.portAxes.draw_artist(self.leftPortReportText)
+        self.portAxes.draw_artist(self.rightPortReportText)
         self.portAxes.draw_artist(self.portAxes.patch)
 
 
         self.trialFig.canvas.flush_events()
         self.lastSplit=2000 #todo: why do i use this?
 
-    def updateTaskPlot(self):
+    def updateTrialFig(self):
         splt=int(self.sampsToPlot.get())
         if splt != self.lastSplit:
-            self.stateAxes.set_xlim([0,splt])
             self.positionAxes.set_xlim([0,splt])
             self.leftLickAxes.set_xlim([0,splt])
             self.rightLickAxes.set_xlim([0,splt])
 
         self.lastSplit=splt
-
         if self.updateTrialAxes==1:
-            self.stateAxes.set_ylim([self.statePlotMin,self.statePlotMax])
-            self.positionAxes.set_ylim([self.distPlotMinVal,self.distPlotMaxVal])
-            self.leftLickAxes.set_ylim([self.lickAMin,self.lickAMax])
-            self.rightLickAxes.set_ylim([self.lickAMin,self.lickAMax])
+            self.positionAxes.set_ylim([self.trialPlotOpts['distPlotMinVal'],self.trialPlotOpts['distPlotMaxVal']])
+            self.leftLickAxes.set_ylim([self.trialPlotOpts['lickAMin'],self.trialPlotOpts['lickAMax']])
+            self.rightLickAxes.set_ylim([self.trialPlotOpts['lickAMin'],self.trialPlotOpts['lickAMax']])
             self.updateTrialAxes=0
 
 
@@ -561,39 +615,55 @@ class pdPlot:
         posThreshPltData=[self.stVarD['self.distThr'],self.stVarD['self.distThr']]
         lickLeftPltData=self.lickValsA[-int(splt):]
         lickLeftThreshData=[tLeftLickThr,tLeftLickThr]
-        
         lickRightPltData=self.lickValsB[-int(splt):]
         lickRightThreshData=[tRightLickThr,tRightLickThr]
+        
         x0=np.arange(len(stPltData))
         x1=[0,splt]
-
-        if self.stateLickCount0[-1]>0:
+        if self.stateLickCount0[-1]>0 and self.currentState:
             self.leftReportLine.set_markerfacecolor("gray")
+            self.leftPortPresText.set_text('{}'.format("%.3g" % self.stVarD['self.shapeC1_LPortProb']))
         elif self.stateLickCount0[-1]==0:
             self.leftReportLine.set_markerfacecolor("white")
-        
+            self.leftPortPresText.set_text('{}'.format("%.3g" % self.stVarD['self.shapeC1_LPortProb']))
         if self.stateLickCount1[-1]>0:
             self.rightReportLine.set_markerfacecolor("gray")
+            self.rightPortPresText.set_text('{}'.format("%.3g" % (1-self.stVarD['self.shapeC1_LPortProb'])))
         elif self.stateLickCount1[-1]==0:
             self.rightReportLine.set_markerfacecolor("white")
-
-        if len(self.shapingReport)>1:
-            if (self.shapingReport[-1]==10) or (self.shapingReport[-1]==20):
-                self.leftPresLine.set_markerfacecolor("cornflowerblue")
-            elif (self.shapingReport[-1]==11) or (self.shapingReport[-1]==21):
-                self.leftPresLine.set_markerfacecolor("white")
-            
-            
-            if (self.shapingReport[-1]==10) or (self.shapingReport[-1]==20):
-                self.rightPresLine.set_markerfacecolor("white")
-            elif (self.shapingReport[-1]==11) or (self.shapingReport[-1]==21):
-                self.rightPresLine.set_markerfacecolor("cornflowerblue")
+            self.rightPortPresText.set_text('{}'.format("%.3g" % (1-self.stVarD['self.shapeC1_LPortProb'])))
         
+        if len(self.stimSelected)==self.sesVarD['self.currentTrial']:
+            if (self.punishedPort[-1]==1):
+                    self.leftSelectedLine.set_markerfacecolor("red")
+            elif (self.punishedPort[-1]==2):
+                self.rightSelectedLine.set_markerfacecolor("red")
+            elif (self.punishedPort[-1]==0): # wipe both and the right one will fill
+                self.leftSelectedLine.set_markerfacecolor("white")
+                self.rightSelectedLine.set_markerfacecolor("white")
+            if (self.rewardPort[-1]==1):
+                self.leftSelectedLine.set_markerfacecolor("green")
+            elif (self.rewardPort[-1]==2):
+                self.rightSelectedLine.set_markerfacecolor("green")
+            elif (self.rewardPort[-1]==0):
+                self.rightSelectedLine.set_markerfacecolor("white")
+
         np.random.seed()
 
         # update the line data
-        self.stateLine.set_xdata(x0)
-        self.stateLine.set_ydata(stPltData)
+
+        # self.stPlotRel={'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'21':7,'22':8,'24':9,'25':10,'13':11}
+        # to do append and keep last state
+        # todo then clear after
+ 
+
+
+        self.curStLine.set_xdata(self.pltX[self.stPlotRel['{}'.format(self.currentState)]])
+        self.curStLine.set_ydata(self.pltY[self.stPlotRel['{}'.format(self.currentState)]])
+        self.stAxes.draw_artist(self.stPLine)
+        self.stAxes.draw_artist(self.curStLine)
+        self.stAxes.draw_artist(self.stAxes.patch)
+
 
         self.positionLine.set_xdata(x0)
         self.positionLine.set_ydata(posPltData)
@@ -604,16 +674,15 @@ class pdPlot:
         self.lickLeftValLine.set_ydata(lickLeftPltData)
         self.lickLeftThreshLine.set_xdata(x1)
         self.lickLeftThreshLine.set_ydata(lickLeftThreshData)
-
         self.lickRightValLine.set_xdata(x0)
         self.lickRightValLine.set_ydata(lickRightPltData)
         self.lickRightThreshLine.set_xdata(x1)
         self.lickRightThreshLine.set_ydata(lickRightThreshData)
 
-        # make new line visual data
-        self.stateAxes.draw_artist(self.stateLine)
-        self.stateAxes.draw_artist(self.stateAxes.patch)
-
+        # # make new line visual data
+        # self.stateAxes.draw_artist(self.stateLine)
+        # self.stateAxes.draw_artist(self.stateAxes.patch)
+        
         self.positionAxes.draw_artist(self.positionLine)
         self.positionAxes.draw_artist(self.positionThreshLine)
         self.positionAxes.draw_artist(self.positionAxes.patch)
@@ -625,60 +694,49 @@ class pdPlot:
         self.rightLickAxes.draw_artist(self.lickRightValLine)
         self.rightLickAxes.draw_artist(self.lickRightThreshLine)
         self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
-
-        
-        self.portAxes.draw_artist(self.leftPresLine)
-        self.portAxes.draw_artist(self.rightPresLine)
+        self.portAxes.draw_artist(self.leftPortReportText)
+        self.portAxes.draw_artist(self.rightPortReportText)
+        self.portAxes.draw_artist(self.leftSelectedLine)
+        self.portAxes.draw_artist(self.rightSelectedLine)
         self.portAxes.draw_artist(self.leftReportLine)
         self.portAxes.draw_artist(self.rightReportLine)
         self.portAxes.draw_artist(self.portAxes.patch)
 
-        # redraw and update
         self.trialFig.canvas.draw_idle()
         self.trialFig.canvas.flush_events()
 
-    def resizeTaskPlot(self):
+    def trailFigResizeCntrls(self):
 
-        self.resizeControlPosition='+610+660'
+        self.resizeControlPosition='+158+740'
         resizeTrialPlotsFrame = Toplevel()
         eval('resizeTrialPlotsFrame.wm_geometry("{}")'.format(self.resizeControlPosition))
 
         resizeTrialPlotsFrame.title('Resize Trial Plots')
         self.resizeTrialPlotsFrame=resizeTrialPlotsFrame
-        
+
         self.minLabel = Label(resizeTrialPlotsFrame, text="Min:",width=6).grid(row=0,column=1)
         self.maxLabel = Label(resizeTrialPlotsFrame, text="Max:",width=6).grid(row=0,column=2)
 
-        stateRow=1
-        self.stAxesLabel = Label(resizeTrialPlotsFrame, text="State:",width=6).grid(row=stateRow,column=0)
-        self.stPlotMinTV=StringVar(resizeTrialPlotsFrame)
-        self.stPlotMinTV.set(self.statePlotMin)
-        self.stMinE=Entry(master=resizeTrialPlotsFrame,textvariable=self.stPlotMinTV,width=6)
-        self.stMinE.grid(row=stateRow, column=1)
-        self.stPlotMaxTV=StringVar(resizeTrialPlotsFrame)
-        self.stPlotMaxTV.set(self.statePlotMax)
-        self.stmxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.stPlotMaxTV,width=6)
-        self.stmxE.grid(row=stateRow, column=2)
 
         posRow=2
         self.dAxesLabel = Label(resizeTrialPlotsFrame, text="Position:",width=6).grid(row=posRow,column=0)
         self.distPlotMinTV=StringVar(resizeTrialPlotsFrame)
-        self.distPlotMinTV.set(self.distPlotMinVal)
+        self.distPlotMinTV.set(self.trialPlotOpts['distPlotMinVal'])
         self.dmnE=Entry(master=resizeTrialPlotsFrame,textvariable=self.distPlotMinTV,width=6)
         self.dmnE.grid(row=posRow, column=1)
         self.distPlotMaxTV=StringVar(resizeTrialPlotsFrame)
-        self.distPlotMaxTV.set(self.distPlotMaxVal)
+        self.distPlotMaxTV.set(self.trialPlotOpts['distPlotMaxVal'])
         self.dmxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.distPlotMaxTV,width=6)
         self.dmxE.grid(row=posRow, column=2)
 
         lickRow=3
         self.lAxesLabel = Label(resizeTrialPlotsFrame, text="Lick:",width=6).grid(row=lickRow,column=0)
         self.lickPlotMinTV=StringVar(resizeTrialPlotsFrame)
-        self.lickPlotMinTV.set(self.lickAMin)
+        self.lickPlotMinTV.set(self.trialPlotOpts['lickAMin'])
         self.lkMinE=Entry(master=resizeTrialPlotsFrame,textvariable=self.lickPlotMinTV,width=6)
         self.lkMinE.grid(row=lickRow, column=1)
         self.lickPlotMaxTV=StringVar(resizeTrialPlotsFrame)
-        self.lickPlotMaxTV.set(self.lickAMax)
+        self.lickPlotMaxTV.set(self.trialPlotOpts['lickAMax'])
         self.lkMaxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.lickPlotMaxTV,width=6)
         self.lkMaxE.grid(row=lickRow, column=2)
 
@@ -688,12 +746,12 @@ class pdPlot:
 
     def setAxesBtnCB(self):
 
-        self.statePlotMin=int(self.stPlotMinTV.get())
-        self.statePlotMax=int(self.stPlotMaxTV.get())
-        self.distPlotMinVal=int(self.distPlotMinTV.get())
-        self.distPlotMaxVal=int(self.distPlotMaxTV.get())
-        self.lickAMin=int(self.lickPlotMinTV.get())
-        self.lickAMax=int(self.lickPlotMaxTV.get())
+        self.trialPlotOpts['statePlotMin']=int(self.stPlotMinTV.get())
+        self.trialPlotOpts['statePlotMax']=int(self.stPlotMaxTV.get())
+        self.trialPlotOpts['distPlotMinVal']=int(self.distPlotMinTV.get())
+        self.trialPlotOpts['distPlotMaxVal']=int(self.distPlotMaxTV.get())
+        self.trialPlotOpts['lickAMin']=int(self.lickPlotMinTV.get())
+        self.trialPlotOpts['lickAMax']=int(self.lickPlotMaxTV.get())
 
         self.updateTrialAxes=1
 
@@ -711,23 +769,37 @@ class pdPlot:
         trimSmooth=(trimSmooth-newMean)+ogMean
         return trimSmooth
 
-    def makeSessionPlotWindow(self):
-        
-        # make and position the figure
-        self.sessionFramePosition='+1025+0' # can be specified elsewhere
-        self.sessionFig = plt.figure(101,figsize=(6,6), dpi=100)
-        self.sessionFig.suptitle('session stats', fontsize=10)
-        
+    def sessionFig(self):
+        self.tTrials=int(self.totalTrials.get())
+        self.lastTTrials=int(self.totalTrials.get())
+        self.updateSessionAxes=0
 
-        self.biasAxis=plt.subplot2grid((8,8), (0, 0), colspan=5,rowspan=4)
-        self.biasLineNormCount,=self.biasAxis.plot([],[],marker="o",markeredgecolor="black",\
-            markerfacecolor="cornflowerblue",markersize=10,lw=0)
-        self.biasLineZero,=self.biasAxis.plot([0,int(self.totalTrials.get())],[0,0],'k:')
-        self.biasLineSmoothedBias,=self.biasAxis.plot([],[],'k-')
+        # make and position the figure
+        self.sessionFramePosition='+370+440' # can be specified elsewhere
+        self.sessionFig = plt.figure(101,figsize=(6.5,5), dpi=100)
+        self.sessionFig.suptitle('session stats', fontsize=10)
+        self.sessionFig.subplots_adjust(wspace=0.7,hspace=0.5)
+        self.sFC=[9,9]
         
-        # mess with axis params
-        self.biasAxis.set_ylim([-25,25])
-        self.biasAxis.set_xlim([0,int(self.totalTrials.get())])
+        self.outcomeAxis=plt.subplot2grid(self.sFC, (0,6), colspan=4,rowspan=4)
+        self.outcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",markerfacecolor="darkorchid",markersize=12,lw=0)
+        self.outcomeAxis.set_ylim([-0.2,4.2])
+        self.outcomeAxis.set_xlim([0,self.tTrials])
+        self.outcomeAxis.yaxis.tick_right()
+
+        # panel one: bias and lick side plot
+        self.biasAxis=plt.subplot2grid(self.sFC, (0, 0), colspan=4,rowspan=4)
+        self.leftLickLine,=self.biasAxis.plot([],[],\
+            marker="o",markeredgecolor="black",markerfacecolor="red",markersize=12,lw=0)
+        self.rightLickLine,=self.biasAxis.plot([],[],\
+            marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=12,lw=0)
+        self.leftPresLine,=self.biasAxis.plot([],[],'r-')
+        self.rightPresLine,=self.biasAxis.plot([],[],'b-')
+        self.biasLineSmoothedBias,=self.biasAxis.plot([],[],'k-')
+        self.biasLineZero,=self.biasAxis.plot([0,self.tTrials],[0,0],'k:')
+        
+        self.biasAxis.set_ylim([-1.5,1.5])
+        self.biasAxis.set_xlim([0,self.tTrials])
         self.biasAxis.set_ylabel('count side bias (l-r)')
         self.biasAxis.set_xlabel('trial number')
 
@@ -735,44 +807,48 @@ class pdPlot:
         mng = plt.get_current_fig_manager()
         eval('mng.window.wm_geometry("{}")'.format(self.sessionFramePosition))
         plt.show(block=False)
+        self.sessionFig.canvas.flush_events()
 
-        # set artists (zero line doesn't update)
-        self.biasAxis.draw_artist(self.biasLineNormCount)
+        self.biasAxis.draw_artist(self.leftLickLine)
+        self.biasAxis.draw_artist(self.rightLickLine)
+        self.biasAxis.draw_artist(self.leftPresLine)
+        self.biasAxis.draw_artist(self.rightPresLine)
+        self.biasAxis.draw_artist(self.biasLineZero)
         self.biasAxis.draw_artist(self.biasLineSmoothedBias)
         self.biasAxis.draw_artist(self.biasAxis.patch)
 
-        self.figSc=[8,8]
-        self.lcAxSc=[0,6]
-        self.lcAxCR=[2,2]
-        self.rcAxSc=[2,6]
-        self.rcAxCR=[2,2]
-        self.sdAxSc=[5,0]
-        self.sdAxCR=[5,3]
+        self.outcomeAxis.draw_artist(self.outcomeLine)
+        self.outcomeAxis.draw_artist(self.outcomeAxis.patch)
+
         self.lickHistScales=[0, 20, 0, 1]
 
+        # the lick count histograms
         numBins=5
-        self.leftCountAxis=plt.subplot2grid((self.figSc),(self.lcAxSc), colspan=self.lcAxCR[0],rowspan=self.lcAxCR[0])
+        self.leftCountAxis=plt.subplot2grid(self.sFC,[0,4],colspan=2,rowspan=2)
         n, binsl,patchesl=self.leftCountAxis.hist([],numBins,normed=1,facecolor='red',alpha=1)
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
 
-        self.rightCountAxis=plt.subplot2grid((self.figSc),(self.rcAxSc),colspan=self.rcAxCR[0],rowspan=self.rcAxCR[0])
+        self.rightCountAxis=plt.subplot2grid(self.sFC,[2,4],colspan=2,rowspan=2)
         o,binsr,patchesr=self.rightCountAxis.hist([],numBins,normed=1,facecolor='cornflowerblue',alpha=1)
         self.rightCountAxis.set_yticks([])
         self.leftCountAxis.axis(self.lickHistScales)
         self.rightCountAxis.axis(self.lickHistScales)
         self.rightCountAxis.set_xlabel('lick counts')
 
-        self.stimLickAxes=plt.subplot2grid((self.figSc),(self.sdAxSc), colspan=self.sdAxCR[0],rowspan=self.sdAxCR[1])
-        lrMS=8
-        self.stimLickAxes.axis([0, 1, 100, 0])
+        # stim lick raster
+        self.stimLRasterXMax=5
+        self.stimLickAxes=plt.subplot2grid(self.sFC,[5,0],colspan=3,rowspan=4)
+        self.stimLickAxes.axis([0,self.stimLRasterXMax,self.tTrials+2, -2])
         self.stimLickAxes.set_xlabel('time since stimulus (ms)')
         self.stimLickAxes.set_ylabel('trial number')
-        self.stimLickLeftLine,=self.stimLickAxes.plot(np.random.random_sample(100),np.arange(100),\
-            marker="o",markeredgecolor="black",markerfacecolor="red",markersize=lrMS,lw=0,alpha=0.5)
-        self.stimLickRightLine,=self.stimLickAxes.plot(np.random.random_sample(100),np.arange(100),\
-            marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=lrMS,lw=0,alpha=0.5)
-
+        self.stimLickLeftLine,=self.stimLickAxes.plot(np.random.random_sample(self.tTrials)*\
+            self.stimLRasterXMax,np.arange(self.tTrials),\
+            marker="o",markeredgecolor="none",markerfacecolor="red",markersize=5,lw=0,alpha=0.9)
+        self.stimLickRightLine,=self.stimLickAxes.plot(np.random.random_sample(self.tTrials)*\
+            self.stimLRasterXMax,np.arange(self.tTrials),\
+            marker="o",markeredgecolor="none",markerfacecolor="cornflowerblue",markersize=5,lw=0,alpha=0.9)
+        
         plt.show(block=False)
         self.sessionFig.canvas.flush_events()
 
@@ -780,29 +856,84 @@ class pdPlot:
         self.stimLickAxes.draw_artist(self.stimLickLeftLine)
         self.stimLickAxes.draw_artist(self.stimLickRightLine)
         self.stimLickAxes.draw_artist(self.biasAxis.patch)
+
+        # reward lick raster
+        self.rwdRasterXMax=5
+        self.rwdLickAxes=plt.subplot2grid(self.sFC,[5,3],colspan=3,rowspan=4)
+        self.rwdLickAxes.set_yticks([])
+        self.rwdLickAxes.axis([0,self.rwdRasterXMax,self.tTrials+2, -2])
+        self.rwdLickAxes.set_xlabel('time since reward (ms)')
+        self.rwdLickLeftLine,=self.rwdLickAxes.plot(np.random.random_sample(self.tTrials)*\
+            self.rwdRasterXMax,np.arange(self.tTrials),\
+            marker="o",markeredgecolor="none",markerfacecolor="red",markersize=5,lw=0,alpha=0.9)
+        self.rwdLickRightLine,=self.rwdLickAxes.plot(np.random.random_sample(self.tTrials)*\
+            self.rwdRasterXMax,np.arange(self.tTrials),\
+            marker="o",markeredgecolor="none",markerfacecolor="cornflowerblue",markersize=5,lw=0,alpha=0.9)
+
+        plt.show(block=False)
+        self.sessionFig.canvas.flush_events()
+
+        # set artists (zero line doesn't update)
+        self.rwdLickAxes.draw_artist(self.stimLickLeftLine)
+        self.rwdLickAxes.draw_artist(self.stimLickRightLine)
+        self.rwdLickAxes.draw_artist(self.biasAxis.patch)
+   
+    def updateSessionFig(self):
+
+        self.tTrials=int(self.totalTrials.get())
+        if self.tTrials!=self.lastTTrials:
+            self.biasAxis.set_xlim([0,self.tTrials])
+            self.stimLickAxes.axis([0,self.stimLRasterXMax,self.tTrials,0])
+            self.biasLineZero.set_xdata([0,self.tTrials])
+        self.lastTTrials=self.tTrials
+
+        if self.stimLicks0[-1]>0:
+            self.lickedLeft.append(1)
+        elif self.stimLicks0[-1]==0:
+            self.lickedLeft.append(0)
+        if self.stimLicks1[-1]>0:
+            self.lickedRight.append(1)
+        elif self.stimLicks1[-1]==0:
+            self.lickedRight.append(0)
+
+        self.presLeftFreq.append(np.mean(np.array(self.leftReward[-5:])))
+        self.presRightFreq.append(np.mean(np.array(self.leftReward[-5:]))-1)
+
+        tKern=pdPlot.gaussian(self,np.linspace(-0.5,0.5,21), 0, 0.05)
+        smtLB=np.mean(np.array(self.lickedLeft[-5:]))
+        smtRB=np.mean(np.array(self.lickedRight[-5:]))
         
-    def updateSessionPlot(self):
-        self.difLicks=(np.array(self.stimLicks0)-np.array(self.stimLicks1))
-        tKern=pdPlot.gaussian(self,np.linspace(-0.5, 0.5,self.stVarD['self.biasRange']+1), 0, 0.05)
-        smtLB=pdPlot.smoothData(self,tKern,self.difLicks)
-        self.smoothedLickBias=smtLB
-        self.biasP=stats.ttest_1samp(self.smoothedLickBias[-self.stVarD['self.biasRange']:],0).pvalue
-        print("%.4g" % self.biasP)
 
-        x10=np.arange(len(self.difLicks))
-        yStLicks=np.arange(self.sesVarD['self.currentTrial'])
-        y10=self.difLicks
-        x10c=np.arange(len(self.smoothedLickBias))
-        y10c=self.smoothedLickBias
+        self.smoothedLickBias.append(np.array(smtLB)-np.array(smtRB))
+        self.biasP=stats.ttest_1samp(np.array(self.smoothedLickBias[-5:]),0).pvalue
+        
+        x10=np.arange(len(self.stimLicks0))
+        self.leftLickLine.set_xdata(x10)
+        self.rightLickLine.set_xdata(x10)
+        self.leftPresLine.set_xdata(x10)
+        self.rightPresLine.set_xdata(x10)
+        self.biasLineSmoothedBias.set_xdata(np.arange(len(self.smoothedLickBias)))
+        self.outcomeLine.set_xdata(x10)
 
-        self.biasLineNormCount.set_xdata(x10)
-        self.biasLineNormCount.set_ydata(y10)
-        self.biasLineSmoothedBias.set_xdata(x10c)
-        self.biasLineSmoothedBias.set_ydata(y10c)
-        self.biasAxis.draw_artist(self.biasLineNormCount)
+
+        self.leftLickLine.set_ydata(self.lickedLeft)
+        self.rightLickLine.set_ydata(np.array(self.lickedRight)*-1)
+        self.leftPresLine.set_ydata(self.presLeftFreq)
+        self.rightPresLine.set_ydata(self.presRightFreq)
+        self.biasLineSmoothedBias.set_ydata(self.smoothedLickBias) 
+        self.outcomeLine.set_ydata(self.choiceOutcome)
+
+        self.biasAxis.draw_artist(self.leftLickLine)
+        self.biasAxis.draw_artist(self.rightLickLine)
+        self.biasAxis.draw_artist(self.leftPresLine)
+        self.biasAxis.draw_artist(self.rightPresLine)
+        self.biasAxis.draw_artist(self.biasLineZero)
         self.biasAxis.draw_artist(self.biasLineSmoothedBias)
         self.biasAxis.draw_artist(self.biasAxis.patch)
-        self.biasAxis.set_title('bias p={}'.format("%.4g" % self.biasP))
+
+        self.outcomeAxis.draw_artist(self.outcomeLine)
+
+        # self.biasAxis.set_title('bias p={}'.format("%.3g" % self.biasP))
         self.stimLickLeftLine.set_xdata(self.stimLeftLickTimes)
         self.stimLickLeftLine.set_ydata(self.stimLeftLickInds)
         
@@ -816,19 +947,16 @@ class pdPlot:
         self.sessionFig.canvas.draw_idle()
         self.sessionFig.canvas.flush_events()
         
-
         numBins=10
         plt.sca(self.leftCountAxis)
         plt.cla()
         plt.sca(self.rightCountAxis)
         plt.cla()
 
-        self.leftCountAxis=plt.subplot2grid((self.figSc),(self.lcAxSc), colspan=self.lcAxCR[0],rowspan=self.lcAxCR[0])
-        n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),numBins,normed=1,\
-            facecolor='red',alpha=1)
-        self.rightCountAxis=plt.subplot2grid((self.figSc),(self.rcAxSc),colspan=self.rcAxCR[0],rowspan=self.rcAxCR[0])
-        o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),numBins,normed=1,\
-            facecolor='cornflowerblue',alpha=1)
+        self.leftCountAxis=plt.subplot2grid(self.sFC,[0,4],colspan=2,rowspan=2)
+        n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),numBins,normed=1,facecolor='red')
+        self.rightCountAxis=plt.subplot2grid(self.sFC,[2,4],colspan=2,rowspan=2)
+        o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),numBins,normed=1,facecolor='cornflowerblue')
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
         self.rightCountAxis.set_yticks([])
@@ -850,33 +978,26 @@ class pdAnalysis:
         lBD=self.stVarD['self.lBiasDelta']
         rBD=self.stVarD['self.rBiasDelta']
 
-        meanBias=np.mean(np.array(self.smoothedLickBias[-self.stVarD['self.biasRange']:]))
-        print('mean bias={}'.format(meanBias)) # debug
-
-        if self.biasP<bPC and meanBias>bMC and (bL1P>=lBD):  # leftward bias
+        meanBias=np.mean(np.array(self.smoothedLickBias[-5:]))
+        if self.biasP<bPC and meanBias>bMC and (bL1P>lBD):  # leftward bias
             self.stVarD['self.shapeC1_LPortProb']=float("%.3g" % (self.stVarD['self.shapeC1_LPortProb']-lBD))
             self.stVarD['self.shapeC2_LPortProb']=self.stVarD['self.shapeC1_LPortProb']
             print('left bias detected; updated probs: {},{}'.\
                 format(self.stVarD['self.shapeC1_LPortProb'],self.stVarD['self.shapeC2_LPortProb']))
 
-        elif self.biasP<bPC and meanBias<-bMC and (bL1P<=(1-rBD)):  # rightward bias
+        elif self.biasP<bPC and meanBias<-bMC and (bL1P<(1-rBD)):  # rightward bias
             self.stVarD['self.shapeC1_LPortProb']=float("%.3g" % (self.stVarD['self.shapeC2_LPortProb']+rBD))
             self.stVarD['self.shapeC2_LPortProb']=self.stVarD['self.shapeC1_LPortProb']
             print('right bias detected; updated probs: {},{}'.\
                 format(self.stVarD['self.shapeC1_LPortProb'],self.stVarD['self.shapeC2_LPortProb']))
         
         if self.stVarD['self.shapeC1_LPortProb'] > 1.0: 
-            #todo: this is stupid; I should add the condition above, but ...
-            #todo: update, should be fixed,but will leave alone for now while I change variable updates to dict writes
             self.stVarD['self.shapeC1_LPortProb']=1.0
             self.stVarD['self.shapeC2_LPortProb']=1.0
 
         if self.stVarD['self.shapeC1_LPortProb'] < 0.0: #todo: this is stupid; I should add the condition above, but ...
             self.stVarD['self.shapeC1_LPortProb']= 0.0
             self.stVarD['self.shapeC2_LPortProb']= 0.0
-
-        self.shapeC1_LPortProb_tv.set("%.3g" % self.stVarD['self.shapeC1_LPortProb']) # make sure gui understands
-        self.shapeC2_LPortProb_tv.set("%.3g" % self.stVarD['self.shapeC2_LPortProb']) # make sure gui understands
 
     def getLickTimesByState(self):
         tmpAStates=np.array([self.thrLicksA_state])
@@ -891,12 +1012,18 @@ class pdAnalysis:
         if len(stATimes)>0:
             self.stimLeftLickTimes=self.stimLeftLickTimes+stATimes.tolist()
             self.stimLeftLickInds=self.stimLeftLickInds+stAInds.tolist()
+            self.stimLicks0.append(len(self.stimLeftLickInds))
+        elif len(stATimes)==0:
+            self.stimLicks0.append(0)
 
         stBTimes=tmpBStateTimes[(tmpBStates==self.stateD['self.stim1State']) | (tmpBStates==self.stateD['self.stim2State'])]
         stBInds=tmpBSpikeInd[(tmpBStates==self.stateD['self.stim1State']) | (tmpBStates==self.stateD['self.stim2State'])]
         if len(stBTimes)>0:
             self.stimRightLickTimes=self.stimRightLickTimes+stBTimes.tolist()
             self.stimRightLickInds=self.stimRightLickInds+stBInds.tolist()
+            self.stimLicks1.append(len(self.stimRightLickInds))
+        elif len(stBTimes)==0:
+            self.stimLicks1.append(0)
         
     def getQunat(self,pyList,quantileCut):
 
@@ -975,8 +1102,7 @@ class pdAnalysis:
             self.stateLickCount1[-1]=self.lastLickCountB+1
 
     def checkMotion(self,acelThr,sampThr):
-        self.anState_acceleration.append(np.mean(np.array(\
-            self.posDelta[-int(sampThr):])))
+        self.anState_acceleration.append(np.mean(np.array(self.posDelta[-int(sampThr):])))
         self.pdAnalysis_acelThreshold.append(acelThr)
         if self.anState_acceleration[-1]<acelThr:
             lastLatch=self.stillLatch
@@ -1028,10 +1154,10 @@ class pdState:
             self.lastLickCountA=0
             self.lastLickCountB=0
             self.entryTime=self.mcTrialTime[-1] # log state entry time
-            self.stillTimeStart=0
+            self.stillTimeStart=int(0)
             self.stillLatch=0
-            self.trialFig.suptitle('trial # {}; state # {}'.format(self.sesVarD['self.currentTrial'],\
-                self.currentState, fontsize=10))
+            self.trialFig.suptitle('trial # {}; state # {}'.\
+                format(self.sesVarD['self.currentTrial'],self.currentState, fontsize=10))
             ranHeader=1 # fire the latch
         
     def coreState(self):
@@ -1044,49 +1170,15 @@ class pdState:
                 pdTask.updatePlotCheck(self)
             self.fireCallback=1
             self.cycleCount=self.cycleCount+1;
+        aT=self.stVarD['self.acelValThr']
+        aS=self.stVarD['self.acelSamps']
+        pdAnalysis.checkMotion(self,aT,aS)
 
 class pdCallbacks:
 
-    def defineOutcome(self,rwCnt):
-        tRCnt=str(self.rewardContingency[-1])
-        sPres=int(tRCnt[0])
-        rwdSpout=int(tRCnt[1])
-        offSpout=abs(int(tRCnt[1])-1)
-
-        targetMinLicked=eval('self.stateLickCount{}[-1]>=\
-            self.minTarget{}Licks'.format(rwdSpout,sPres))
-        targetMaxLicked=eval('self.stateLickCount{}[-1]>=\
-            self.maxTarget{}Licks'.format(rwdSpout,sPres))
-        distractMinLicked=eval('self.stateLickCount{}[-1]>=\
-            self.minOffTarget{}Licks'.format(offSpout,sPres))
-        distractMaxLicked=eval('self.stateLickCount{}[-1]>=\
-            self.maxTarget{}Licks'.format(offSpout,sPres))
-
-        if targetMinLicked==1 and targetMaxLicked == 0 and distractMinLicked == 0:
-
-            print('licked spout {}: on target -> reward'.format(rwdSpout))
-            exec('self.trialOutcome.append({}1)'.format(sPres))
-            if rwdSpout==0:
-                pdState.switchState(self,self.stateD['self.rewardState'])
-            elif rwdSpout==1:
-                pdState.switchState(self,self.stateD['self.rewardState2'])
-            print(self.trialOutcome[-1])
-
-        elif targetMinLicked==0 and distractMinLicked == 1:
-            print('licked spout {}: off target -> punish'.format(offSpout))
-            exec('self.trialOutcome.append({}2)'.format(sPres))
-            pdState.switchState(self,self.stateD['self.punishState'])
-            print(self.trialOutcome[-1])
-
-        elif targetMinLicked==1 and distractMinLicked == 1:
-            print('licked both spouts: ambiguous -> punish')
-            exec('self.trialOutcome.append({}3)'.format(sPres))
-            pdState.switchState(self,self.stateD['self.neutralState'])
-            print(self.trialOutcome[-1])
-
-    def waitStateCB(self):  
-        pdAnalysis.checkMotion(self,self.stVarD['self.acelValThr'],self.stVarD['self.acelSamps'])
-        if self.stillLatch==1 and self.stillTime[-1]>self.stVarD['self.waitStillTime']:
+    def waitStateCB(self):
+        pdAnalysis.checkMotion(self,self.stVarD['self.acelValThr'],self.stVarD['self.acelSamps']) 
+        if self.stillTime[-1]>self.stVarD['self.waitStillTime']:
             print('Still in wait state ==> S1 --> S2')
             self.waitConditionMetTime.append(self.mcStateTime[-1])
             self.waitLicks0.append(self.stateLickCount0[-1])
@@ -1094,174 +1186,210 @@ class pdCallbacks:
             pdState.switchState(self,self.stateD['self.initiationState'])
 
     def initiationStateHead(self):
-        t1P=self.task1D['self.sTask_prob1']
+        t1P=self.task1D['self.sTask_prob']
         self.task_switch=random.random()
         if self.task_switch<=t1P:
-            self.cueSelected=1
+            self.cueSelected.append(1)
         elif self.task_switch>t1P:
-            self.cueSelected=2
+            self.cueSelected.append(2)
 
     def initiationStateCB(self):
-        aT=self.stVarD['self.acelValThr']
-        aS=self.stVarD['self.acelSamps']
         dT=self.stVarD['self.distThr']  
-        pdAnalysis.checkMotion(self,aT,aS)
         if self.absolutePosition[-1]>dT:
-            print('moving spout; cue stim task #{}'.format(self.cueSelected))
-            eval('pdState.switchState(self,self.stateD["self.cue{}State"])'.format(self.cueSelected))
+            print('moving spout; cue stim task #{}'.format(self.cueSelected[-1]))
+            eval('pdState.switchState(self,self.stateD["self.cue{}State"])'.format(self.cueSelected[-1]))
 
     def cue1StateHead(self):
-        self.startCue1=self.mcStateTime[-1]
+        # pick the stim 1 or 2
         self.outcomeSwitch=random.random()
-        o1P=self.task1D['self.sTask_target_prob1']
-        if self.outcomeSwitch<=o1P:
-            self.stimSelected=1
-            self.sStims.append(1)
-        elif self.outcomeSwitch>o1P:
-            self.stimSelected=2
-            self.sStims.append(2)
+        if (self.outcomeSwitch<=self.task1D['self.sTask_target_prob']):
+            self.stimSelected.append(1)
+        elif (self.outcomeSwitch>self.task1D['self.sTask_target_prob']):
+            self.stimSelected.append(2)
+
+        # see if we shape (reward always, randomly)
+        # or if we do the task (reward a; punish b for stim 1; reward b; punish a for stim 2)
+        self.shapingSwitch=random.random()
+        if self.shapingSwitch<=self.task1D['self.sTask_shaping_prob']:
+            self.shapingTrial.append(1)
+        elif self.shapingSwitch>self.task1D['self.sTask_shaping_prob']:
+            self.shapingTrial.append(0)
+
+        # now we sort out the ports to reward here
+        if (self.shapingTrial[-1]==0) and (self.stimSelected[-1]==1): # if we task and get stim 1
+            self.rewardPort.append(1)   # reward left todo: make reward/pun port task variable
+            self.punishedPort.append(2) # punish right
+
+        elif (self.shapingTrial[-1]==0) and (self.stimSelected[-1]==2): # if we task and get stim 2
+            self.rewardPort.append(2)   # reward right todo: make reward/pun port task variable
+            self.punishedPort.append(1) # punish left
+
+        elif self.shapingTrial[-1]==1: #reward regardless, want to shape association
+            diceRoll=random.random()
+            if diceRoll<=self.stVarD['self.shapeC1_LPortProb']:
+                shapePort=1 #reward left
+            elif diceRoll>self.stVarD['self.shapeC1_LPortProb']:
+                shapePort=2 #reward right
+            diceRoll=random.random()
+            if diceRoll>self.task1D['self.shape_rwdProb']:
+                shapePort=0 # no reward
+            
+            self.rewardPort.append(shapePort)
+            self.punishedPort.append(0) #don't punish
 
     def cue2StateHead(self):
-        self.startCue2=self.mcTrialTime[-1]
+        # pick the stim 1 or 2
         self.outcomeSwitch=random.random()
-        o2P=self.task2D['self.sTask_target_prob2']
-        if self.outcomeSwitch<=o2P:
-            self.stimSelected=2
-            self.sStims.append(2)
-        elif self.outcomeSwitch>o2P:
-            self.stimSelected=1
-            self.sStims.append(1)
+        if (self.outcomeSwitch<=self.task2D['self.sTask_target_prob']):
+            self.stimSelected.append(1)
+        elif (self.outcomeSwitch>self.task2D['self.sTask_target_prob']):
+            self.stimSelected.append(2)
+
+        # see if we shape (reward always, randomly)
+        # or if we do the task (reward a; punish b for stim 1; reward b; punish a for stim 2)
+        self.shapingSwitch=random.random()
+        s2P=self.task2D['self.sTask_shaping_prob']
+        if self.shapingSwitch<=s2P:
+            self.shapingTrial.append(1)
+        elif self.shapingSwitch>s2P:
+            self.shapingTrial.append(0)
+
+        # now we sort out the ports to reward here
+        if (self.shapingTrial[-1]==0) and (self.stimSelected[-1]==1): # if we task and get stim 1
+            self.rewardPort.append(2)   # punish right 
+            self.punishedPort.append(1) # reward left todo: make reward/pun port task variable
+
+        elif (self.shapingTrial[-1]==0) and (self.stimSelected[-1]==2): # if we task and get stim 2
+            self.rewardPort.append(1)   # reward left
+            self.punishedPort.append(2) # punish right todo: make reward/pun port task variable
+
+        elif self.shapingTrial[-1]==1: #reward regardless, want to shape association
+            diceRoll=random.random()
+            if diceRoll<=self.stVarD['self.shapeC2_LPortProb']:
+                shapePort=1 #reward left
+            elif diceRoll>self.stVarD['self.shapeC2_LPortProb']:
+                shapePort=2 #reward right
+            diceRoll=random.random()
+            if diceRoll>self.task2D['self.shape_rwdProb']:
+                shapePort=0 # no reward
+            
+            self.rewardPort.append(shapePort)
+            self.punishedPort.append(0) #don't punish
 
     def cue1StateCB(self):
-        aT=self.stVarD['self.acelValThr']
-        aS=self.stVarD['self.acelSamps']
-        dT=self.stVarD['self.distThr']
-        cD=self.stVarD['self.cue1Dur']    
-        pdAnalysis.checkMotion(self,aT,aS)
-        if self.mcStateTime[-1]>cD:
-            self.cue1Time.append(self.mcStateTime[-1]-self.startCue1)
-            self.cuePresented.append(1)
-            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
-            eval('pdState.switchState(self,self.stateD["self.stim{}State"])'.format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
-            print(self.rewardContingency[-1])
+        if (self.mcStateTime[-1]>self.stVarD['self.cue1Dur']) and (self.stillTime[-1]>self.stVarD['self.genStillTime']):
+            self.cueTime.append(self.mcStateTime[-1])
+            print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected[-1],self.rewardPort[-1]))
+            exec('self.rewardContingency.append({}{})'.format(self.stimSelected[-1],self.rewardPort[-1]))
+            eval('pdState.switchState(self,self.stateD["self.stim{}State"])'.format(self.stimSelected[-1]))
             
     def cue2StateCB(self):
-        aT=self.stVarD['self.acelValThr']
-        aS=self.stVarD['self.acelSamps']
-        dT=self.stVarD['self.distThr']
-        cD=self.stVarD['self.cue2Dur']  
-        pdAnalysis.checkMotion(self,aT,aS)
-        if self.mcStateTime[-1]>cD:
-            self.cue2Time.append(self.mcTrialTime[-1]-self.startCue2)
-            self.cuePresented.append(2)
-            print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected,self.stimSelected-1))
-            eval('pdState.switchState(self,self.stateD["self.stim{}State"])'.format(self.stimSelected))
-            exec('self.rewardContingency.append({}{})'.format(self.stimSelected,self.stimSelected-1))
-            print(self.rewardContingency[-1])
+        if (self.mcStateTime[-1]>self.stVarD['self.cue2Dur']) and (self.stillTime[-1]>self.stVarD['self.genStillTime']):
+            self.cueTime.append(self.mcStateTime[-1])
+            print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected[-1],self.rewardPort[-1]))
+            eval('pdState.switchState(self,self.stateD["self.stim{}State"])'.format(self.stimSelected[-1]))
+            exec('self.rewardContingency.append({}{})'.format(self.stimSelected[-1],self.rewardPort[-1]))
     
     def stim1StateCB(self):
-        self.minStim1Time=0
-        self.minTarget1Licks=1
-        self.maxTarget1Licks=100
-        self.maxOffTarget1Licks=1
-        self.minOffTarget1Licks=1
-        self.reportMax1Time=20
+        if (self.mcStateTime[-1]>self.stVarD['self.minStim1Time']):
+            if self.shapingTrial[-1]==1:
+                if self.rewardPort[-1]==1:
+                    print('shape: reward left')
+                    self.choiceOutcome.append(3)
+                    pdState.switchState(self,self.stateD['self.rewardState1'])
+                elif self.rewardPort[-1]==2:
+                    print('shape: reward right')
+                    self.choiceOutcome.append(3)
+                    pdState.switchState(self,self.stateD['self.rewardState2'])
+                elif self.rewardPort[-1]==0:
+                    print('shape: no reward')
+                    self.choiceOutcome.append(4)
+                    pdState.switchState(self,self.stateD['self.neutralState'])
 
-        if self.mcStateTime[-1]>self.minStim1Time:
-            if self.mcStateTime[-1]<self.reportMax1Time:
-                pdCallbacks.defineOutcome(self,self.rewardContingency)
+            if self.shapingTrial[-1]==0:
+                if (self.rewardPort[-1]==1) and (self.stateLickCount0[-1]>0):
+                    print('correct stim report: reward left')
+                    self.choiceOutcome.append(1)
+                    pdState.switchState(self,self.stateD['self.rewardState1'])
+                elif (self.rewardPort[-1]==2) and (self.stateLickCount1[-1]>0):
+                    print('correct stim report: reward right')
+                    self.choiceOutcome.append(1)
+                    pdState.switchState(self,self.stateD['self.rewardState2'])
+                elif (self.rewardPort[-1]==1) and (self.stateLickCount1[-1]>0):
+                    print('wrong stim report: Punish-> Time Out for {} seconds'.format(self.stVarD['self.tOutDur1']))
+                    self.choiceOutcome.append(2)
+                    pdState.switchState(self,self.stateD['self.punishState1'])
+                elif (self.rewardPort[-1]==2) and (self.stateLickCount0[-1]>0):
+                    print('wrong stim report: Punish-> Time Out for {} seconds'.format(self.stVarD['self.tOutDur1']))
+                    self.choiceOutcome.append(2)
+                    pdState.switchState(self,self.stateD['self.punishState1'])
 
-            elif self.mcStateTime[-1]>=self.reportMax1Time:
-                self.trialOutcome.append(10)
-                print('timed out: did not report')
-                pdState.switchState(self,self.stateD['self.neutralState'])
+        elif (self.mcStateTime[-1]>=self.stVarD['self.max1ReportTime']):
+            print('timed out: did not report')
+            self.choiceOutcome.append(0)
+            pdState.switchState(self,self.stateD['self.saveState'])
 
     def stim2StateCB(self):
-        self.minStim2Time=0
-        self.minTarget2Licks=1
-        self.maxTarget2Licks=100
-        self.maxOffTarget2Licks=1
-        self.minOffTarget2Licks=1
-        self.reportMax2Time=10
+        if (self.mcStateTime[-1]>self.stVarD['self.minStim2Time']):
+            if self.shapingTrial[-1]==1:
+                if self.rewardPort[-1]==1:
+                    print('shape: reward left')
+                    pdState.switchState(self,self.stateD['self.rewardState1'])
+                elif self.rewardPort[-1]==2:
+                    print('shape: reward right')
+                    pdState.switchState(self,self.stateD['self.rewardState2'])
+                elif self.rewardPort[-1]==0:
+                    print('shape: no reward')
+                    pdState.switchState(self,self.stateD['self.neutralState'])
 
-        if self.mcStateTime[-1]>self.minStim2Time:
-            if self.mcStateTime[-1]<self.reportMax2Time:
-                pdCallbacks.defineOutcome(self,self.rewardContingency)
+            if self.shapingTrial[-1]==0:
+                if (self.rewardPort[-1]==1) and (self.stateLickCount0[-1]>0):
+                    print('correct stim report: reward left')
+                    self.choiceOutcome.append(1)
+                    pdState.switchState(self,self.stateD['self.rewardState1'])
 
-            elif self.mcStateTime[-1]>=self.reportMax2Time:
-                self.trialOutcome.append(20)
-                print('timed out: did not report')
-                pdState.switchState(self,self.stateD['self.neutralState']) 
+                elif (self.rewardPort[-1]==2) and (self.stateLickCount1[-1]>0):
+                    print('correct stim report: reward right')
+                    self.choiceOutcome.append(1)
+                    pdState.switchState(self,self.stateD['self.rewardState2'])
+                
+                elif (self.rewardPort[-1]==1) and (self.stateLickCount1[-1]>0):
+                    print('wrong stim report: Punish-> Time Out for {} seconds'.format(self.stVarD['self.tOutDur1']))
+                    self.choiceOutcome.append(2)
+                    pdState.switchState(self,self.stateD['self.punishState1'])
 
-    def shaping_stim1StateHead(self):
-        self.minStim1Time=1 #todo: variable shape time
-        diceRoll=random.random()
-        if diceRoll<=self.stVarD['self.shapeC1_LPortProb']:
-            print('debug: roll={},{}'.format(self.stVarD['self.shapeC1_LPortProb'],diceRoll))
-            self.leftReward=1
-            self.shapingReport.append(10)
-            print('will reward left')
-        elif diceRoll>self.stVarD['self.shapeC1_LPortProb']:
-            print('debug: roll={},{}'.format(self.stVarD['self.shapeC1_LPortProb'],diceRoll))
-            self.leftReward=0
-            self.shapingReport.append(11)
-            print('will reward right')
+                elif (self.rewardPort[-1]==2) and (self.stateLickCount0[-1]>0):
+                    print('wrong stim report: Punish-> Time Out for {} seconds'.format(self.stVarD['self.tOutDur1']))
+                    self.choiceOutcome.append(2)
+                    pdState.switchState(self,self.stateD['self.punishState1'])
 
-    def shaping_stim1StateCB(self):
-        if self.mcStateTime[-1]>self.minStim1Time:
-            if self.leftReward:
-                self.stimLicks0.append(self.stateLickCount0[-1])
-                self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.stateD['self.rewardState'])
-            elif self.leftReward !=1:
-                self.stimLicks0.append(self.stateLickCount0[-1])
-                self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.stateD['self.rewardState2'])
+        elif self.mcStateTime[-1]>=self.stVarD['self.max2ReportTime']:
+            print('timed out: did not report')
+            self.choiceOutcome.append(0)
+            pdState.switchState(self,self.stateD['self.neutralState'])
 
-    def shaping_stim2StateHead(self):
-        self.minStim2Time=1
 
-        diceRoll=random.random()
-        if diceRoll<=self.stVarD['self.shapeC2_LPortProb']:
-            print('debug: roll={},{}'.format(self.stVarD['self.shapeC2_LPortProb'],diceRoll))
-            self.leftReward=1
-            self.shapingReport.append(20)
-            print('will reward left')
-        elif diceRoll>self.stVarD['self.shapeC2_LPortProb']:
-            print('debug: roll={},{}'.format(self.stVarD['self.shapeC2_LPortProb'],diceRoll))
-            self.leftReward=0
-            self.shapingReport.append(21)
-            print('will reward right')
-
-    def shaping_stim2StateCB(self):
-        if self.mcStateTime[-1]>self.minStim2Time:
-            if self.leftReward:
-                self.stimLicks0.append(self.stateLickCount0[-1])
-                self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.stateD['self.rewardState'])
-            elif self.leftReward !=1:
-                self.stimLicks0.append(self.stateLickCount0[-1])
-                self.stimLicks1.append(self.stateLickCount1[-1])
-                pdState.switchState(self,self.stateD['self.rewardState2'])
-
-    def rewardStateCB(self):
-        if self.mcStateTime[-1]>=self.stVarD['self.reward1Time']:
+    def rewardState1CB(self):
+        if self.mcStateTime[-1]>=self.stVarD['self.rwdTime1']:
             pdState.switchState(self,self.stateD['self.saveState'])
 
     def rewardState2CB(self):
-        if self.mcStateTime[-1]>=self.stVarD['self.reward2Time']:
+        if self.mcStateTime[-1]>=self.stVarD['self.rwdTime2']:
             pdState.switchState(self,self.stateD['self.saveState'])
 
     def neutralStateCB(self):
-        self.neutralTime=1
-        if self.mcStateTime[-1]<0.1:
+        if self.mcStateTime[-1]>self.stVarD['self.neutralTime']:
             print('no reward')
             pdState.switchState(self,self.stateD['self.saveState'])
 
-    def punishStateCB(self):
-        if self.mcTrialTime[-1]-self.entryTime>=self.stVarD['self.timeOutDuration']:
-            print('timeout of {} seconds is over'.format(self.stVarD['self.timeOutDuration']))
+    def punishState1CB(self):
+        if self.mcTrialTime[-1]-self.entryTime>=self.stVarD['self.tOutDur1']:
+            print('timeout of {} seconds is over'.format(self.stVarD['self.tOutDur1']))
+            pdState.switchState(self,self.stateD['self.saveState'])
+
+    def punishState2CB(self):
+        if self.mcTrialTime[-1]-self.entryTime>=self.stVarD['self.tOutDur2']:
+            print('timeout of {} seconds is over'.format(self.stVarD['self.tOutDur2']))
             pdState.switchState(self,self.stateD['self.saveState'])
 
 class pdWindow:
@@ -1353,7 +1481,7 @@ class pdWindow:
         self.pathEntry.grid(row=startRow+3,column=0,sticky=W)
         self.dirPath.set(os.path.join(os.getcwd(),self.animalID))
 
-        self.setPath_button = Button(self.master,text="<- Set Path",command=lambda: pdWindow.mwPathBtn(self),width=self.col2BW)
+        self.setPath_button = Button(self.master,text="<- Set Path",command=lambda:pdWindow.mwPathBtn(self),width=self.col2BW)
         self.setPath_button.grid(row=startRow+3,column=2)
 
         self.aIDLabel=Label(self.master, text="animal id:")\
@@ -1425,7 +1553,7 @@ class pdWindow:
 
         self.togglePlotWinBtn=Button(self.master,text = 'Toggle Plot',\
             width=self.col2BW,\
-            command=lambda:pdPlot.taskPlotWindow(self))
+            command=lambda:pdPlot.trialPlotFig(self))
         self.togglePlotWinBtn.grid(row=startRow+2, column=2)
         self.togglePlotWinBtn.config(state=NORMAL)
 
@@ -1437,7 +1565,7 @@ class pdWindow:
 
         self.perfWindowBtn=Button(self.master,text = 'Session Plot',\
             width=self.col2BW,\
-            command=lambda:pdPlot.makeSessionPlotWindow(self))
+            command=lambda:pdPlot.sessionFig(self))
         self.perfWindowBtn.grid(row=startRow+4, column=2)
         self.perfWindowBtn.config(state=NORMAL)
 
@@ -1545,13 +1673,13 @@ class pdWindow:
             self.dirPath.get() + '.lastMeta.csv')
         self.trialFramePosition='+375+0'
         self.resizeControlPosition='+620+575'
-        self.debugTogglePosition="+375+575"
+        self.debugTogglePosition="+375+350"
         self.sessionFramePosition='+950+0'
 
         pyDiscrim.debugWindow(self)
-        pdPlot.taskPlotWindow(self)
-        pdPlot.resizeTaskPlot(self)
-        pdPlot.makeSessionPlotWindow(self)
+        pdPlot.trialPlotFig(self)
+        pdPlot.trailFigResizeCntrls(self)
+        pdPlot.sessionFig(self)
 
     def mwQuitBtn(self):
         if self.sesVarD['self.ranTask']==0 or self.sesVarD['self.comObjectExists']==0:  
@@ -1639,6 +1767,7 @@ class pdWindow:
                 varIt=varIt+1
             print('parsed and loaded the last task2 probs')
 
+
     def mwSaveMetaBtn(self):
         metaString='{}{}_animalMeta.csv'.format(self.pathSet,self.animalIDStr.get())
         stateString='{}{}_stateMap.csv'.format(self.pathSet,self.animalIDStr.get())
@@ -1697,20 +1826,7 @@ class pdTask:
 
         pdUtil.exportAnimalMeta(self)
         
-        pdVariables.dictToPandas(self,self.stateD,'self.stateMap')
-        self.stateMap.to_csv('{}{}_stateMap.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
-        
-        pdVariables.dictToPandas(self,self.sesVarD,'self.sesVarBindings')
-        self.sesVarBindings.to_csv('{}{}_sesVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
-        
-        pdVariables.dictToPandas(self,self.stVarD,'self.stateVarBindings')
-        self.stateVarBindings.to_csv('{}{}_stateVars.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
-        
-        pdVariables.dictToPandas(self,self.task1D,'self.task1Bindings')
-        self.task1Bindings.to_csv('{}{}_task1Probs.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
-        
-        pdVariables.dictToPandas(self,self.task2D,'self.task2Bindings')
-        self.task2Bindings.to_csv('{}{}_task2Probs.csv'.format(self.dirPath.get() + '/',self.animalIDStr.get()))
+    
         
         print('I completed {} trials.'.format(self.sesVarD['self.currentTrial']-1))
         print('!!!!!!! --> Session #:{} Finished'.format(int(self.currentSessionTV.get())-1))
@@ -1729,10 +1845,10 @@ class pdTask:
         lS2S=self.stateD['self.stim2State']
         lCtS=self.stateD['self.catchState']
         lSvS=self.stateD['self.saveState']
-        lR1S=self.stateD['self.rewardState']
+        lR1S=self.stateD['self.rewardState1']
         lR2S=self.stateD['self.rewardState2']
         lNS=self.stateD['self.neutralState']
-        lPS=self.stateD['self.punishState']
+        lPS=self.stateD['self.punishState1']
         lES=self.stateD['self.endState']
 
         self.trialStartTime=time.time()
@@ -1779,7 +1895,7 @@ class pdTask:
             elif self.currentState==lC2S:
                 pdState.stateHeader(self)
                 pdCallbacks.cue2StateHead(self)
-                while self.currentState==lC2S:    
+                while self.currentState==lC2S: 
                     pdState.coreState(self)
                     if self.fireCallback:
                         pdCallbacks.cue2StateCB(self)
@@ -1787,37 +1903,33 @@ class pdTask:
             #S5 -----> stim tone #1
             elif self.currentState==lS1S:
                 pdState.stateHeader(self)
-                pdCallbacks.shaping_stim1StateHead(self)
                 while self.currentState==lS1S:
                     pdState.coreState(self)
                     if self.fireCallback:
-                        pdCallbacks.shaping_stim1StateCB(self)
+                        pdCallbacks.stim1StateCB(self)
 
             #S6 -----> stim tone #2
             elif self.currentState==lS2S:
                 pdState.stateHeader(self)
-                pdCallbacks.shaping_stim2StateHead(self)
                 while self.currentState==lS2S:
                     pdState.coreState(self)
                     if self.fireCallback:
-                        pdCallbacks.shaping_stim2StateCB(self)
+                        pdCallbacks.stim2StateCB(self)
             
             #S21 -----> reward state
             elif self.currentState==lR1S:
-                print('rewarding left')
                 pdState.stateHeader(self)
                 while self.currentState==lR1S:
                     pdState.coreState(self)
                     if self.fireCallback:
-                        pdCallbacks.rewardStateCB(self)
+                        pdCallbacks.rewardState1CB(self)
             #S22 -----> reward state
             elif self.currentState==lR2S:
-                print('rewarding right')
                 pdState.stateHeader(self)
                 while self.currentState==lR2S:
                     pdState.coreState(self)
                     if self.fireCallback:
-                        pdCallbacks.rewardStateCB(self)
+                        pdCallbacks.rewardState2CB(self)
 
             #S23 -----> neutral state
             elif self.currentState==lNS:
@@ -1833,7 +1945,7 @@ class pdTask:
                 while self.currentState==lPS:
                     pdState.coreState(self)
                     if self.fireCallback:
-                        pdCallbacks.punishStateCB(self)
+                        pdCallbacks.punishState1CB(self)
 
             #S13: save state
             elif self.currentState==lSvS:
@@ -1841,8 +1953,7 @@ class pdTask:
                 pdData.data_saveTrialData(self)
                 pdData.data_trialContainers(self)
                 pdTask.postTrialCleanup(self)
-                pdState.switchState(self,lBS)
- 
+                pdState.switchState(self,lBS) 
 
             #S25: end session state
             elif self.currentState==self.stateD['self.endState']:
@@ -1861,7 +1972,7 @@ class pdTask:
 
     def updatePlotCheck(self):
         if plt.fignum_exists(100):
-            pdPlot.updateTaskPlot(self)
+            pdPlot.updateTrialFig(self)
         self.cycleCount=0
 
     def postTrialAnalysis(self):
@@ -1876,8 +1987,14 @@ class pdTask:
         self.trialEndTime=time.time()
         trialTime=self.trialEndTime-self.trialStartTime
         self.trialTimes.append(trialTime)
-        pdPlot.updateSessionPlot(self)
-        
+        pdPlot.updateSessionFig(self)
+        self.leftSelectedLine.set_markerfacecolor("white")
+        self.rightSelectedLine.set_markerfacecolor("white")
+        self.portAxes.draw_artist(self.leftSelectedLine)
+        self.portAxes.draw_artist(self.rightSelectedLine)
+        self.portAxes.draw_artist(self.portAxes.patch)
+        self.trialFig.canvas.draw_idle()
+        self.trialFig.canvas.flush_events()
         print('last trial took: {} seconds'.format(trialTime))
         self.sesVarD['self.currentTrial']=self.sesVarD['self.currentTrial']+1
         self.sesVarD['self.sessionTrialCount']=self.sesVarD['self.sessionTrialCount']+1 
@@ -1911,7 +2028,7 @@ class pyDiscrim:
             .format(self.sesVarD['self.currentSession']) + self.dateStr)
 
     def debugWindow(self):
-        self.debugTogglePosition="+370+660"
+        self.debugTogglePosition="+130+660"
         dbgFrame = Toplevel()
         eval('dbgFrame.wm_geometry("{}")'.format(self.debugTogglePosition))
         dbgFrame.title('Debug Toggles')
@@ -2035,7 +2152,7 @@ class pyDiscrim:
 
         self.sBtn_punish = Button(st_frame, text="SP: Punish", \
             command=lambda: pdState.switchState(\
-                self,self.stateD['self.punishState']),width=btWdth)
+                self,self.stateD['self.punishState1']),width=btWdth)
         self.sBtn_punish.grid(row=sRw+0, column=sCl+4)
         self.sBtn_punish.config(state=NORMAL)
 
@@ -2056,7 +2173,7 @@ class pyDiscrim:
         self.populateVarFrameFromDict(self.task2D,2,0,'task 2','tb_frame')
         self.setTaskProbsBtn = Button(tb_frame,text='Set Probs.',width = 10,\
             command = lambda: self.taskProbRefreshBtnCB())
-        self.setTaskProbsBtn.grid(row=len(self.t1ProbValues)+2, column=1,sticky=W)
+        self.setTaskProbsBtn.grid(row=len(self.task1D)+2, column=1,sticky=W)
 
     def taskProbRefreshBtnCB(self):
         pdUtil.refreshDictFromGui(self,self.task1D)
@@ -2066,14 +2183,10 @@ class pyDiscrim:
         frame_sv = Toplevel()
         frame_sv.title('State Vars')
         self.frame_sv=frame_sv
-        self.populateVarFrameFromDict(self.stVarD,0,11,'state vars:','frame_sv')
+        self.populateVarFrameFromDict(self.stVarD,0,16,'state vars:','frame_sv')
         self.setStateVars = Button(frame_sv,text = 'Set Variables.', width = 9, \
             command = lambda: pdUtil.refreshDictFromGui(self,self.stVarD))
         self.setStateVars.grid(row=len(self.stateVarValues)+2, column=1,sticky=W)  
-
-    def stateNumsRefreshBtnCB(self):
-
-        pdUtil.refreshVars(self,self.stateNames,self.stateIDs,1)
 
     def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName):
         rowC=2
@@ -2097,24 +2210,14 @@ class pyDiscrim:
             exec('{}_tv.set({})'.format(key,dictName[key]))
             rowC=rowC+1
 
-    def populateVarFrames(self,varLabels,varValues,stCol,frameName):
-        stBCol=stCol+1
-        for x in range(0,len(varLabels)):
-            if x > 6:
-                stCol=stCol+2
-                stBCol=stCol+3
-            exec('self.{}_tv=StringVar(self.{})'.format(varLabels[x],frameName))
-            exec('self.{}_label = Label(self.{}, text="{}")'.format(varLabels[x],frameName,varLabels[x]))
-            exec('self.{}_entries=Entry(self.{},width=6,textvariable=self.{}_tv)'.format(varLabels[x],frameName,varLabels[x]))
-            exec('self.{}_label.grid(row=x, column=stBCol)'.format(varLabels[x]))
-            exec('self.{}_entries.grid(row= x, column=stCol)'.format(varLabels[x]))
-            exec('self.{}_tv.set({})'.format(varLabels[x],varValues[x]))
-
     def exceptionCallback(self):
         print('EXCEPTION thrown: I am going down')
         print('last trial = {} and the last state was {}.I will try to save last trial ...'.\
             format(self.sesVarD['self.currentTrial'],self.currentState))
         pdData.data_saveTrialData(self)
+        pdData.data_saveSessionData(self)
+        print('last still time={}'.format(self.stillTime[-1]))
+        print('last still time type={}'.format(type(self.stillTime[-1])))
         print('save was a success; now I will close com port and quit')
         print('I will try to reset the mc state before closing the port ...')
         self.comObj.close()
