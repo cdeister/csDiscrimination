@@ -3,7 +3,9 @@
 # A Python 3 program that interacts with a microcontroller to 
 # perform state-based behavioral tasks.
 #
-# Version 1.05 : Bug Fixes; Task Variable Restructuring
+# Version 1.08 : Minor Bug Fixes
+# left/right colors are consistent
+# auto-debias works on shaping and task trials now.
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 from tkinter import *
@@ -429,7 +431,7 @@ class pdPlot:
         self.positionAxes.set_yticks([])
         self.positionAxes.set_xticks([])
         self.positionAxes.set_title('pos')
-        self.positionLine,=self.positionAxes.plot(self.initY,color="orchid",lw=2)
+        self.positionLine,=self.positionAxes.plot(self.initY,color="blue",lw=1)
         self.positionThreshLine,=self.positionAxes.plot([0,2000],[100,100],color="black",lw=0.5)
 
         mng = plt.get_current_fig_manager()
@@ -460,14 +462,15 @@ class pdPlot:
         self.trialFig.canvas.flush_events()
 
         #start state
-        self.stPlotX={'boot':0.10,'wait':0.10,'init':0.10,'cue1':0.30,'cue2':0.30,'stm1':0.50,'stm2':0.50,\
-        'lRwd':0.80,'TOb':0.80,'TOa':0.70,'rRwd':0.70,'save':0.40}
+        self.stPlotX={'boot':0.10,'wait':0.10,'init':0.10,'cue1':0.30,'cue2':0.30,\
+        'stm1':0.50,'stm2':0.50,'lRwd':0.80,'TOb':0.80,'TOa':0.70,'rRwd':0.70,'save':0.40}
         
-        self.stPlotY={'boot':0.90,'wait':0.65,'init':0.40,'cue1':0.52,'cue2':0.28,'stm1':0.52,'stm2':0.28,\
-        'lRwd':0.52,'TOb':0.28,'TOa':0.675,'rRwd':0.125,'save':0.90}
+        self.stPlotY={'boot':0.90,'wait':0.65,'init':0.40,'cue1':0.52,'cue2':0.28,\
+        'stm1':0.52,'stm2':0.28,'lRwd':0.52,'TOb':0.28,'TOa':0.675,'rRwd':0.125,'save':0.90}
 
         # # todo:link actual state dict to plot state dict, now its a hack
-        self.stPlotRel={'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'21':7,'24':8,'24':9,'22':10,'13':11}
+        self.stPlotRel={'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'21':7,\
+        '24':8,'24':9,'22':10,'13':11}
         
         self.stAxes = plt.subplot2grid(self.trialSubCR,(0, 0),colspan=3,rowspan=3)
         self.stAxes.set_ylim([-0.02,1.02])
@@ -484,14 +487,17 @@ class pdPlot:
             self.pltY.append(yVals)
 
         self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,\
-            marker='o',markersize=self.stMrkSz,markeredgewidth=2,markerfacecolor="white",markeredgecolor="black",lw=0)
+            marker='o',markersize=self.stMrkSz,markeredgewidth=2,\
+            markerfacecolor="white",markeredgecolor="black",lw=0)
         k=0
         for stAnTxt in list(self.stPlotX.keys()):
             tASt="{}".format(stAnTxt)
-            self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
+            self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
+                horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
             k=k+1
         self.curStLine,=self.stAxes.plot(self.pltX[0],self.pltY[0],\
-            marker='o',markersize=self.stMrkSz+2,markeredgewidth=2,markerfacecolor=self.pClrs['cPurp'],\
+            marker='o',markersize=self.stMrkSz+2,markeredgewidth=2,\
+            markerfacecolor=self.pClrs['cPurp'],\
             markeredgecolor='black',lw=0,alpha=0.5)
 
         plt.show(block=False)
@@ -505,42 +511,25 @@ class pdPlot:
         self.portAxes.set_axis_off()
         rTxtOff=0.2
 
-        self.leftSelectedLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['prsY'],\
-            marker='o',markersize=25,markeredgewidth=2,markerfacecolor="white",markeredgecolor=self.pClrs['left'])
-        self.rightSelectedLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['prsY'],\
-            marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
-        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-\
-            self.portPltVrs['lineDelt']],[self.portPltVrs['prsY'],self.portPltVrs['prsY']],'k:')
-        self.portAxes.text(0.5,self.portPltVrs['prsY']+self.portPltVrs['labDelt'],'presented',\
-            horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY'],'L',horizontalalignment='center',\
-            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY'],'R',horizontalalignment='center',\
-            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.leftPortPresText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',\
-            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.rightPortPresText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',\
-            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftSelectedLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['prsY'],marker='o',markersize=25,markeredgewidth=2,markerfacecolor="white",markeredgecolor=self.pClrs['left'])
+        self.rightSelectedLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['prsY'],marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
+        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],[self.portPltVrs['prsY'],self.portPltVrs['prsY']],'k:')
+        self.portAxes.text(0.5,self.portPltVrs['prsY']+self.portPltVrs['labDelt'],'presented',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY'],'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY'],'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortPresText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortPresText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
         plt.show(block=False)
         self.trialFig.canvas.flush_events()
 
-        self.leftReportLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['rptY'],marker='o',\
-            markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['left'])
-        self.rightReportLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['rptY'],marker='o',\
-            markersize=25,markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
-        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],\
-            [self.portPltVrs['rptY'],self.portPltVrs['rptY']],'k:')
-        self.portAxes.text(0.5,self.portPltVrs['rptY']+self.portPltVrs['labDelt'],'reported'\
-            ,horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY'],'L',horizontalalignment='center',\
-            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY'],'R',horizontalalignment='center',\
-            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.leftPortReportText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',\
-            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.rightPortReportText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',\
-            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-
+        self.leftReportLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['rptY'],marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['left'])
+        self.rightReportLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['rptY'],marker='o',markersize=25,markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
+        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],[self.portPltVrs['rptY'],self.portPltVrs['rptY']],'k:')
+        self.portAxes.text(0.5,self.portPltVrs['rptY']+self.portPltVrs['labDelt'],'reported',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY'],'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY'],'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortReportText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortReportText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
 
         self.trialFig.canvas.draw_idle()
         plt.show(block=False)
@@ -604,16 +593,16 @@ class pdPlot:
         x1=[0,splt]
         if self.stateLickCount0[-1]>0 and self.currentState:
             self.leftReportLine.set_markerfacecolor("gray")
-            self.leftPortPresText.set_text('{}'.format("%.3g" % self.stVarD['shapeC1_LPortProb']))
+            self.leftPortPresText.set_text('{}'.format("%.3g" % self.task1D['t1LeftProb']))
         elif self.stateLickCount0[-1]==0:
             self.leftReportLine.set_markerfacecolor("white")
-            self.leftPortPresText.set_text('{}'.format("%.3g" % self.stVarD['shapeC1_LPortProb']))
+            self.leftPortPresText.set_text('{}'.format("%.3g" % self.task1D['t1LeftProb']))
         if self.stateLickCount1[-1]>0:
             self.rightReportLine.set_markerfacecolor("gray")
-            self.rightPortPresText.set_text('{}'.format("%.3g" % (1-self.stVarD['shapeC1_LPortProb'])))
+            self.rightPortPresText.set_text('{}'.format("%.3g" % (1-self.task1D['t1LeftProb'])))
         elif self.stateLickCount1[-1]==0:
             self.rightReportLine.set_markerfacecolor("white")
-            self.rightPortPresText.set_text('{}'.format("%.3g" % (1-self.stVarD['shapeC1_LPortProb'])))
+            self.rightPortPresText.set_text('{}'.format("%.3g" % (1-self.task1D['t1LeftProb'])))
         
         if len(self.stimSelected)==self.currentTrial:
             if (self.punishedPort[-1]==1):
@@ -652,10 +641,6 @@ class pdPlot:
         self.lickRightValLine.set_ydata(lickRightPltData)
         self.lickRightThreshLine.set_xdata(x1)
         self.lickRightThreshLine.set_ydata(lickRightThreshData)
-
-        # # make new line visual data
-        # self.stateAxes.draw_artist(self.stateLine)
-        # self.stateAxes.draw_artist(self.stateAxes.patch)
         
         self.positionAxes.draw_artist(self.positionLine)
         self.positionAxes.draw_artist(self.positionThreshLine)
@@ -763,16 +748,16 @@ class pdPlot:
         
         self.biasAxis=plt.subplot2grid(self.sesFigSubplotDim, (0, 0), colspan=4,rowspan=4)
         self.leftLickLine,=self.biasAxis.plot([],[],\
-            marker="o",markeredgecolor="black",markerfacecolor="red",markersize=12,lw=0)
+            marker="o",markeredgecolor="black",markerfacecolor=self.pClrs['left'],markersize=12,lw=0,alpha=0.7)
         self.rightLickLine,=self.biasAxis.plot([],[],\
-            marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=12,lw=0)
-        self.leftPresLine,=self.biasAxis.plot([],[],'r-')
-        self.rightPresLine,=self.biasAxis.plot([],[],'b-')
+            marker="o",markeredgecolor="black",markerfacecolor=self.pClrs['right'],markersize=12,lw=0,alpha=0.7)
+        self.leftPresLine,=self.biasAxis.plot([],[],color=self.pClrs['left'])
+        self.rightPresLine,=self.biasAxis.plot([],[],color=self.pClrs['right'])
 
         self.biasLineSmoothedBias,=self.biasAxis.plot([],[],'k-')
         self.biasLineZero,=self.biasAxis.plot([0,self.tTrials],[0,0],'k:')
         
-        self.biasAxis.set_ylim([-1.5,1.5])
+        self.biasAxis.set_ylim([-1.1,1.1])
         self.biasAxis.set_xlim([0,self.tTrials])
         self.biasAxis.set_ylabel('count side bias (l-r)')
         self.biasAxis.set_xlabel('trial number')
@@ -802,10 +787,9 @@ class pdPlot:
         self.outcomeAxis=plt.subplot2grid(self.sesFigSubplotDim,(0,6),colspan=4,rowspan=4)
         self.outcomeLine,=self.outcomeAxis.plot([],[],\
             marker="o",markeredgecolor="black",markerfacecolor="darkorchid",markersize=12,lw=0,alpha=0.4)
-        self.outcomeAxis.set_ylim([-0.2,2.2])
-        self.outcomeAxis.set_xlim([0,self.tTrials])
+        self.outcomeAxis.axis([-1,8,self.tTrials+2,-2])
         self.outcomeAxis.yaxis.tick_right()
-        self.outcomeAxis.set_title('Correct T1: {} , T2: {}'.format(0,0))
+        self.outcomeAxis.set_title('Correct T1: {} , T2: {}'.format(0,0),fontsize=10)
 
         # cahce once 
         plt.show(block=False)
@@ -832,6 +816,8 @@ class pdPlot:
         self.leftCountAxis.axis(self.lickHistScales)
         self.rightCountAxis.axis(self.lickHistScales)
         self.rightCountAxis.set_xlabel('lick counts')
+        self.rightCountAxis.set_yticks([])
+
 
         # Histograms don't have the same artist scheme as lines or text.
         # So, nothing to assign. I still cache:
@@ -906,9 +892,8 @@ class pdPlot:
         # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #
 
-        
         # Calculate how often a left choice, or right choice has been offered.
-        if self.rewardPort[-1]==0:
+        if self.rewardPort[-1]==1:
             self.leftReward.append(1) #todo: do I need this?
         else:
             self.leftReward.append(0)
@@ -948,15 +933,13 @@ class pdPlot:
             format("%.2g" % self.t1Correct,"%.2g" % self.t2Correct))
 
 
-
-
         x10=self.completedTrials
         self.leftLickLine.set_xdata(x10)
         self.rightLickLine.set_xdata(x10)
         self.leftPresLine.set_xdata(x10)
         self.rightPresLine.set_xdata(x10)
         self.biasLineSmoothedBias.set_xdata(np.arange(len(self.smoothedLickBias)))
-        self.outcomeLine.set_xdata(x10)
+        self.outcomeLine.set_ydata(x10)
 
 
         self.leftLickLine.set_ydata(self.lickedLeft)
@@ -964,7 +947,7 @@ class pdPlot:
         self.leftPresLine.set_ydata(self.presLeftFreq)
         self.rightPresLine.set_ydata(self.presRightFreq)
         self.biasLineSmoothedBias.set_ydata(self.smoothedLickBias) 
-        self.outcomeLine.set_ydata(self.choiceOutcome)
+        self.outcomeLine.set_xdata(self.choiceOutcome)
 
         self.biasAxis.draw_artist(self.leftLickLine)
         self.biasAxis.draw_artist(self.rightLickLine)
@@ -1003,7 +986,6 @@ class pdPlot:
         self.sessionFig.canvas.draw_idle()
         self.sessionFig.canvas.flush_events()
 
-
         numBins=10
         plt.sca(self.leftCountAxis)
         plt.cla()
@@ -1012,10 +994,10 @@ class pdPlot:
 
         self.leftCountAxis=plt.subplot2grid(self.sesFigSubplotDim,[0,4],colspan=2,rowspan=2)
         n, binsl,patchesl=self.leftCountAxis.hist(np.nonzero(self.stimLicks0),\
-            numBins,normed=1,facecolor='red')
+            numBins,normed=1,facecolor=self.pClrs['left'])
         self.rightCountAxis=plt.subplot2grid(self.sesFigSubplotDim,[2,4],colspan=2,rowspan=2)
         o,binsr,patchesr=self.rightCountAxis.hist(np.nonzero(self.stimLicks1),\
-            numBins,normed=1,facecolor='cornflowerblue')
+            numBins,normed=1,facecolor=self.pClrs['right'])
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
         self.rightCountAxis.set_yticks([])
@@ -1039,14 +1021,14 @@ class pdAnalysis:
 
         meanBias=np.mean(np.array(self.smoothedLickBias[-5:]))
         if self.biasP<bPC and meanBias>bMC and (bL1P>lBD):  # leftward bias
-            self.stVarD['shapeC1_LPortProb']=float("%.3g" % (self.stVarD['shapeC1_LPortProb']-lBD))
-            self.stVarD['shapeC2_LPortProb']=self.stVarD['shapeC1_LPortProb']
+            self.task1D['t1LeftProb']=float("%.2g" % (self.task1D['t1LeftProb']-lBD))
+            self.task2D['t2LeftProb']=self.task1D['t1LeftProb']
             print('left bias detected; updated probs: {},{}'.\
                 format(self.stVarD['shapeC1_LPortProb'],self.stVarD['shapeC2_LPortProb']))
 
         elif self.biasP<bPC and meanBias<-bMC and (bL1P<(1-rBD)):  # rightward bias
-            self.stVarD['shapeC1_LPortProb']=float("%.3g" % (self.stVarD['shapeC2_LPortProb']+rBD))
-            self.stVarD['shapeC2_LPortProb']=self.stVarD['shapeC1_LPortProb']
+            self.task1D['t1LeftProb']=float("%.2g" % (self.task1D['t1LeftProb']+rBD))
+            self.task2D['t1LeftProb']=self.task1D['t1LeftProb']
             print('right bias detected; updated probs: {},{}'.\
                 format(self.stVarD['shapeC1_LPortProb'],self.stVarD['shapeC2_LPortProb']))
         
@@ -1226,7 +1208,6 @@ class pdState:
         if self.trialDataExists==1:
             self.pyStatesRS.append(self.targetState)
             self.pyStatesRT.append(self.mcTrialTime[-1])
-        print('pushing: s{} -> s{}'.format(self.currentState,targetState))
         self.comObj.write(struct.pack('>B', targetState))
         pdState.exitState(self,self.currentState)
 
