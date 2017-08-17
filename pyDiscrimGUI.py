@@ -3,9 +3,7 @@
 # A Python 3 program that interacts with a microcontroller to 
 # perform state-based behavioral tasks.
 #
-# Version 1.08 : Minor Bug Fixes
-# left/right colors are consistent
-# auto-debias works on shaping and task trials now.
+# Version 1.1
 # questions? --> Chris Deister --> cdeister@brown.edu
 
 from tkinter import *
@@ -408,11 +406,66 @@ class pdData:
 
 class pdPlot:
 
+    def positionPlot(self,gridBnd,gridCoord,colS,rowS):
+        self.pXMin=-50
+        self.pXMax=200
+        self.positionAxes=plt.subplot2grid(gridBnd,gridCoord,colspan=colS,rowspan=rowS)
+        self.positionAxes.set_ylim([self.pXMin,self.pXMax])
+        self.positionAxes.set_yticks([])
+        self.positionAxes.set_xticks([])
+        self.positionAxes.set_title('pos',fontsize=10)
+        self.positionLine,=self.positionAxes.plot([],color="olive",lw=1)
+        self.positionThreshLine,=self.positionAxes.plot([0,2000],[20,20],color="black",lw=1,linestyle='--')
+
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        self.positionAxes.draw_artist(self.positionLine)
+        self.positionAxes.draw_artist(self.positionThreshLine)
+        self.positionAxes.draw_artist(self.positionAxes.patch)
+
+    def lickLeftValPlot(self,gridBnd,gridCoord,colS,rowS):
+        self.lXMin=0
+        self.lXMax=1500
+        self.leftLickAxes=plt.subplot2grid(gridBnd,gridCoord,colS,rowS)
+        self.leftLickAxes.set_yticks([])
+        self.leftLickAxes.set_xticks([])
+        self.leftLickAxes.set_title('left',fontsize=10)
+        self.leftLickAxes.set_ylim([self.lXMin,self.lXMax])
+        self.lickLeftValLine,=self.leftLickAxes.plot([],color=self.pClrs['left'])
+        self.lickLeftThreshLine,=self.leftLickAxes.plot([0,2000],[600,600],color="black",lw=1,linestyle='--')
+
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        self.leftLickAxes.draw_artist(self.lickLeftValLine)
+        self.leftLickAxes.draw_artist(self.lickLeftThreshLine)
+        self.leftLickAxes.draw_artist(self.leftLickAxes.patch)
+
+    def lickRightValPlot(self,gridBnd,gridCoord,colS,rowS):
+        self.rXMin=0
+        self.rXMax=1500
+        self.rightLickAxes=plt.subplot2grid(gridBnd,gridCoord,colS,rowS)
+        self.rightLickAxes.set_yticks([])
+        self.rightLickAxes.set_xticks([])
+        self.rightLickAxes.set_title('right',fontsize=10)
+        self.rightLickAxes.set_ylim([self.rXMin,self.rXMax])
+        self.lickRightValLine,=self.rightLickAxes.plot([],color=self.pClrs['right'])
+        self.lickRightThreshLine,=self.rightLickAxes.plot([0,2000],[600,600],color="black",lw=1,linestyle='--')
+
+        plt.show(block=False)
+        self.trialFig.canvas.flush_events()
+
+        self.rightLickAxes.draw_artist(self.lickRightValLine)
+        self.rightLickAxes.draw_artist(self.lickRightThreshLine)
+        self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
+
     def trialPlotFig(self):
         self.pClrs={'right':'#D9220D','cBlue':'#33A4F3','cPurp':'#6515D9',\
         'cOrange':'#F7961D','left':'cornflowerblue','cGreen':'#29AA03'}
         # plt.style.use('dark_background')
         self.trialFramePosition='+370+0' # can be specified elsewhere
+        
         self.updateTrialAxes=0
 
         trialPlotOpts={'distPlotMinVal':-400,'distPlotMaxVal':1200,'lickAMin':0,'lickAMax':1300}
@@ -420,46 +473,16 @@ class pdPlot:
 
         self.trialFig = plt.figure(100,figsize=(6.5,3.5), dpi=100)
         self.trialFig.suptitle('state 0',fontsize=10)
-        self.initX=np.arange(2000)
-        self.initY=np.random.randint(5, size=2000)
         self.trialSubCR=[3,6]
         self.trialFig.subplots_adjust(wspace=0.1,hspace=0.1)
-
-
-        self.positionAxes=plt.subplot2grid(self.trialSubCR,(0,3),colspan=1,rowspan=1)
-        self.positionAxes.set_ylim([trialPlotOpts['distPlotMinVal'],trialPlotOpts['distPlotMaxVal']])
-        self.positionAxes.set_yticks([])
-        self.positionAxes.set_xticks([])
-        self.positionAxes.set_title('pos')
-        self.positionLine,=self.positionAxes.plot(self.initY,color="blue",lw=1)
-        self.positionThreshLine,=self.positionAxes.plot([0,2000],[100,100],color="black",lw=0.5)
-
         mng = plt.get_current_fig_manager()
         eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
         plt.show(block=False)
         self.trialFig.canvas.flush_events()
 
-        self.leftLickAxes=plt.subplot2grid(self.trialSubCR,(0,4), colspan=1,rowspan=1)
-        self.leftLickAxes.set_yticks([])
-        self.leftLickAxes.set_xticks([])
-        self.leftLickAxes.set_title('left')
-        self.leftLickAxes.set_ylim([trialPlotOpts['lickAMin'],trialPlotOpts['lickAMax']])
-        self.lickLeftValLine,=self.leftLickAxes.plot(self.initY,color=self.pClrs['left'])
-        self.lickLeftThreshLine,=self.leftLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
-
-        plt.show(block=False)
-        self.trialFig.canvas.flush_events()
-
-        self.rightLickAxes=plt.subplot2grid(self.trialSubCR,(0,5), colspan=1,rowspan=1)
-        self.rightLickAxes.set_yticks([])
-        self.rightLickAxes.set_xticks([])
-        self.rightLickAxes.set_ylim([trialPlotOpts['lickAMin'],trialPlotOpts['lickAMax']])
-        self.rightLickAxes.set_title('right')
-        self.lickRightValLine,=self.rightLickAxes.plot(self.initY,color=self.pClrs['right'])
-        self.lickRightThreshLine,=self.rightLickAxes.plot([0,2000],[600,600],color="black",lw=0.5)
-
-        plt.show(block=False)
-        self.trialFig.canvas.flush_events()
+        pdPlot.positionPlot(self,self.trialSubCR,(0,3),1,1)
+        pdPlot.lickLeftValPlot(self,self.trialSubCR,(0,4),1,1)
+        pdPlot.lickRightValPlot(self,self.trialSubCR,(0,5),1,1)
 
         #start state
         self.stPlotX={'boot':0.10,'wait':0.10,'init':0.10,'cue1':0.30,'cue2':0.30,\
@@ -495,6 +518,7 @@ class pdPlot:
             self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
                 horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
             k=k+1
+
         self.curStLine,=self.stAxes.plot(self.pltX[0],self.pltY[0],\
             marker='o',markersize=self.stMrkSz+2,markeredgewidth=2,\
             markerfacecolor=self.pClrs['cPurp'],\
@@ -511,25 +535,42 @@ class pdPlot:
         self.portAxes.set_axis_off()
         rTxtOff=0.2
 
-        self.leftSelectedLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['prsY'],marker='o',markersize=25,markeredgewidth=2,markerfacecolor="white",markeredgecolor=self.pClrs['left'])
-        self.rightSelectedLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['prsY'],marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
-        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],[self.portPltVrs['prsY'],self.portPltVrs['prsY']],'k:')
-        self.portAxes.text(0.5,self.portPltVrs['prsY']+self.portPltVrs['labDelt'],'presented',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY'],'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY'],'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.leftPortPresText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.rightPortPresText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftSelectedLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['prsY'],\
+            marker='o',markersize=25,markeredgewidth=2,markerfacecolor="white",markeredgecolor=self.pClrs['left'])
+        self.rightSelectedLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['prsY'],\
+            marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
+        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],\
+            [self.portPltVrs['prsY'],self.portPltVrs['prsY']],'k:')
+        self.portAxes.text(0.5,self.portPltVrs['prsY']+self.portPltVrs['labDelt'],'presented',\
+            horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY'],'L',horizontalalignment='center',\
+            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY'],'R',horizontalalignment='center',\
+            verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortPresText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortPresText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['prsY']-rTxtOff,'0.5',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
         plt.show(block=False)
         self.trialFig.canvas.flush_events()
 
-        self.leftReportLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['rptY'],marker='o',markersize=25, markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['left'])
-        self.rightReportLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['rptY'],marker='o',markersize=25,markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
-        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],[self.portPltVrs['rptY'],self.portPltVrs['rptY']],'k:')
-        self.portAxes.text(0.5,self.portPltVrs['rptY']+self.portPltVrs['labDelt'],'reported',horizontalalignment='center',fontsize=11, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY'],'L',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY'],'R',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.leftPortReportText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
-        self.rightPortReportText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        plotArgsT={'marker':'o','markersize':'25','markeredgewidth':'2'}
+        self.leftReportLine,=self.portAxes.plot(self.portPltVrs['lPX'],self.portPltVrs['rptY'],**plotArgsT, markerfacecolor="white",\
+         markeredgecolor=self.pClrs['left'])
+        self.rightReportLine,=self.portAxes.plot(self.portPltVrs['rPX'],self.portPltVrs['rptY'],marker='o',\
+            markersize=25,markeredgewidth=2, markerfacecolor="white", markeredgecolor=self.pClrs['right'])
+        self.portAxes.plot([self.portPltVrs['lPX']+self.portPltVrs['lineDelt'],self.portPltVrs['rPX']-self.portPltVrs['lineDelt']],\
+            [self.portPltVrs['rptY'],self.portPltVrs['rptY']],'k:')
+        self.portAxes.text(0.5,self.portPltVrs['rptY']+self.portPltVrs['labDelt'],'reported',horizontalalignment='center',fontsize=11, \
+            fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY'],'L',horizontalalignment='center',verticalalignment='center',\
+            fontsize=10, fontdict={'family': 'monospace'})
+        self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY'],'R',horizontalalignment='center',verticalalignment='center',\
+            fontsize=10, fontdict={'family': 'monospace'})
+        self.leftPortReportText=self.portAxes.text(self.portPltVrs['lPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
+        self.rightPortReportText=self.portAxes.text(self.portPltVrs['rPX'],self.portPltVrs['rptY']-rTxtOff,'0.0',\
+            horizontalalignment='center',verticalalignment='center',fontsize=10, fontdict={'family': 'monospace'})
 
         self.trialFig.canvas.draw_idle()
         plt.show(block=False)
@@ -537,19 +578,6 @@ class pdPlot:
         self.stAxes.draw_artist(self.stPLine)
         self.stAxes.draw_artist(self.curStLine)
         self.stAxes.draw_artist(self.stAxes.patch)
-
-        self.positionAxes.draw_artist(self.positionLine)
-        self.positionAxes.draw_artist(self.positionThreshLine)
-        self.positionAxes.draw_artist(self.positionAxes.patch)
-
-        self.leftLickAxes.draw_artist(self.lickLeftValLine)
-        self.leftLickAxes.draw_artist(self.lickLeftThreshLine)
-        self.leftLickAxes.draw_artist(self.leftLickAxes.patch)
-
-        self.rightLickAxes.draw_artist(self.lickRightValLine)
-        self.rightLickAxes.draw_artist(self.lickRightThreshLine)
-        self.rightLickAxes.draw_artist(self.rightLickAxes.patch)
-
 
         self.portAxes.draw_artist(self.leftSelectedLine)
         self.portAxes.draw_artist(self.rightSelectedLine)
@@ -572,11 +600,10 @@ class pdPlot:
 
         self.lastSplit=splt
         if self.updateTrialAxes==1:
-            self.positionAxes.set_ylim([self.trialPlotOpts['distPlotMinVal'],self.trialPlotOpts['distPlotMaxVal']])
-            self.leftLickAxes.set_ylim([self.trialPlotOpts['lickAMin'],self.trialPlotOpts['lickAMax']])
-            self.rightLickAxes.set_ylim([self.trialPlotOpts['lickAMin'],self.trialPlotOpts['lickAMax']])
+            self.positionAxes.set_ylim([self.pXMin,self.pXMax])
+            self.leftLickAxes.set_ylim([self.lXMin,self.lXMax])
+            self.rightLickAxes.set_ylim([self.lXMin,self.lXMax])
             self.updateTrialAxes=0
-
 
         tLeftLickThr=int(self.lickThresholdStrValA_tv.get())
         tRightLickThr=int(self.lickThresholdStrValB_tv.get())
@@ -676,26 +703,25 @@ class pdPlot:
         self.minLabel = Label(resizeTrialPlotsFrame, text="Min:",width=6).grid(row=0,column=1)
         self.maxLabel = Label(resizeTrialPlotsFrame, text="Max:",width=6).grid(row=0,column=2)
 
-
         posRow=2
         self.dAxesLabel = Label(resizeTrialPlotsFrame, text="Position:",width=6).grid(row=posRow,column=0)
         self.distPlotMin_tv=StringVar(resizeTrialPlotsFrame)
-        self.distPlotMin_tv.set(self.trialPlotOpts['distPlotMinVal'])
+        self.distPlotMin_tv.set(self.pXMin)
         self.dmnE=Entry(master=resizeTrialPlotsFrame,textvariable=self.distPlotMin_tv,width=6)
         self.dmnE.grid(row=posRow, column=1)
         self.distPlotMax_tv=StringVar(resizeTrialPlotsFrame)
-        self.distPlotMax_tv.set(self.trialPlotOpts['distPlotMaxVal'])
+        self.distPlotMax_tv.set(self.pXMax)
         self.dmxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.distPlotMax_tv,width=6)
         self.dmxE.grid(row=posRow, column=2)
 
         lickRow=3
         self.lAxesLabel = Label(resizeTrialPlotsFrame, text="Lick:",width=6).grid(row=lickRow,column=0)
         self.lickPlotMin_tv=StringVar(resizeTrialPlotsFrame)
-        self.lickPlotMin_tv.set(self.trialPlotOpts['lickAMin'])
+        self.lickPlotMin_tv.set(self.lXMin)
         self.lkMinE=Entry(master=resizeTrialPlotsFrame,textvariable=self.lickPlotMin_tv,width=6)
         self.lkMinE.grid(row=lickRow, column=1)
         self.lickPlotMax_tv=StringVar(resizeTrialPlotsFrame)
-        self.lickPlotMax_tv.set(self.trialPlotOpts['lickAMax'])
+        self.lickPlotMax_tv.set(self.lXMax)
         self.lkMaxE=Entry(master=resizeTrialPlotsFrame,textvariable=self.lickPlotMax_tv,width=6)
         self.lkMaxE.grid(row=lickRow, column=2)
 
@@ -704,13 +730,12 @@ class pdPlot:
         self.setAxesBtn.grid(row=4, column=2)
 
     def setAxesBtnCB(self):
-
-        self.trialPlotOpts['statePlotMin']=int(self.stPlotMin_tv.get())
-        self.trialPlotOpts['statePlotMax']=int(self.stPlotMax_tv.get())
-        self.trialPlotOpts['distPlotMinVal']=int(self.distPlotMin_tv.get())
-        self.trialPlotOpts['distPlotMaxVal']=int(self.distPlotMax_tv.get())
-        self.trialPlotOpts['lickAMin']=int(self.lickPlotMin_tv.get())
-        self.trialPlotOpts['lickAMax']=int(self.lickPlotMax_tv.get())
+        self.pXMin=int(self.distPlotMin_tv.get())
+        self.pXMax=int(self.distPlotMax_tv.get())
+        self.lXMin=int(self.lickPlotMin_tv.get())
+        self.lXMax=int(self.lickPlotMax_tv.get())
+        self.rXMin=int(self.lickPlotMin_tv.get())
+        self.rXMax=int(self.lickPlotMax_tv.get())
 
         self.updateTrialAxes=1
 
@@ -785,9 +810,9 @@ class pdPlot:
         # All other types of choice are 2.
         #
         self.outcomeAxis=plt.subplot2grid(self.sesFigSubplotDim,(0,6),colspan=4,rowspan=4)
-        self.outcomeLine,=self.outcomeAxis.plot([],[],\
-            marker="o",markeredgecolor="black",markerfacecolor="darkorchid",markersize=12,lw=0,alpha=0.4)
-        self.outcomeAxis.axis([-1,8,self.tTrials+2,-2])
+        self.outcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
+            markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
+        self.outcomeAxis.axis([-2.1,2.1,self.tTrials+2,-2])
         self.outcomeAxis.yaxis.tick_right()
         self.outcomeAxis.set_title('Correct T1: {} , T2: {}'.format(0,0),fontsize=10)
 
@@ -807,12 +832,12 @@ class pdPlot:
         self.lickHistScales=[0,20,0,0.5]
         numBins=5
         self.leftCountAxis=plt.subplot2grid(self.sesFigSubplotDim,[0,4],colspan=2,rowspan=2)
-        n, binsl,patchesl=self.leftCountAxis.hist([],numBins,normed=1,facecolor='red')
+        n, binsl,patchesl=self.leftCountAxis.hist([],numBins,normed=1,facecolor=self.pClrs['left'])
         self.leftCountAxis.set_yticks([])
         self.leftCountAxis.set_xticks([])
 
         self.rightCountAxis=plt.subplot2grid(self.sesFigSubplotDim,[2,4],colspan=2,rowspan=2)
-        o,binsr,patchesr=self.rightCountAxis.hist([],numBins,normed=1,facecolor='cornflowerblue')
+        o,binsr,patchesr=self.rightCountAxis.hist([],numBins,normed=1,facecolor=self.pClrs['right'])
         self.leftCountAxis.axis(self.lickHistScales)
         self.rightCountAxis.axis(self.lickHistScales)
         self.rightCountAxis.set_xlabel('lick counts')
@@ -834,12 +859,10 @@ class pdPlot:
         self.stimLickAxes.axis([0,self.stimLickXMax,self.tTrials+2, -2])
         self.stimLickAxes.set_xlabel('time since stimulus (s)')
         self.stimLickAxes.set_ylabel('trial number')
-        self.stimLickLeftLine,=self.stimLickAxes.plot(np.random.random_sample(self.tTrials)*\
-            self.stimLickXMax,np.arange(self.tTrials),\
-            marker="o",markeredgecolor="black",markerfacecolor="red",markersize=6,lw=0,alpha=0.8)
-        self.stimLickRightLine,=self.stimLickAxes.plot(np.random.random_sample(self.tTrials)*\
-            self.stimLickXMax,np.arange(self.tTrials),\
-            marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=6,lw=0,alpha=0.8)
+        self.stimLickLeftLine,=self.stimLickAxes.plot(np.random.random_sample(self.tTrials)*self.stimLickXMax,np.arange(self.tTrials),\
+            marker="o",markeredgecolor="black",markerfacecolor=self.pClrs['left'],markersize=6,lw=0,alpha=0.8)
+        self.stimLickRightLine,=self.stimLickAxes.plot(np.random.random_sample(self.tTrials)*self.stimLickXMax,np.arange(self.tTrials),\
+            marker="o",markeredgecolor="black",markerfacecolor=self.pClrs['right'],markersize=6,lw=0,alpha=0.8)
         
         plt.show(block=False)
         self.sessionFig.canvas.flush_events()
@@ -860,10 +883,10 @@ class pdPlot:
         self.rwdLickAxes.set_xlabel('time since reward (ms)')
         self.rwdLickLeftLine,=self.rwdLickAxes.plot(np.random.random_sample(self.tTrials)*\
             self.rwdRasterXMax,np.arange(self.tTrials),\
-            marker="o",markeredgecolor="black",markerfacecolor="red",markersize=5,lw=0,alpha=0.8)
+            marker="o",markeredgecolor="black",markerfacecolor=self.pClrs['left'],markersize=5,lw=0,alpha=0.8)
         self.rwdLickRightLine,=self.rwdLickAxes.plot(np.random.random_sample(self.tTrials)*\
             self.rwdRasterXMax,np.arange(self.tTrials),\
-            marker="o",markeredgecolor="black",markerfacecolor="cornflowerblue",markersize=5,lw=0,alpha=0.8)
+            marker="o",markeredgecolor="black",markerfacecolor=self.pClrs['right'],markersize=5,lw=0,alpha=0.8)
 
         plt.show(block=False)
         self.sessionFig.canvas.flush_events()
@@ -911,7 +934,6 @@ class pdPlot:
         
         self.completedTrials.append(self.currentTrial)
         
-        #
         cueNP=np.array(self.cueSelected)
         chNP=np.array(self.choiceOutcome)
 
@@ -930,7 +952,7 @@ class pdPlot:
         elif self.t2Count==0 or len(self.t2Choices)==0:
             self.t2Correct=0.0
         self.outcomeAxis.set_title('Correct T1: {} , T2: {}'.\
-            format("%.2g" % self.t1Correct,"%.2g" % self.t2Correct))
+            format("%.3g" % self.t1Correct,"%.3g" % self.t2Correct))
 
 
         x10=self.completedTrials
@@ -1343,15 +1365,15 @@ class pdCallbacks:
             if (self.mcStateTime[-1]>self.task1D['t1ShapeTime']):
                 if (self.rewardPort[-1]==1):
                     print('shape: reward left')
-                    self.choiceOutcome.append(5)
+                    self.choiceOutcome.append(-1)
                     pdState.switchState(self,self.stMapD['rewardState1'])
                 elif (self.rewardPort[-1]==2):
                     print('shape: reward right')
-                    self.choiceOutcome.append(6)
+                    self.choiceOutcome.append(-2)
                     pdState.switchState(self,self.stMapD['rewardState2'])
                 elif (self.rewardPort[-1]==0):
                     print('shape: no reward')
-                    self.choiceOutcome.append(4)
+                    self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['saveState'])
 
         elif (self.shapingTrial[-1]==0):
@@ -1377,7 +1399,7 @@ class pdCallbacks:
 
         if (self.mcStateTime[-1]>self.stVarD['max1ReportTime']):
             print('timed out: did not report')
-            self.choiceOutcome.append(3)
+            self.choiceOutcome.append(0)
             pdState.switchState(self,self.stMapD['punishState1'])
 
     def stim2StateCB(self):
@@ -1385,15 +1407,15 @@ class pdCallbacks:
             if (self.mcStateTime[-1]>self.task2D['t2ShapeTime']):
                 if (self.rewardPort[-1]==1):
                     print('shape: reward left')
-                    self.choiceOutcome.append(5)
+                    self.choiceOutcome.append(-1)
                     pdState.switchState(self,self.stMapD['rewardState1'])
                 elif (self.rewardPort[-1]==2):
                     print('shape: reward right')
-                    self.choiceOutcome.append(6)
+                    self.choiceOutcome.append(-2)
                     pdState.switchState(self,self.stMapD['rewardState2'])
                 elif (self.rewardPort[-1]==0):
                     print('shape: no reward')
-                    self.choiceOutcome.append(4)
+                    self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['saveState'])
 
         elif (self.shapingTrial[-1]==0):
@@ -1419,7 +1441,7 @@ class pdCallbacks:
 
         if (self.mcStateTime[-1]>self.stVarD['max2ReportTime']):
             print('timed out: did not report')
-            self.choiceOutcome.append(3)
+            self.choiceOutcome.append(0)
             pdState.switchState(self,self.stMapD['punishState1'])
 
 
