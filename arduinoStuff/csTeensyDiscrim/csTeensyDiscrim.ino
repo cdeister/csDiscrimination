@@ -46,8 +46,8 @@ bool inPulse = 0;
 bool cueInit = 0;
 bool headerFired = 0;
 
-const int waterLPin = 35;   // Engage Water
-const int waterRPin = 36;   // Engage Water
+const int waterLPin = 35;   // 35 Engage Water
+const int waterRPin = 36;   // 36 Engage Water
 
 const int tonePin = 6;
 
@@ -123,7 +123,7 @@ void loop() {
     genericBody(0,0,waterLPin);
   }
 
-  else if (curState == 10) {
+  else if (curState == 21) {
     genericHeader(curState,0,tonePin,0);
     genericBody(1,60,waterLPin);
   }

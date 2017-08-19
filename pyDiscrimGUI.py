@@ -3,8 +3,10 @@
 # A Python 3 program that interacts with a microcontroller to 
 # perform state-based behavioral tasks.
 #
-# Version 1.1
+# Version 1.12
 # questions? --> Chris Deister --> cdeister@brown.edu
+#
+# roadmap: variable rewards, linked gui vars, resize ses plot, state summary with box plots
 
 from tkinter import *
 import tkinter.filedialog as fd
@@ -25,9 +27,9 @@ import scipy.stats as stats
 class pdVariables:
 
     def setStateNames(self):
-        self.stMapD = {'bootState':0,'waitState':1,'initiationState':2,\
-        'cue1State':3,'cue2State':4,'stim1State':5,'stim2State':6,'catchState':7,\
-        'saveState':13,'rewardState1':21,'rewardState2':22,'neutralState':23,'punishState1':24,\
+        self.stMapD = {'bootState':0,'waitState':1,'initiationState':2,'cue1State':3,\
+        'cue2State':4,'stim1State':5,'stim2State':6,'catchState':7,'saveState':13,\
+        'rewardState1':21,'rewardState2':22,'neutralState':23,'punishState1':24,\
         'endState':25,'defaultState':29}
         pdVariables.dictToPandas(self,self.stMapD,'self.stateMap')
 
@@ -245,17 +247,9 @@ class pdData:
 
         self.rewardContingency=[] 
         self.choiceOutcome=[]
-
-        self.PooledTasks=[]
         
-        self.sRewardTarget=[];
-        self.sPunishTarget=[];
-        self.sOutcome=[]; 
         self.trialSampRate=[]
         self.trialTimes=[]
-        self.rcCol=[]
-        self.toCol=[]
-        self.shapingReport=[]
         self.leftReward=[]
         self.waitLicks0=[]
         self.waitLicks1=[]
@@ -285,15 +279,17 @@ class pdData:
         self.completedTrials=[]
 
     def data_trialContainers(self):
+
         self.trialDataExists=0
+
         # state & timing
         self.arStates=[]          
         self.mcTrialTime=[]
         self.mcStateTime=[]
+        self.stillTime=[]
+        self.noLickTime=[]
 
         # motion
-        self.stillTime=[]
-        self.motionTime=[]
         self.lastPos=0
         self.lastOrientation=0  
         self.absolutePosition=[]
@@ -308,14 +304,19 @@ class pdData:
         self.lickThresholdLatchB=0
         self.lastLickCountA=0
         self.lastLickCountB=0
+
         self.lickValsA=[]
         self.lickValsB=[]
+
         self.thrLicksA=[]
         self.thrLicksB=[]
+
         self.thrLicksB_time=[]
         self.thrLicksA_time=[]
+
         self.thrLicksB_stateTime=[]
         self.thrLicksA_stateTime=[]
+
         self.thrLicksB_state=[]
         self.thrLicksA_state=[]
         self.stateLickCount0=[]
@@ -327,6 +328,9 @@ class pdData:
         self.pyStatesTT = []
         self.pyStatesTS = []
 
+        self.vStates=[]
+        self.vStatesTime=[]
+
     def correct9DOF(self,rOrient,maxDelta):
         cTheta=rOrient-self.lastOrientation
         rollCorrectTheta=cTheta
@@ -337,14 +341,22 @@ class pdData:
         return rollCorrectTheta
          
     def data_parseData(self):
+    
         self.mcTrialTime.append(float(int(self.sR[self.stID_time])/self.timeBase))
         self.mcStateTime.append(float(int(self.sR[self.stID_trialTime])/self.timeBase))
+
+        if len(self.mcTrialTime)==1:
+            self.stillTimeStart=self.mcTrialTime[-1]
+            self.noLickTimeStart=self.mcTrialTime[-1]
+
+        self.noLickTime.append(self.mcTrialTime[-1]-self.noLickTimeStart)
+        self.stillTime.append(self.mcTrialTime[-1]-self.stillTimeStart)
+
 
         orientWRoll=int(self.sR[self.stID_pos])
         noRollOrient=pdData.correct9DOF(self,orientWRoll,290)
         
         self.orientation.append(orientWRoll)
-        
         self.lastOrientation=self.orientation[-1]
         
         self.posDelta.append(noRollOrient)
@@ -356,15 +368,18 @@ class pdData:
         self.lickValsA.append(int(self.sR[self.stID_lickSensor_a]))
         self.lickValsB.append(int(self.sR[self.stID_lickSensor_b]))
         pdAnalysis.lickDetection(self)
+        pdAnalysis.checkMotion(self,self.stVarD['acelValThr'],self.stVarD['acelSamps'])
+
         self.trialDataExists=1
 
     def data_saveTrialData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).strftime('%H%M_%m%d%Y')
 
         saveStreams='mcTrialTime','mcStateTime','absolutePosition','posDelta','orientation','arStates',\
-        'lickValsA','lickValsB','stateLickCount0','stateLickCount1','stillTime','motionTime','anState_acceleration',\
+        'lickValsA','lickValsB','stateLickCount0','stateLickCount1','stillTime','anState_acceleration',\
         'pdAnalysis_acelThreshold','pyStatesRS','pyStatesRT','pyStatesTS','pyStatesTT','thrLicksA','thrLicksB',\
-        'thrLicksA_time','thrLicksB_time','thrLicksA_stateTime','thrLicksB_stateTime','thrLicksA_state','thrLicksB_state'
+        'thrLicksA_time','thrLicksB_time','thrLicksA_stateTime','thrLicksB_stateTime',\
+        'thrLicksA_state','thrLicksB_state','noLickTime','vStates','vStatesTime'
 
         self.tCo=[]
         for x in range(0,len(saveStreams)):
@@ -384,8 +399,8 @@ class pdData:
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).\
         strftime('%H%M_%m%d%Y')
 
-        saveStreams='rewardContingency','choiceOutcome','PooledTasks','cueSelected','stimSelected','sRewardTarget',\
-        'sPunishTarget','sOutcome','trialTimes','rcCol','toCol','shapingReport','waitLicks0','waitLicks1','stimLicks0',\
+        saveStreams='rewardContingency','choiceOutcome','cueSelected',\
+        'stimSelected','trialTimes','waitLicks0','waitLicks1','stimLicks0',\
         'stimLicks1','waitConditionMetTime','smoothedLickBias','trialSampRate','trialLeft1Prob','trialLeft2Prob',\
         'stimLeftLickTimes','stimRightLickTimes','stimLeftLickInds','stimRightLickInds','leftReward',\
         'lickedLeft','lickedRight','presLeftFreq','presRightFreq','smoothedLickBias'
@@ -524,8 +539,17 @@ class pdPlot:
             markerfacecolor=self.pClrs['cPurp'],\
             markeredgecolor='black',lw=0,alpha=0.5)
 
+        # self.pastStLine,=self.stAxes.plot([],[],\
+        #     marker='o',markersize=self.stMrkSz+2,markeredgewidth=2,\
+        #     markerfacecolor="gray",markeredgecolor='black',lw=0,alpha=0.3)
+
         plt.show(block=False)
         self.trialFig.canvas.flush_events()
+
+        self.stAxes.draw_artist(self.stPLine)
+        self.stAxes.draw_artist(self.curStLine)
+        # self.stAxes.draw_artist(self.pastStLine)
+        self.stAxes.draw_artist(self.stAxes.patch)
 
         # start port
         self.portPltVrs={'lPX':0.25,'rPX':0.75,'prsY':0.75,'rptY':0.2,'labDelt':0.12,'lineDelt':0.1}
@@ -574,10 +598,6 @@ class pdPlot:
 
         self.trialFig.canvas.draw_idle()
         plt.show(block=False)
-
-        self.stAxes.draw_artist(self.stPLine)
-        self.stAxes.draw_artist(self.curStLine)
-        self.stAxes.draw_artist(self.stAxes.patch)
 
         self.portAxes.draw_artist(self.leftSelectedLine)
         self.portAxes.draw_artist(self.rightSelectedLine)
@@ -650,8 +670,11 @@ class pdPlot:
 
         self.curStLine.set_xdata(self.pltX[self.stPlotRel['{}'.format(self.currentState)]])
         self.curStLine.set_ydata(self.pltY[self.stPlotRel['{}'.format(self.currentState)]])
+        # self.pastStLine.set_xdata(self.pltX[self.stPlotRel['{}'.format(np.unique(self.arStates))]])
+        # self.pastStLine.set_ydata(self.pltY[self.stPlotRel['{}'.format(np.unique(self.arStates))]])
         self.stAxes.draw_artist(self.stPLine)
         self.stAxes.draw_artist(self.curStLine)
+        # self.stAxes.draw_artist(self.pastStLine)
         self.stAxes.draw_artist(self.stAxes.patch)
 
 
@@ -1050,7 +1073,7 @@ class pdAnalysis:
 
         elif self.biasP<bPC and meanBias<-bMC and (bL1P<(1-rBD)):  # rightward bias
             self.task1D['t1LeftProb']=float("%.2g" % (self.task1D['t1LeftProb']+rBD))
-            self.task2D['t1LeftProb']=self.task1D['t1LeftProb']
+            self.task2D['t2LeftProb']=self.task1D['t1LeftProb']
             print('right bias detected; updated probs: {},{}'.\
                 format(self.stVarD['shapeC1_LPortProb'],self.stVarD['shapeC2_LPortProb']))
         
@@ -1157,6 +1180,7 @@ class pdAnalysis:
             
             self.lastLickA=self.mcTrialTime[-1]    
             self.lickThresholdLatchA=1
+            self.noLickTimeStart=self.mcTrialTime[-1]
         
         elif self.lickValsA[-1]<=aThreshold or self.lickThresholdLatchA==1:
             self.stateLickCount0.append(self.lastLickCountA)
@@ -1171,6 +1195,7 @@ class pdAnalysis:
             
             self.lastLickB=self.mcTrialTime[-1]
             self.lickThresholdLatchB=1
+            self.noLickTimeStart=self.mcTrialTime[-1]
             
         elif self.lickValsB[-1]<=bThreshold or self.lickThresholdLatchB==1:
             self.stateLickCount1.append(self.lastLickCountB)
@@ -1190,6 +1215,7 @@ class pdAnalysis:
             self.thrLicksA_state.append(self.arStates[-1])
             self.lastLickCountA=self.lastLickCountA+1
             self.stateLickCount0[-1]=self.lastLickCountA+1
+            self.noLickTimeStart=self.mcTrialTime[-1]
 
         if self.lickValsB[-1]>int(self.lickThresholdStrValB_tv.get()):
             self.thrLicksB.append(1)
@@ -1198,42 +1224,38 @@ class pdAnalysis:
             self.thrLicksB_state.append(self.arStates[-1])
             self.lastLickCountB=self.lastLickCountB+1
             self.stateLickCount1[-1]=self.lastLickCountB+1
+            self.noLickTimeStart=self.mcTrialTime[-1]
 
     def checkMotion(self,acelThr,sampThr):
         self.anState_acceleration.append(np.mean(np.array(self.posDelta[-int(sampThr):])))
         self.pdAnalysis_acelThreshold.append(acelThr)
-        if self.anState_acceleration[-1]<acelThr:
-            lastLatch=self.stillLatch
-            self.stillLatch=1
-            latchDelta=self.stillLatch-lastLatch
-            if latchDelta!=0:
-                self.stillTimeStart=self.mcStateTime[-1]
-            self.stillTime.append(self.mcStateTime[-1]-self.stillTimeStart)
-            self.motionTime.append(0)
-        elif self.anState_acceleration[-1]>=acelThr:
-            lastLatch=self.stillLatch
-            self.stillLatch=0
-            latchDelta=lastLatch-self.stillLatch
-            if latchDelta!=0:
-                self.motionTimeStart=self.mcStateTime[-1]
-            self.stillTime.append(0)
-            self.motionTime.append(self.mcStateTime[-1]-self.motionTimeStart)
+        if self.anState_acceleration[-1]>=acelThr:
+            self.stillTimeStart=self.mcTrialTime[-1]
 
 class pdState:
 
     def switchState(self,targetState):
+        print('yosef')
         if self.currentState==targetState:
             print('no thanks; you chose the state you are in, \
                 no infinite loops for me :)')
             return
-        self.targetState=targetState
-        if self.trialDataExists==1:
-            self.pyStatesRS.append(self.targetState)
-            self.pyStatesRT.append(self.mcTrialTime[-1])
-        self.comObj.write(struct.pack('>B', targetState))
-        pdState.exitState(self,self.currentState)
+        else:
+            print(targetState)
+            self.pyStatesRS.append(targetState)
+            if self.currentState !=13:
+                self.pyStatesRT.append(self.mcTrialTime[-1])
+                self.vStates.append(self.currentState)
+                self.vStatesTime.append(self.mcStateTime[-1])
+                print('{},{}'.format(self.vStates,self.vStatesTime))
+            print('write out')
+            self.comObj.write(struct.pack('>B', targetState))
+            pdState.exitState(self,self.currentState)
+
+        
 
     def exitState(self,cState): 
+        print('exit')
         self.cState=cState
         while self.currentState==self.cState:
             pdSerial.serial_readDataFlush(self)
@@ -1252,8 +1274,6 @@ class pdState:
             self.lastLickCountA=0
             self.lastLickCountB=0
             self.entryTime=self.mcTrialTime[-1] # log state entry time
-            self.stillTimeStart=int(0)
-            self.stillLatch=0
             self.trialFig.suptitle('trial # {}; state # {}'.\
                 format(self.currentTrial,self.currentState, fontsize=10))
             ranHeader=1 # fire the latch
@@ -1268,10 +1288,7 @@ class pdState:
                 pdTask.updatePlotCheck(self)
             self.fireCallback=1
             self.cycleCount=self.cycleCount+1;
-        aT=self.stVarD['acelValThr']
-        aS=self.stVarD['acelSamps']
-        pdAnalysis.checkMotion(self,aT,aS)
-
+        
 class pdCallbacks:
 
     def waitStateCB(self):
@@ -1348,13 +1365,15 @@ class pdCallbacks:
             self.punishedPort.append(0)
 
     def cue1StateCB(self):
-        if (self.mcStateTime[-1]>self.stVarD['cue1Dur']) and (self.stillTime[-1]>self.stVarD['genStillTime']):
+        if (self.mcStateTime[-1]>self.stVarD['cue1Dur']) and \
+        (self.stillTime[-1]>self.stVarD['genStillTime'] and \
+            (self.noLickTime[-1]>0.5)):
             print('Still: Task 1 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected[-1],self.rewardPort[-1]))
             exec('self.rewardContingency.append({}{})'.format(self.stimSelected[-1],self.rewardPort[-1]))
             eval('pdState.switchState(self,self.stMapD["stim{}State"])'.format(self.stimSelected[-1]))
             
     def cue2StateCB(self):
-        if (self.mcStateTime[-1]>self.stVarD['cue2Dur']) and (self.stillTime[-1]>self.stVarD['genStillTime']):
+        if (self.mcStateTime[-1]>self.stVarD['cue2Dur']) and (self.stillTime[-1]>self.stVarD['genStillTime'] and (self.noLickTime[-1]>0.5)):
             print('Still: Task 2 --> Stim {}: Rwd On Spout {}'.format(self.stimSelected[-1],self.rewardPort[-1]))
             eval('pdState.switchState(self,self.stMapD["stim{}State"])'.format(self.stimSelected[-1]))
             exec('self.rewardContingency.append({}{})'.format(self.stimSelected[-1],self.rewardPort[-1]))
@@ -1362,7 +1381,7 @@ class pdCallbacks:
     def stim1StateCB(self):
             
         if (self.shapingTrial[-1]==1):
-            if (self.mcStateTime[-1]>self.task1D['t1ShapeTime']):
+            if (self.mcStateTime[-1]>self.task1D['t1ShapeTime']) and (self.noLickTime[-1]>0.5):
                 if (self.rewardPort[-1]==1):
                     print('shape: reward left')
                     self.choiceOutcome.append(-1)
@@ -1377,7 +1396,7 @@ class pdCallbacks:
                     pdState.switchState(self,self.stMapD['saveState'])
 
         elif (self.shapingTrial[-1]==0):
-            if (self.mcStateTime[-1]>self.stVarD['minStim1Time']):
+            if (self.mcStateTime[-1]>self.stVarD['minStim1Time']) and (self.noLickTime[-1]>0.5):
                 if (self.rewardPort[-1]==1) and (self.stateLickCount0[-1]>0):
                     print('correct stim report: reward left')
                     self.choiceOutcome.append(1)
@@ -1443,7 +1462,6 @@ class pdCallbacks:
             print('timed out: did not report')
             self.choiceOutcome.append(0)
             pdState.switchState(self,self.stMapD['punishState1'])
-
 
     def rewardState1CB(self):
         if self.mcStateTime[-1]>=self.stVarD['rwdTime1']:
@@ -1996,6 +2014,7 @@ class pdTask:
                 pdData.data_saveTrialData(self)
                 pdData.data_trialContainers(self)
                 pdTask.postTrialCleanup(self)
+                print('yo')
                 pdState.switchState(self,lBS)
 
             #S25: end session state
@@ -2128,8 +2147,7 @@ class pyDiscrim:
         self.stateStartRow=sRw
 
         self.sBtn_save = Button(st_frame, text="Save State", \
-            command=lambda: pdState.switchState(self,\
-                self.stMapD['saveState']),width=btWdth)
+            command=lambda: pdState.switchState(self,self.stMapD['saveState']),width=btWdth)
         self.sBtn_save.grid(row=sRw+1, column=sCl)
         self.sBtn_save.config(state=NORMAL)
 
@@ -2180,7 +2198,6 @@ class pyDiscrim:
                 self.stMapD['stim2State']),width=btWdth)
         self.sBtn_stim2.grid(row=sRw+2, column=sCl+3)
         self.sBtn_stim2.config(state=NORMAL)
-
 
         self.sBtn_catch = Button(st_frame, text="SC: Catch", \
             command=lambda: pdState.switchState(self,\
