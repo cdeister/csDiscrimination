@@ -61,7 +61,7 @@ char receivedChars[numChars];
 boolean newData = false;
 
 int lastOrient = 0;
-int readOrient = 0;;
+int readOrient = 0;
 int orientDelta = 0;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -123,7 +123,7 @@ void loop() {
     genericBody(0,0,waterLPin);
   }
 
-  else if (curState == 10) {
+  else if (curState == 21) {
     genericHeader(curState,0,tonePin,0);
     genericBody(1,60,waterLPin);
   }
