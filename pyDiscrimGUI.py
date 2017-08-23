@@ -381,6 +381,13 @@ class pdData:
         'thrLicksA_time','thrLicksB_time','thrLicksA_stateTime','thrLicksB_stateTime',\
         'thrLicksA_state','thrLicksB_state','noLickTime','vStates','vStatesTime'
 
+        try:
+            tSavePath=self.trialDataPath + '/'
+        except:
+            tSavePath=self.dirPath_tv.get() + '/'
+
+
+
         self.tCo=[]
         for x in range(0,len(saveStreams)):
             exec('self.tCo=self.{}'.format(saveStreams[x]))
@@ -391,13 +398,17 @@ class pdData:
                 self.rf=pd.concat([self.rf,self.tf],axis=1)
 
         self.rf.to_csv('{}{}_{}_s{}_trial_{}.csv'.\
-            format(self.dirPath_tv.get() + '/', self.animalIDStr_tv.get(),\
-                self.dateSvStr, self.sesVarD['currentSession'],self.currentTrial))
+            format(tSavePath,self.animalIDStr_tv.get(),self.dateSvStr, self.sesVarD['currentSession'],self.currentTrial))
         self.trialDataExists=0
     
     def data_saveSessionData(self):
         self.dateSvStr = datetime.datetime.fromtimestamp(time.time()).\
         strftime('%H%M_%m%d%Y')
+
+        try:
+            tSavePath=self.sesDataPath + '/'
+        except:
+            tSavePath=self.dirPath_tv.get() + '/'
 
         saveStreams='rewardContingency','choiceOutcome','cueSelected',\
         'stimSelected','trialTimes','waitLicks0','waitLicks1','stimLicks0',\
@@ -414,9 +425,7 @@ class pdData:
                 self.tf=pd.DataFrame({'{}'.format(saveStreams[x]):self.tCo})
                 self.rf=pd.concat([self.rf,self.tf],axis=1)
 
-        self.rf.to_csv('{}{}_{}_s{}_sessionData.csv'.\
-            format(self.dirPath_tv.get() + '/', self.animalIDStr_tv.get(),\
-                self.dateSvStr, self.sesVarD['currentSession']))
+        self.rf.to_csv('{}{}_{}_s{}_sessionData.csv'.format(tSavePath,self.animalIDStr_tv.get(),self.dateSvStr, self.sesVarD['currentSession']))
         self.sessionDataExists=0
 
 class pdPlot:
@@ -1235,20 +1244,15 @@ class pdAnalysis:
 class pdState:
 
     def switchState(self,targetState):
-        print('yosef')
         if self.currentState==targetState:
-            print('no thanks; you chose the state you are in, \
-                no infinite loops for me :)')
+            print('no thanks; you chose the state you are in, no infinite loops for me :)')
             return
         else:
-            print(targetState)
             self.pyStatesRS.append(targetState)
             if self.currentState !=13:
                 self.pyStatesRT.append(self.mcTrialTime[-1])
                 self.vStates.append(self.currentState)
                 self.vStatesTime.append(self.mcStateTime[-1])
-                print('{},{}'.format(self.vStates,self.vStatesTime))
-            print('write out')
             self.comObj.write(struct.pack('>B', targetState))
             pdState.exitState(self,self.currentState)
 
@@ -1383,36 +1387,27 @@ class pdCallbacks:
         if (self.shapingTrial[-1]==1):
             if (self.mcStateTime[-1]>self.task1D['t1ShapeTime']) and (self.noLickTime[-1]>0.5):
                 if (self.rewardPort[-1]==1):
-                    print('shape: reward left')
                     self.choiceOutcome.append(-1)
                     pdState.switchState(self,self.stMapD['rewardState1'])
                 elif (self.rewardPort[-1]==2):
-                    print('shape: reward right')
                     self.choiceOutcome.append(-2)
                     pdState.switchState(self,self.stMapD['rewardState2'])
                 elif (self.rewardPort[-1]==0):
-                    print('shape: no reward')
                     self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['saveState'])
 
         elif (self.shapingTrial[-1]==0):
             if (self.mcStateTime[-1]>self.stVarD['minStim1Time']) and (self.noLickTime[-1]>0.5):
                 if (self.rewardPort[-1]==1) and (self.stateLickCount0[-1]>0):
-                    print('correct stim report: reward left')
                     self.choiceOutcome.append(1)
                     pdState.switchState(self,self.stMapD['rewardState1'])
                 elif (self.rewardPort[-1]==2) and (self.stateLickCount1[-1]>0):
-                    print('correct stim report: reward right')
                     self.choiceOutcome.append(2)
                     pdState.switchState(self,self.stMapD['rewardState2'])
                 elif (self.rewardPort[-1]==1) and (self.stateLickCount1[-1]>0):
-                    print('wrong stim report: Punish-> Time Out for {} seconds'.\
-                        format(self.stVarD['tOutDur1']))
                     self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['punishState1'])
                 elif (self.rewardPort[-1]==2) and (self.stateLickCount0[-1]>0):
-                    print('wrong stim report: Punish-> Time Out for {} seconds'.\
-                        format(self.stVarD['tOutDur1']))
                     self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['punishState1'])
 
@@ -1425,36 +1420,27 @@ class pdCallbacks:
         if (self.shapingTrial[-1]==1):
             if (self.mcStateTime[-1]>self.task2D['t2ShapeTime']):
                 if (self.rewardPort[-1]==1):
-                    print('shape: reward left')
                     self.choiceOutcome.append(-1)
                     pdState.switchState(self,self.stMapD['rewardState1'])
                 elif (self.rewardPort[-1]==2):
-                    print('shape: reward right')
                     self.choiceOutcome.append(-2)
                     pdState.switchState(self,self.stMapD['rewardState2'])
                 elif (self.rewardPort[-1]==0):
-                    print('shape: no reward')
                     self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['saveState'])
 
         elif (self.shapingTrial[-1]==0):
             if (self.mcStateTime[-1]>self.stVarD['minStim2Time']):
                 if (self.rewardPort[-1]==1) and (self.stateLickCount0[-1]>0):
-                    print('correct stim report: reward left')
                     self.choiceOutcome.append(1)
                     pdState.switchState(self,self.stMapD['rewardState1'])
                 elif (self.rewardPort[-1]==2) and (self.stateLickCount1[-1]>0):
-                    print('correct stim report: reward right')
                     self.choiceOutcome.append(2)
                     pdState.switchState(self,self.stMapD['rewardState2'])
                 elif (self.rewardPort[-1]==1) and (self.stateLickCount1[-1]>0):
-                    print('wrong stim report: Punish-> Time Out for {} seconds'.\
-                        format(self.stVarD['tOutDur2']))
                     self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['punishState1'])
                 elif (self.rewardPort[-1]==2) and (self.stateLickCount0[-1]>0):
-                    print('wrong stim report: Punish-> Time Out for {} seconds'.\
-                        format(self.stVarD['tOutDur2']))
                     self.choiceOutcome.append(0)
                     pdState.switchState(self,self.stMapD['punishState1'])
 
@@ -1473,17 +1459,14 @@ class pdCallbacks:
 
     def neutralStateCB(self):
         if self.mcStateTime[-1]>self.stVarD['neutralTime']:
-            print('no reward')
             pdState.switchState(self,self.stMapD['saveState'])
 
     def punishState1CB(self):
         if self.mcTrialTime[-1]-self.entryTime>=self.stVarD['tOutDur1']:
-            print('timeout of {} seconds is over'.format(self.stVarD['tOutDur1']))
             pdState.switchState(self,self.stMapD['saveState'])
 
     def punishState2CB(self):
         if self.mcTrialTime[-1]-self.entryTime>=self.stVarD['tOutDur2']:
-            print('timeout of {} seconds is over'.format(self.stVarD['tOutDur2']))
             pdState.switchState(self,self.stMapD['saveState'])
 
 class pdWindow:
@@ -1821,6 +1804,17 @@ class pdWindow:
             tempT2Vars=pd.Series.from_csv(t2PString)
             pdVariables.pandasToDict(self,tempT2Vars,self.task2D)
 
+        tempDirTS=datetime.datetime.fromtimestamp(time.time()).strftime('%m%d%Y')
+        self.todaySubPath=self.selectPath + '/' + tempDirTS
+        self.sesDataPath=self.todaySubPath + '/' + "sessionData"
+        self.trialDataPath=self.todaySubPath + '/' + "trialData"
+        print(os.path.exists(self.todaySubPath))
+        if os.path.exists(self.todaySubPath)==0:
+            os.mkdir(self.todaySubPath)
+        if os.path.exists(self.trialDataPath)==0:
+            os.mkdir(self.trialDataPath)
+        if os.path.exists(self.sesDataPath)==0:
+            os.mkdir(self.sesDataPath)
 
     def mwSaveMetaBtn(self):
         pdVariables.dictToPandas(self,self.stMapD,'self.stateMap')
@@ -2014,7 +2008,6 @@ class pdTask:
                 pdData.data_saveTrialData(self)
                 pdData.data_trialContainers(self)
                 pdTask.postTrialCleanup(self)
-                print('yo')
                 pdState.switchState(self,lBS)
 
             #S25: end session state
@@ -2289,7 +2282,6 @@ class pyDiscrim:
         print('save was a success; now I will close com port and quit')
         print('I will try to reset the mc state before closing the port ...')
         self.comObj.close()
-        #todo: add a timeout for the resync
         print('closed the com port cleanly')
         exit()
 
