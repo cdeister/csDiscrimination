@@ -61,7 +61,7 @@ char receivedChars[numChars];
 boolean newData = false;
 
 int lastOrient = 0;
-int readOrient = 0;;
+int readOrient = 0;
 int orientDelta = 0;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~ */

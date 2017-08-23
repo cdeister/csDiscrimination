@@ -78,7 +78,7 @@ void loop() {
       tLatch = 1;
     }
     else if (tLatch == 1) {
-      nonBlockBlink(10, 100,matrix.Color(0, 0, 255));
+      nonBlockBlink(10, 200,matrix.Color(0, 0, 255));
     }
   }
   else if (cueState == 4) {
